@@ -1,0 +1,6 @@
+[
+  {"absence_id": "ABS-9001", "worker_id": "W-100235", "from": "2026-11-16", "to": "2026-11-20", "status": "approved", "plan": "PTO"},
+  {"absence_id": "ABS-9002", "worker_id": "W-100239", "from": "2026-11-16", "to": "2026-11-27", "status": "approved", "plan": "PTO"},
+  {"absence_id": "ABS-9003", "worker_id": "W-100238", "from": "2026-11-18", "to": "2026-11-19", "status": "approved", "plan": "SICK"},
+  {"absence_id": "ABS-9004", "worker_id": "W-100237", "from": "2026-10-12", "to": "2026-10-13", "status": "approved", "plan": "PTO"}
+]

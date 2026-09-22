@@ -1,0 +1,27 @@
+[
+  {
+    "request_id": "REQ-2001", "worker_id": "W-100234", "plan": "PTO",
+    "from": "2026-11-02", "to": "2026-11-06", "hours": 40.0,
+    "submitted_at": "2026-09-21", "note": "Family trip, booked months ago."
+  },
+  {
+    "request_id": "REQ-2002", "worker_id": "W-100235", "plan": "PTO",
+    "from": "2026-09-24", "to": "2026-10-03", "hours": 64.0,
+    "submitted_at": "2026-09-21", "note": "Sister's wedding, dates moved on me."
+  },
+  {
+    "request_id": "REQ-2003", "worker_id": "W-100236", "plan": "PTO",
+    "from": "2026-12-28", "to": "2027-01-02", "hours": 32.0,
+    "submitted_at": "2026-09-21", "note": "Visiting family overseas."
+  },
+  {
+    "request_id": "REQ-2004", "worker_id": "W-100237", "plan": "PTO",
+    "from": "2026-10-19", "to": "2026-11-06", "hours": 120.0,
+    "submitted_at": "2026-09-21", "note": "Extended leave to help with a family move."
+  },
+  {
+    "request_id": "REQ-2005", "worker_id": "W-100234", "plan": "PTO",
+    "from": "2026-11-17", "to": "2026-11-20", "hours": 32.0,
+    "submitted_at": "2026-09-21", "note": "Long weekend."
+  }
+]

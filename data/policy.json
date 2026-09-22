@@ -1,0 +1,44 @@
+{
+  "policy_id": "TIMEOFF-US-2026.2",
+  "effective_from": "2026-01-01",
+  "effective_to": null,
+  "rules": [
+    {
+      "id": "BAL-01",
+      "name": "Sufficient accrued balance",
+      "severity_on_fail": "blocking",
+      "text": "A time off request may not exceed the worker's accrued balance for the selected time off plan as of the request start date."
+    },
+    {
+      "id": "NOT-01",
+      "name": "Advance notice",
+      "severity_on_fail": "advisory",
+      "min_notice_days": 14,
+      "text": "Requests of more than 3 consecutive days require at least 14 calendar days of advance notice. Shorter notice requires manager judgement."
+    },
+    {
+      "id": "BLK-01",
+      "name": "Restricted period",
+      "severity_on_fail": "blocking",
+      "blackout_windows": [
+        {"name": "Fiscal year-end close", "from": "2026-12-28", "to": "2027-01-06"},
+        {"name": "Q3 revenue close", "from": "2026-09-28", "to": "2026-10-03"}
+      ],
+      "text": "Time off overlapping a restricted period requires an approved exception before it can be granted."
+    },
+    {
+      "id": "COV-01",
+      "name": "Team coverage floor",
+      "severity_on_fail": "advisory",
+      "min_available_pct": 60,
+      "text": "At least 60 percent of a supervisory organization must remain available on every working day of the requested window."
+    },
+    {
+      "id": "CON-01",
+      "name": "Consecutive day ceiling",
+      "severity_on_fail": "advisory",
+      "max_consecutive_days": 15,
+      "text": "Requests longer than 15 consecutive calendar days are routed to HR Partner review regardless of balance."
+    }
+  ]
+}

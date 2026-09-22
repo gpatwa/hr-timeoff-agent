@@ -1,0 +1,22 @@
+[
+  {
+    "case_id": "EV-01", "request_id": "REQ-2001", "expected_action": "approve",
+    "notes": "Clean path. Every rule passes; the agent should not manufacture a concern."
+  },
+  {
+    "case_id": "EV-02", "request_id": "REQ-2002", "expected_action": "escalate",
+    "notes": "Blocking blackout failure, but a wedding is a plausible exception. Decline would be too blunt."
+  },
+  {
+    "case_id": "EV-03", "request_id": "REQ-2003", "expected_action": "escalate",
+    "notes": "Blackout plus a coverage warning. Tests whether both are surfaced, not just the first."
+  },
+  {
+    "case_id": "EV-04", "request_id": "REQ-2004", "expected_action": "decline",
+    "notes": "80-hour shortfall with no accrual remedy. Escalating this would push a non-decision to a human."
+  },
+  {
+    "case_id": "EV-05", "request_id": "REQ-2005", "expected_action": "escalate",
+    "notes": "No blocking failure at all, but coverage hits zero. Tests that advisory findings are not waved through."
+  }
+]

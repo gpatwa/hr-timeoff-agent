@@ -1,0 +1,44 @@
+[
+  {
+    "worker_id": "W-100234", "legal_name": "Priya Raman",
+    "position": "Senior Software Engineer", "supervisory_org_id": "SO-PAY-01",
+    "supervisory_org": "Payments Platform", "manager_id": "W-100001",
+    "hire_date": "2022-03-14", "location": "Pleasanton, CA",
+    "time_off_plans": {"PTO": {"balance_hours": 96.0}, "SICK": {"balance_hours": 40.0}}
+  },
+  {
+    "worker_id": "W-100235", "legal_name": "Marcus Vogel",
+    "position": "Staff Software Engineer", "supervisory_org_id": "SO-PAY-01",
+    "supervisory_org": "Payments Platform", "manager_id": "W-100001",
+    "hire_date": "2019-08-01", "location": "Pleasanton, CA",
+    "time_off_plans": {"PTO": {"balance_hours": 152.0}, "SICK": {"balance_hours": 40.0}}
+  },
+  {
+    "worker_id": "W-100236", "legal_name": "Aiko Tanaka",
+    "position": "Engineering Manager", "supervisory_org_id": "SO-LED-02",
+    "supervisory_org": "Ledger Services", "manager_id": "W-100002",
+    "hire_date": "2020-11-09", "location": "San Francisco, CA",
+    "time_off_plans": {"PTO": {"balance_hours": 120.0}, "SICK": {"balance_hours": 40.0}}
+  },
+  {
+    "worker_id": "W-100237", "legal_name": "Samuel Ortiz",
+    "position": "Software Engineer", "supervisory_org_id": "SO-LED-02",
+    "supervisory_org": "Ledger Services", "manager_id": "W-100002",
+    "hire_date": "2025-06-02", "location": "Austin, TX",
+    "time_off_plans": {"PTO": {"balance_hours": 40.0}, "SICK": {"balance_hours": 24.0}}
+  },
+  {
+    "worker_id": "W-100238", "legal_name": "Dana Bright",
+    "position": "Software Engineer", "supervisory_org_id": "SO-PAY-01",
+    "supervisory_org": "Payments Platform", "manager_id": "W-100001",
+    "hire_date": "2023-01-23", "location": "Pleasanton, CA",
+    "time_off_plans": {"PTO": {"balance_hours": 88.0}, "SICK": {"balance_hours": 40.0}}
+  },
+  {
+    "worker_id": "W-100239", "legal_name": "Tomas Lindgren",
+    "position": "Senior Software Engineer", "supervisory_org_id": "SO-PAY-01",
+    "supervisory_org": "Payments Platform", "manager_id": "W-100001",
+    "hire_date": "2021-05-17", "location": "Remote, WA",
+    "time_off_plans": {"PTO": {"balance_hours": 64.0}, "SICK": {"balance_hours": 40.0}}
+  }
+]

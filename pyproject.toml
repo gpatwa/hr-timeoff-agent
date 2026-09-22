@@ -1,0 +1,17 @@
+[project]
+name = "hr-timeoff-agent"
+version = "0.1.0"
+description = "A time-off triage agent that recommends but cannot approve, with a tamper-evident evidence trail and a graded eval."
+requires-python = ">=3.10"
+dependencies = [
+    "langgraph>=0.6",
+    "anthropic>=0.69",
+    "pydantic>=2.7",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["hr_timeoff_agent*"]

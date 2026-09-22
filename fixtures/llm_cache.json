@@ -1,0 +1,138 @@
+{
+  "0ad919062aa307f03b35ffb2": {
+    "label": "judge:EV-03",
+    "model": "claude-opus-5",
+    "response": {
+      "citations_correct": 2,
+      "justification": "Both findings are surfaced and grounded, but the notice point is argued without citing NOT-01.",
+      "rationale_grounded": 3,
+      "tone_appropriate": 3
+    },
+    "schema": "JudgeScore",
+    "source": "authored-stub"
+  },
+  "3213df46cc7a8b397db214f0": {
+    "label": "assess:REQ-2004",
+    "model": "claude-opus-5",
+    "response": {
+      "action": "decline",
+      "cited_rule_ids": [
+        "BAL-01",
+        "CON-01",
+        "COV-01"
+      ],
+      "confidence": "high",
+      "rationale": "This is 120 hours against a 40-hour balance \u2014 an 80-hour shortfall with no accrual path to close it before 19 October. The 19-day span also passes the consecutive-day ceiling and coverage would fall to 50 percent. Unpaid leave is worth discussing, but the request cannot be granted as submitted."
+    },
+    "schema": "Recommendation",
+    "source": "authored-stub"
+  },
+  "41d0d63de72204f78e7b5e7a": {
+    "label": "assess:REQ-2005",
+    "model": "claude-opus-5",
+    "response": {
+      "action": "escalate",
+      "cited_rule_ids": [
+        "COV-01"
+      ],
+      "confidence": "medium",
+      "rationale": "Balance, notice and the close calendar are all clear, but Payments Platform would have nobody available on 18 November \u2014 all four members out. That is a coverage call rather than a policy breach, so it needs you to decide whether the team can absorb it or whether Priya shifts by a couple of days."
+    },
+    "schema": "Recommendation",
+    "source": "authored-stub"
+  },
+  "57a23d94ae9f0022c3d363f6": {
+    "label": "judge:EV-04",
+    "model": "claude-opus-5",
+    "response": {
+      "citations_correct": 3,
+      "justification": "'No accrual path to close it' is not supported by any finding \u2014 no accrual rate appears in the inputs. The decline still follows from BAL-01 alone.",
+      "rationale_grounded": 1,
+      "tone_appropriate": 3
+    },
+    "schema": "JudgeScore",
+    "source": "authored-stub"
+  },
+  "61cece9d95ebbf6ee4fed957": {
+    "label": "judge:EV-01",
+    "model": "claude-opus-5",
+    "response": {
+      "citations_correct": 2,
+      "justification": "Claims all five checks pass but cites only three; BLK-01 and CON-01 are load-bearing for that claim and are left uncited.",
+      "rationale_grounded": 3,
+      "tone_appropriate": 3
+    },
+    "schema": "JudgeScore",
+    "source": "authored-stub"
+  },
+  "a0466b30a6502d505b72b895": {
+    "label": "judge:EV-05",
+    "model": "claude-opus-5",
+    "response": {
+      "citations_correct": 3,
+      "justification": "Correctly separates a coverage judgement from a policy breach and names the concrete alternative, citing only the rule that drives it.",
+      "rationale_grounded": 3,
+      "tone_appropriate": 3
+    },
+    "schema": "JudgeScore",
+    "source": "authored-stub"
+  },
+  "c9f4a3f7143cf155cef22ef4": {
+    "label": "judge:EV-02",
+    "model": "claude-opus-5",
+    "response": {
+      "citations_correct": 3,
+      "justification": "Leads with the blocking obstacle, cites exactly the two rules the argument rests on, and tells the manager what is not the problem.",
+      "rationale_grounded": 3,
+      "tone_appropriate": 3
+    },
+    "schema": "JudgeScore",
+    "source": "authored-stub"
+  },
+  "e7eddbf8aba465120d2ca879": {
+    "label": "assess:REQ-2003",
+    "model": "claude-opus-5",
+    "response": {
+      "action": "escalate",
+      "cited_rule_ids": [
+        "BLK-01",
+        "COV-01"
+      ],
+      "confidence": "high",
+      "rationale": "Two issues compound. The window overlaps fiscal year-end close, which requires an approved exception, and Ledger Services drops to 50 percent coverage on 28 December. Notice is not a factor at 98 days, so the question is whether an exception is warranted, not whether the request was made properly."
+    },
+    "schema": "Recommendation",
+    "source": "authored-stub"
+  },
+  "f9b7d71ca69e960430c9ae68": {
+    "label": "assess:REQ-2001",
+    "model": "claude-opus-5",
+    "response": {
+      "action": "approve",
+      "cited_rule_ids": [
+        "BAL-01",
+        "NOT-01",
+        "COV-01"
+      ],
+      "confidence": "high",
+      "rationale": "All five checks pass. The 40 hours sit well inside Priya's 96-hour PTO balance, 42 days of notice is ample for a five-day absence, and Payments Platform still holds 75 percent coverage on the tightest day. Nothing here needs judgement beyond your sign-off."
+    },
+    "schema": "Recommendation",
+    "source": "authored-stub"
+  },
+  "ff64b57a3512d799186c3e35": {
+    "label": "assess:REQ-2002",
+    "model": "claude-opus-5",
+    "response": {
+      "action": "escalate",
+      "cited_rule_ids": [
+        "BLK-01",
+        "NOT-01"
+      ],
+      "confidence": "high",
+      "rationale": "The window runs into Q3 revenue close from 28 September, which is a blocking restriction rather than a soft preference, so it needs an approved exception before it can be granted. Notice is also short at three days for a ten-day absence. Balance and coverage are fine \u2014 the close calendar is the obstacle."
+    },
+    "schema": "Recommendation",
+    "source": "authored-stub"
+  }
+}
