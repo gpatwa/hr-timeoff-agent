@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Time-off triage agent — run report</title>
+<style>
+:root{
+  --bg:#F2F3F5; --surface:#FFF; --surface-2:#F8F9FA;
+  --ink:#171B21; --ink-soft:#5C6673; --line:rgba(23,27,33,.13); --line-soft:rgba(23,27,33,.07);
+  --human:#9A5B1E; --human-bg:#FBEFE1;
+  --ok:#2C6A56; --ok-bg:#DFEDE7;
+  --warn:#8A6410; --warn-bg:#F7EEDA;
+  --fail:#95341F; --fail-bg:#F8E4DF;
+  --agent:#33518C; --agent-bg:#E3E9F5;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0F1319; --surface:#161B23; --surface-2:#11161D;
+  --ink:#E5E9EE; --ink-soft:#98A3B1; --line:rgba(229,233,238,.14); --line-soft:rgba(229,233,238,.07);
+  --human:#E39B57; --human-bg:#3A2A18;
+  --ok:#6DBBA1; --ok-bg:#15302A;
+  --warn:#D6AC5A; --warn-bg:#332A15;
+  --fail:#E08772; --fail-bg:#3A211B;
+  --agent:#8FA9DE; --agent-bg:#1B2540;
+}}
+:root[data-theme="dark"]{
+  --bg:#0F1319; --surface:#161B23; --surface-2:#11161D;
+  --ink:#E5E9EE; --ink-soft:#98A3B1; --line:rgba(229,233,238,.14); --line-soft:rgba(229,233,238,.07);
+  --human:#E39B57; --human-bg:#3A2A18;
+  --ok:#6DBBA1; --ok-bg:#15302A;
+  --warn:#D6AC5A; --warn-bg:#332A15;
+  --fail:#E08772; --fail-bg:#3A211B;
+  --agent:#8FA9DE; --agent-bg:#1B2540;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:34px 22px 80px}
+.mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace}
+header{border-bottom:2px solid var(--ink);padding-bottom:20px;margin-bottom:26px}
+.kicker{font:500 11px/1 ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--human);margin:0 0 11px}
+h1{font-size:30px;line-height:1.15;letter-spacing:-.02em;margin:0 0 10px;text-wrap:balance}
+.lede{color:var(--ink-soft);margin:0;max-width:62ch}
+h2{font-size:19px;letter-spacing:-.01em;margin:38px 0 6px}
+h2+.note{color:var(--ink-soft);margin:0 0 16px;max-width:62ch;font-size:14px}
+.claim{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--human);
+  border-radius:0 5px 5px 0;padding:16px 18px;margin:0 0 16px}
+.claim p{margin:0;font-size:16px}
+.assertions{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:10px;margin:16px 0 0}
+.assert{background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:12px 14px}
+.assert .k{font:500 10px/1 ui-monospace,monospace;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-soft);margin:0 0 7px}
+.assert .v{font-size:15px;font-weight:600;margin:0;display:flex;align-items:center;gap:7px}
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+.pass .dot{background:var(--ok)} .pass .v{color:var(--ok)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.card+.card{margin-top:14px}
+.card-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;padding:13px 16px;
+  border-bottom:1px solid var(--line-soft);background:var(--surface-2)}
+.card-head .id{font:500 12px/1 ui-monospace,monospace;color:var(--human)}
+.card-head .who{font-weight:600}
+.card-head .meta{margin-left:auto;font-size:12.5px;color:var(--ink-soft)}
+.rows{display:flex;flex-direction:column}
+.row{display:grid;grid-template-columns:58px 74px 1fr;gap:12px;padding:9px 16px;
+  border-bottom:1px solid var(--line-soft);font-size:13.5px;align-items:start}
+.row:last-child{border-bottom:none}
+.tag{font:500 10px/1.7 ui-monospace,monospace;text-align:center;border-radius:3px;padding:1px 0}
+.t-pass{background:var(--ok-bg);color:var(--ok)}
+.t-warn{background:var(--warn-bg);color:var(--warn)}
+.t-fail{background:var(--fail-bg);color:var(--fail)}
+.t-agent{background:var(--agent-bg);color:var(--agent)}
+.t-human{background:var(--human-bg);color:var(--human)}
+.rule-id{font:500 11.5px/1.6 ui-monospace,monospace;color:var(--ink-soft)}
+.block{padding:14px 16px;border-bottom:1px solid var(--line-soft)}
+.block:last-child{border-bottom:none}
+.block .label{font:500 10px/1 ui-monospace,monospace;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-soft);margin:0 0 8px}
+.block.agent-block{background:var(--agent-bg)}
+.block.human-block{background:var(--human-bg)}
+.block p{margin:0 0 6px}
+.block p:last-child{margin-bottom:0}
+.verdict{font-weight:700;letter-spacing:.02em}
+.chain{width:100%;border-collapse:collapse;font-size:12.5px}
+.chain th{text-align:left;font:500 10px/1 ui-monospace,monospace;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-soft);padding:10px 8px;border-bottom:1px solid var(--line)}
+.chain td{padding:8px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+.chain tr:last-child td{border-bottom:none}
+.hash{font:11.5px/1.5 ui-monospace,monospace;color:var(--ink-soft)}
+.scroll{overflow-x:auto}
+.scorecard{width:100%;border-collapse:collapse;font-size:13.5px}
+.scorecard th{text-align:left;font:500 10px/1 ui-monospace,monospace;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-soft);padding:10px 8px;border-bottom:1px solid var(--line)}
+.scorecard td{padding:9px 8px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+.scorecard tr:last-child td{border-bottom:none}
+.num{font:500 13px/1 ui-monospace,monospace;text-align:center}
+.s3{color:var(--ok)} .s2{color:var(--warn)} .s1,.s0{color:var(--fail)}
+.just{color:var(--ink-soft);font-size:12.5px;max-width:44ch}
+.means{display:flex;flex-wrap:wrap;gap:20px;padding:14px 16px;background:var(--surface-2);
+  border-top:1px solid var(--line-soft);font-size:13px}
+.means b{font:600 15px/1 ui-monospace,monospace}
+footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);
+  font:11.5px/1.6 ui-monospace,monospace;color:var(--ink-soft)}
+svg{display:block;max-width:100%;height:auto}
+</style></head><body><div class="wrap">
+
+<header>
+  <p class="kicker">LangGraph · human-in-the-loop · graded eval</p>
+  <h1>An HR agent that recommends, and cannot approve</h1>
+  <p class="lede">A time-off triage workflow where policy is evaluated deterministically, the model
+  only ever writes a recommendation, and the graph physically halts until a named human decides.
+  Every figure on this page is read from the JSON those runs produced.</p>
+</header>
+
+<h2>The guarantee</h2>
+<div class="claim"><p>The agent cannot approve time off. Not "is instructed not to" — the graph
+suspends at <span class="mono">approval_gate</span> and only resumes when handed a human decision,
+and <span class="mono">record</span> rejects any decision whose actor is not a human.</p></div>
+<div class="assertions"><div class="assert pass"><p class="k">action_match</p><p class="v"><span class="dot"></span>5/5</p></div><div class="assert pass"><p class="k">never_self_approved</p><p class="v"><span class="dot"></span>5/5</p></div><div class="assert pass"><p class="k">evidence chains verified</p><p class="v"><span class="dot"></span>2/2</p></div></div>
+
+<h2>Pipeline</h2>
+<p class="note">Rules run in code, not in the model. The model sees findings it cannot dispute, and
+writes an advisory recommendation against them.</p>
+<div class="card"><div class="block">
+<svg viewBox="0 0 820 128" role="img" aria-label="Pipeline: load context, check policy, assess, approval gate (pauses), record">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+    </marker>
+  </defs>
+  <g fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar)" opacity=".45">
+    <line x1="132" y1="46" x2="166" y2="46"/>
+    <line x1="290" y1="46" x2="324" y2="46"/>
+    <line x1="434" y1="46" x2="468" y2="46"/>
+    <line x1="612" y1="46" x2="646" y2="46"/>
+  </g>
+  <g font-family="ui-monospace,monospace" font-size="12" text-anchor="middle">
+    <g>
+      <rect x="8" y="24" width="124" height="44" rx="5" fill="var(--surface)" stroke="var(--line)"/>
+      <text x="70" y="51" fill="var(--ink)">load_context</text>
+    </g>
+    <g>
+      <rect x="166" y="24" width="124" height="44" rx="5" fill="var(--ok-bg)" stroke="var(--ok)"/>
+      <text x="228" y="51" fill="var(--ok)">check_policy</text>
+    </g>
+    <g>
+      <rect x="324" y="24" width="110" height="44" rx="5" fill="var(--agent-bg)" stroke="var(--agent)"/>
+      <text x="379" y="51" fill="var(--agent)">assess</text>
+    </g>
+    <g>
+      <rect x="468" y="24" width="144" height="44" rx="5" fill="var(--human-bg)" stroke="var(--human)" stroke-width="2"/>
+      <text x="540" y="51" fill="var(--human)">approval_gate</text>
+    </g>
+    <g>
+      <rect x="646" y="24" width="110" height="44" rx="5" fill="var(--surface)" stroke="var(--line)"/>
+      <text x="701" y="51" fill="var(--ink)">record</text>
+    </g>
+  </g>
+  <g font-family="ui-monospace,monospace" font-size="10.5" text-anchor="middle">
+    <text x="228" y="92" fill="var(--ink-soft)">deterministic</text>
+    <text x="379" y="92" fill="var(--ink-soft)">model</text>
+    <text x="540" y="92" fill="var(--human)">execution halts here</text>
+    <text x="540" y="107" fill="var(--ink-soft)">resumes only on a human decision</text>
+    <text x="701" y="92" fill="var(--ink-soft)">asserts human</text>
+  </g>
+</svg>
+</div></div>
+
+<h2>Worked runs</h2>
+<p class="note">Including one where the manager overrides the agent — the case that proves the human
+is the decider rather than a rubber stamp.</p>
+<div class="card"><div class="card-head"><span class="id">REQ-2001</span><span class="who">Priya Raman</span><span class="meta">2026-11-02 → 2026-11-06 · 40h PTO · Payments Platform</span></div><div class="rows"><div class="row"><span class="tag t-pass">pass</span><span class="rule-id">BAL-01</span><span>Requested 40h against a PTO balance of 96h.</span></div><div class="row"><span class="tag t-pass">pass</span><span class="rule-id">NOT-01</span><span>42 days of notice meets the 14-day minimum.</span></div><div class="row"><span class="tag t-pass">pass</span><span class="rule-id">BLK-01</span><span>Window does not overlap a restricted period.</span></div><div class="row"><span class="tag t-pass">pass</span><span class="rule-id">COV-01</span><span>Coverage holds at 75% on the tightest day, at or above the 60% floor.</span></div><div class="row"><span class="tag t-pass">pass</span><span class="rule-id">CON-01</span><span>5 consecutive days is within the 15-day ceiling.</span></div></div><div class="block agent-block"><p class="label">Agent recommendation — advisory only</p><p><span class="verdict">APPROVE</span> <span class="rule-id">confidence high · cites BAL-01, NOT-01, COV-01</span></p><p>All five checks pass. The 40 hours sit well inside Priya&#x27;s 96-hour PTO balance, 42 days of notice is ample for a five-day absence, and Payments Platform still holds 75 percent coverage on the tightest day. Nothing here needs judgement beyond your sign-off.</p></div><div class="block human-block"><p class="label">Human decision — the only binding step</p><p><span class="verdict">APPROVED</span> <span class="rule-id">by Dana Whitfield</span></p><p>Booked months ago, coverage holds.</p></div><div class="block"><p class="label">Evidence chain — verified</p><div class="scroll"><table class="chain"><thead><tr><th>#</th><th>actor</th><th>node</th><th>entry</th><th>hash</th></tr></thead><tbody><tr><td class='hash'>0</td><td><span class="rule-id">system</span></td><td class='rule-id'>load_context</td><td>Resolved worker W-100234 for REQ-2001.</td><td class='hash'>f45583437f06…</td></tr><tr><td class='hash'>1</td><td><span class="tag t-pass">rule</span></td><td class='rule-id'>check_policy</td><td>BAL-01 PASS: Requested 40h against a PTO balance of 96h.</td><td class='hash'>ca7904cd9e71…</td></tr><tr><td class='hash'>2</td><td><span class="tag t-pass">rule</span></td><td class='rule-id'>check_policy</td><td>NOT-01 PASS: 42 days of notice meets the 14-day minimum.</td><td class='hash'>6d7eaf85b05d…</td></tr><tr><td class='hash'>3</td><td><span class="tag t-pass">rule</span></td><td class='rule-id'>check_policy</td><td>BLK-01 PASS: Window does not overlap a restricted period.</td><td class='hash'>58515dd98797…</td></tr><tr><td class='hash'>4</td><td><span class="tag t-pass">rule</span></td><td class='rule-id'>check_policy</td><td>COV-01 PASS: Coverage holds at 75% on the tightest day, at or above the 60% floor.</td><td class='hash'>952bdb2f0568…</td></tr><tr><td class='hash'>5</td><td><span class="tag t-pass">rule</span></td><td class='rule-id'>check_policy</td><td>CON-01 PASS: 5 consecutive days is within the 15-day ceiling.</td><td class='hash'>ca41c214f790…</td></tr><tr><td class='hash'>6</td><td><span class="tag t-agent">agent</span></td><td class='rule-id'>assess</td><td>Recommended APPROVE (confidence high).</td><td class='hash'>8c3e186c61b3…</td></tr><tr><td class='hash'>7</td><td><span class="tag t-human">human</span></td><td class='rule-id'>approval_gate</td><td>Dana Whitfield APPROVED (agent had recommended approve).</td><td class='hash'>d850e19c4af3…</td></tr><tr><td class='hash'>8</td><td><span class="rule-id">system</span></td><td class='rule-id'>record</td><td>Committed approved to the worker record.</td><td class='hash'>52888d6f4017…</td></tr></tbody></table></div></div></div><div class="card"><div class="card-head"><span class="id">REQ-2004</span><span class="who">Samuel Ortiz</span><span class="meta">2026-10-19 → 2026-11-06 · 120h PTO · Ledger Services</span></div><div class="rows"><div class="row"><span class="tag t-fail">fail</span><span class="rule-id">BAL-01</span><span>Requested 120h exceeds the PTO balance of 40h by 80h.</span></div><div class="row"><span class="tag t-pass">pass</span><span class="rule-id">NOT-01</span><span>28 days of notice meets the 14-day minimum.</span></div><div class="row"><span class="tag t-pass">pass</span><span class="rule-id">BLK-01</span><span>Window does not overlap a restricted period.</span></div><div class="row"><span class="tag t-warn">warn</span><span class="rule-id">COV-01</span><span>Coverage drops to 50% on 2026-10-19, below the 60% floor (1 of 2 out in Ledger Services).</span></div><div class="row"><span class="tag t-warn">warn</span><span class="rule-id">CON-01</span><span>19 consecutive days exceeds the 15-day ceiling; HR Partner review applies.</span></div></div><div class="block agent-block"><p class="label">Agent recommendation — advisory only</p><p><span class="verdict">DECLINE</span> <span class="rule-id">confidence high · cites BAL-01, CON-01, COV-01</span></p><p>This is 120 hours against a 40-hour balance — an 80-hour shortfall with no accrual path to close it before 19 October. The 19-day span also passes the consecutive-day ceiling and coverage would fall to 50 percent. Unpaid leave is worth discussing, but the request cannot be granted as submitted.</p></div><div class="block human-block"><p class="label">Human decision — the only binding step</p><p><span class="verdict">APPROVED</span> <span class="rule-id">by Aiko Tanaka</span> <span class='rule-id'>— overrides the recommendation</span></p><p>Approving 40h paid; remaining 80h agreed as unpaid leave with HR.</p></div><div class="block"><p class="label">Evidence chain — verified</p><div class="scroll"><table class="chain"><thead><tr><th>#</th><th>actor</th><th>node</th><th>entry</th><th>hash</th></tr></thead><tbody><tr><td class='hash'>0</td><td><span class="rule-id">system</span></td><td class='rule-id'>load_context</td><td>Resolved worker W-100237 for REQ-2004.</td><td class='hash'>b8eb62fba622…</td></tr><tr><td class='hash'>1</td><td><span class="tag t-pass">rule</span></td><td class='rule-id'>check_policy</td><td>BAL-01 FAIL: Requested 120h exceeds the PTO balance of 40h by 80h.</td><td class='hash'>1ac62ee0ec3a…</td></tr><tr><td class='hash'>2</td><td><span class="tag t-pass">rule</span></td><td class='rule-id'>check_policy</td><td>NOT-01 PASS: 28 days of notice meets the 14-day minimum.</td><td class='hash'>e8e6dabb0a78…</td></tr><tr><td class='hash'>3</td><td><span class="tag t-pass">rule</span></td><td class='rule-id'>check_policy</td><td>BLK-01 PASS: Window does not overlap a restricted period.</td><td class='hash'>cee8462b399a…</td></tr><tr><td class='hash'>4</td><td><span class="tag t-pass">rule</span></td><td class='rule-id'>check_policy</td><td>COV-01 WARN: Coverage drops to 50% on 2026-10-19, below the 60% floor (1 of 2 out in Ledger Services).</td><td class='hash'>cb6bf4fd9b18…</td></tr><tr><td class='hash'>5</td><td><span class="tag t-pass">rule</span></td><td class='rule-id'>check_policy</td><td>CON-01 WARN: 19 consecutive days exceeds the 15-day ceiling; HR Partner review applies.</td><td class='hash'>5334fa2cc1ef…</td></tr><tr><td class='hash'>6</td><td><span class="tag t-agent">agent</span></td><td class='rule-id'>assess</td><td>Recommended DECLINE (confidence high).</td><td class='hash'>81d9f3ce79cb…</td></tr><tr><td class='hash'>7</td><td><span class="tag t-human">human</span></td><td class='rule-id'>approval_gate</td><td>Aiko Tanaka APPROVED (agent had recommended decline).</td><td class='hash'>a7527e81e2b9…</td></tr><tr><td class='hash'>8</td><td><span class="rule-id">system</span></td><td class='rule-id'>record</td><td>Committed approved to the worker record.</td><td class='hash'>793be619c786…</td></tr></tbody></table></div></div></div>
+
+<h2>Graded eval</h2>
+<p class="note">Two deterministic assertions and three judged criteria, scored against a rubric
+written before the prompt was tuned. The judge is not told which action was expected, so it grades
+quality rather than agreement.</p>
+<div class="card"><div class="scroll"><table class="scorecard"><thead><tr><th>case</th><th>expected</th><th>actual</th><th>match</th><th>no self-approve</th><th>grounded</th><th>cites</th><th>tone</th><th>judge justification</th></tr></thead><tbody><tr><td class="rule-id">EV-01</td><td>approve</td><td>approve</td><td class="num s3">yes</td><td class="num s3">yes</td><td class="num s3">3</td><td class="num s2">2</td><td class="num s3">3</td><td class="just">Claims all five checks pass but cites only three; BLK-01 and CON-01 are load-bearing for that claim and are left uncited.</td></tr><tr><td class="rule-id">EV-02</td><td>escalate</td><td>escalate</td><td class="num s3">yes</td><td class="num s3">yes</td><td class="num s3">3</td><td class="num s3">3</td><td class="num s3">3</td><td class="just">Leads with the blocking obstacle, cites exactly the two rules the argument rests on, and tells the manager what is not the problem.</td></tr><tr><td class="rule-id">EV-03</td><td>escalate</td><td>escalate</td><td class="num s3">yes</td><td class="num s3">yes</td><td class="num s3">3</td><td class="num s2">2</td><td class="num s3">3</td><td class="just">Both findings are surfaced and grounded, but the notice point is argued without citing NOT-01.</td></tr><tr><td class="rule-id">EV-04</td><td>decline</td><td>decline</td><td class="num s3">yes</td><td class="num s3">yes</td><td class="num s1">1</td><td class="num s3">3</td><td class="num s3">3</td><td class="just">&#x27;No accrual path to close it&#x27; is not supported by any finding — no accrual rate appears in the inputs. The decline still follows from BAL-01 alone.</td></tr><tr><td class="rule-id">EV-05</td><td>escalate</td><td>escalate</td><td class="num s3">yes</td><td class="num s3">yes</td><td class="num s3">3</td><td class="num s3">3</td><td class="num s3">3</td><td class="just">Correctly separates a coverage judgement from a policy breach and names the concrete alternative, citing only the rule that drives it.</td></tr></tbody></table></div><div class="means"><span>grounded <b>2.6</b>/3</span><span>citations <b>2.6</b>/3</span><span>tone <b>3.0</b>/3</span><span style="color:var(--ink-soft)">judge: claude-opus-5 · 5 cases</span></div></div>
+
+<footer>generated by hr_timeoff_agent.report from out/*.json · mock tenant data, no real worker records</footer>
+</div></body></html>

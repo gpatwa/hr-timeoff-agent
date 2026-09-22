@@ -24,7 +24,7 @@ python -m venv .venv && ./.venv/bin/pip install -e .
 ./.venv/bin/python -m hr_timeoff_agent run REQ-2004
 ./.venv/bin/python -m hr_timeoff_agent run REQ-2004 --approve --as "Aiko Tanaka" --json
 ./.venv/bin/python -m hr_timeoff_agent eval
-./.venv/bin/python -m hr_timeoff_agent report   # → out/report.html
+./.venv/bin/python -m hr_timeoff_agent report   # → docs/report.html
 ```
 
 `run REQ-2004` with no decision flag stops at the approval gate and commits
@@ -130,11 +130,12 @@ hr_timeoff_agent/
   evidence.py   append-only hash-chained ledger
   graph.py      the LangGraph workflow and the approval interrupt
   evals.py      graded eval and the LLM judge
-  report.py     builds out/report.html from real run output
+  report.py     builds docs/report.html from real run output
   cli.py
 data/           mock Workday-shaped tenant: workers, absences, policy, requests
 evals/          rubric.md (written first) and cases.json
 tests/          the guarantees, including tamper detection and human override
+docs/report.html  rendered run report (committed; every figure read from out/*.json)
 ```
 
 All tenant data is fabricated. No real worker records are involved.
