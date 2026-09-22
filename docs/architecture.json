@@ -1,0 +1,447 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "hr-timeoff-agent \u2014 component architecture",
+    "output": "architecture.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/gpatwa/hr-timeoff-agent",
+      "revision": "559981cee11fdc6d3a33715bbf72585613da9f05"
+    },
+    "viewBox": [
+      1300,
+      662
+    ],
+    "views": [
+      {
+        "id": "decision-path",
+        "label": "Decision path",
+        "focus": [
+          "rules",
+          "context",
+          "assess",
+          "gate",
+          "record"
+        ],
+        "note": "The only path to a committed outcome. It passes through a human and cannot be short-circuited."
+      },
+      {
+        "id": "what-is-a-model",
+        "label": "Where the model runs",
+        "focus": [
+          "assess",
+          "judge",
+          "fixtures",
+          "context"
+        ],
+        "note": "Exactly two model calls exist. Both are fixture-backed, and neither can write a decision."
+      },
+      {
+        "id": "audit",
+        "label": "Audit surface",
+        "focus": [
+          "gate",
+          "record",
+          "ledger",
+          "checkpoint"
+        ],
+        "note": "Suspension, human attribution, and the hash-chained ledger that makes an override visible afterward."
+      },
+      {
+        "id": "evaluation",
+        "label": "Evaluation",
+        "focus": [
+          "evals",
+          "judge",
+          "rules",
+          "assess"
+        ],
+        "note": "The harness replays cases through the real graph rather than testing the prompt in isolation."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "tenant",
+      "type": "database",
+      "label": "Tenant data",
+      "sublabel": "workers \u00b7 absences \u00b7 policy",
+      "tag": "static JSON \u2014 no retrieval layer",
+      "pos": [
+        40,
+        420
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/policy.py",
+          "line": 37,
+          "label": "Tenant"
+        }
+      ]
+    },
+    {
+      "id": "rules",
+      "type": "backend",
+      "label": "Policy rules engine",
+      "sublabel": "5 rules \u2192 Finding[]",
+      "tag": "deterministic \u00b7 no model",
+      "pos": [
+        40,
+        260
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/policy.py",
+          "line": 191,
+          "label": "evaluate()"
+        }
+      ]
+    },
+    {
+      "id": "context",
+      "type": "backend",
+      "label": "Context assembly",
+      "sublabel": "request + worker + findings",
+      "tag": "deterministic prompt",
+      "pos": [
+        300,
+        260
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/graph.py",
+          "line": 53,
+          "label": "build_assess_prompt"
+        }
+      ]
+    },
+    {
+      "id": "assess",
+      "type": "cloud",
+      "label": "Assessment call",
+      "sublabel": "claude-opus-5 \u00b7 structured output",
+      "tag": "LLM \u00b7 advisory only",
+      "pos": [
+        560,
+        260
+      ],
+      "size": [
+        185,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/graph.py",
+          "line": 111,
+          "label": "assess node"
+        }
+      ]
+    },
+    {
+      "id": "gate",
+      "type": "security",
+      "label": "Approval gate",
+      "sublabel": "interrupt() \u2014 execution halts",
+      "tag": "human-in-the-loop",
+      "pos": [
+        825,
+        260
+      ],
+      "size": [
+        185,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/graph.py",
+          "line": 130,
+          "label": "approval_gate"
+        }
+      ]
+    },
+    {
+      "id": "record",
+      "type": "backend",
+      "label": "Recorder",
+      "sublabel": "asserts a human actor",
+      "tag": "fail-closed",
+      "pos": [
+        1090,
+        260
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/graph.py",
+          "line": 167,
+          "label": "record node"
+        }
+      ]
+    },
+    {
+      "id": "checkpoint",
+      "type": "database",
+      "label": "Graph state",
+      "sublabel": "InMemorySaver checkpointer",
+      "tag": "makes resume possible",
+      "pos": [
+        825,
+        100
+      ],
+      "size": [
+        185,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/graph.py",
+          "line": 212,
+          "label": "compile(checkpointer=\u2026)"
+        }
+      ]
+    },
+    {
+      "id": "fixtures",
+      "type": "database",
+      "label": "Fixture cache",
+      "sublabel": "keyed on a hash of the prompt",
+      "tag": "content-addressed \u00b7 offline",
+      "pos": [
+        560,
+        100
+      ],
+      "size": [
+        185,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/llm.py",
+          "line": 61,
+          "label": "structured()"
+        }
+      ]
+    },
+    {
+      "id": "ledger",
+      "type": "database",
+      "label": "Evidence ledger",
+      "sublabel": "rule \u00b7 agent \u00b7 human \u00b7 system entries",
+      "tag": "append-only \u00b7 SHA-256 chain",
+      "pos": [
+        1030,
+        420
+      ],
+      "size": [
+        220,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/evidence.py",
+          "line": 29,
+          "label": "append / verify"
+        }
+      ]
+    },
+    {
+      "id": "evals",
+      "type": "backend",
+      "label": "Eval harness",
+      "sublabel": "5 cases \u00b7 rubric written first",
+      "tag": "2 assertions + 3 judged criteria",
+      "pos": [
+        310,
+        580
+      ],
+      "size": [
+        200,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/evals.py",
+          "line": 97,
+          "label": "run_all"
+        }
+      ]
+    },
+    {
+      "id": "judge",
+      "type": "cloud",
+      "label": "LLM-as-judge",
+      "sublabel": "separable model \u00b7 fixture-backed",
+      "tag": "LLM \u00b7 grades quality, not agreement",
+      "pos": [
+        580,
+        580
+      ],
+      "size": [
+        220,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/evals.py",
+          "line": 21,
+          "label": "JUDGE_SYSTEM"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "LangGraph StateGraph",
+      "wraps": [
+        "rules",
+        "context",
+        "assess",
+        "gate",
+        "record"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "human authority required",
+      "wraps": [
+        "gate",
+        "record"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "tenant-load",
+      "from": "tenant",
+      "to": "rules",
+      "label": "worker \u00b7 absences \u00b7 policy",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "findings",
+      "from": "rules",
+      "to": "context",
+      "label": "Finding[] as ground truth",
+      "labelDy": 56
+    },
+    {
+      "id": "prompt",
+      "from": "context",
+      "to": "assess",
+      "label": "assembled prompt",
+      "labelDy": 56
+    },
+    {
+      "id": "replay",
+      "from": "fixtures",
+      "to": "assess",
+      "label": "replays when offline",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 50
+    },
+    {
+      "id": "recommendation",
+      "from": "assess",
+      "to": "gate",
+      "label": "Recommendation \u2014 advisory",
+      "variant": "emphasis",
+      "labelDy": 56
+    },
+    {
+      "id": "suspend",
+      "from": "checkpoint",
+      "to": "gate",
+      "label": "suspend \u00b7 resume",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 50
+    },
+    {
+      "id": "decision",
+      "from": "gate",
+      "to": "record",
+      "label": "human Decision",
+      "variant": "emphasis"
+    },
+    {
+      "id": "decision-entry",
+      "from": "gate",
+      "to": "ledger",
+      "label": "decision entry",
+      "variant": "dashed"
+    },
+    {
+      "id": "commit",
+      "from": "record",
+      "to": "ledger",
+      "label": "verify chain, then commit",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "replay-cases",
+      "from": "evals",
+      "to": "rules",
+      "label": "replays cases through the graph",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "grade",
+      "from": "evals",
+      "to": "judge",
+      "label": "scores the recommendation",
+      "labelDy": 56
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Deterministic, not inferred",
+      "items": [
+        "Policy is evaluated in Python over data/policy.json",
+        "The model receives findings it cannot dispute or re-derive",
+        "A policy change is a data change, not a prompt change"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Where a model actually runs",
+      "items": [
+        "Two calls only: the assessment and the judge",
+        "No retrieval layer \u2014 nothing is embedded, indexed or searched",
+        "Both calls are content-addressed against the fixture cache"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Human authority, and the record of it",
+      "items": [
+        "approval_gate suspends the graph until a decision is supplied",
+        "Decision.actor_type is pinned to human at the type level",
+        "The hash chain keeps an override visible: agent said X, human chose Y"
+      ]
+    }
+  ]
+}

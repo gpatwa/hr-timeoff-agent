@@ -12,6 +12,10 @@ load_context → check_policy → assess → approval_gate ⏸ → record
                 deterministic   model    halts here      asserts human
 ```
 
+**[Interactive architecture diagram →](docs/architecture.html)** — every box labelled by what it
+actually is (deterministic rules engine, context assembly, LLM call, checkpointer, approval
+interrupt, evidence ledger, eval harness, judge), with source links into this repo.
+
 ## Run it
 
 No API key required. The repo ships with a fixture cache so a fresh clone works
@@ -135,7 +139,8 @@ hr_timeoff_agent/
 data/           mock Workday-shaped tenant: workers, absences, policy, requests
 evals/          rubric.md (written first) and cases.json
 tests/          the guarantees, including tamper detection and human override
-docs/report.html  rendered run report (committed; every figure read from out/*.json)
+docs/report.html        rendered run report (every figure read from out/*.json)
+docs/architecture.html  interactive component diagram (archify; source-linked)
 ```
 
 All tenant data is fabricated. No real worker records are involved.
