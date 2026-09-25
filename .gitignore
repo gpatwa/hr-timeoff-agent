@@ -4,3 +4,4 @@ __pycache__/
 .env
 out/
 CONTEXT.md
+.DS_Store
