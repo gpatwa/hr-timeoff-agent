@@ -14,7 +14,7 @@ from pathlib import Path
 from . import graph as graph_mod
 from . import policy
 from .llm import JUDGE_MODEL, structured
-from .models import CaseResult, Finding, JudgeScore, Recommendation
+from .models import CaseResult, Finding, JudgeScore, Passage, Recommendation
 
 EVAL_DIR = Path(__file__).resolve().parent.parent / "evals"
 
@@ -22,8 +22,9 @@ JUDGE_SYSTEM = """You are grading the quality of a recommendation written for a 
 manager reviewing a time off request. Apply the rubric literally and score each \
 criterion 0-3.
 
-You are given the deterministic policy findings the recommendation was based on. \
-A claim is "grounded" only if it traces to one of those findings.
+You are given the deterministic policy findings and the retrieved handbook \
+passages and past decisions the recommendation was based on. A claim is \
+"grounded" only if it traces to one of those findings or passages.
 
 You are NOT told which action was expected. Do not reward or penalise the chosen \
 action itself — grade how well the reasoning is supported, cited, and written.
@@ -40,16 +41,21 @@ def _cases() -> list[dict]:
     return json.loads((EVAL_DIR / "cases.json").read_text())
 
 
-def build_judge_prompt(findings: list[Finding], rec: Recommendation) -> str:
+def build_judge_prompt(findings: list[Finding], passages: list[Passage], rec: Recommendation) -> str:
     lines = ["RUBRIC", _rubric_text(), "", "POLICY FINDINGS"]
     for f in findings:
         lines.append(f"  [{f.rule_id}] {f.rule_name} — {f.status.upper()} ({f.severity})")
         lines.append(f"      {f.detail}")
+    lines += ["", "RETRIEVED PASSAGES"]
+    for p in passages:
+        lines.append(f"  [{p.passage_id}] ({p.kind}) {p.title}")
+        lines.append(f"      {p.text}")
     lines += [
         "",
         "RECOMMENDATION UNDER REVIEW",
         f"  action: {rec.action}",
         f"  cited_rule_ids: {', '.join(rec.cited_rule_ids) or '(none)'}",
+        f"  cited_passage_ids: {', '.join(rec.cited_passage_ids) or '(none)'}",
         f"  confidence: {rec.confidence}",
         f"  rationale: {rec.rationale}",
     ]
@@ -83,9 +89,10 @@ def run_case(tenant: policy.Tenant, case: dict, *, record: bool = False) -> Case
     result.action_match = rec.action == case["expected_action"]
 
     findings = [Finding.model_validate(f) for f in state["findings"]]
+    passages = [Passage.model_validate(p) for p in state["passages"]]
     result.scores = structured(
         system=JUDGE_SYSTEM,
-        user=build_judge_prompt(findings, rec),
+        user=build_judge_prompt(findings, passages, rec),
         schema=JudgeScore,
         model=JUDGE_MODEL,
         record=record,

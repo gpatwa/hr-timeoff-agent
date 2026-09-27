@@ -43,6 +43,7 @@ class Tenant:
         self.absences = json.loads((d / "absences.json").read_text())
         self.policy = json.loads((d / "policy.json").read_text())
         self.requests = {r["request_id"]: r for r in json.loads((d / "requests.json").read_text())}
+        self.tenant_id = self.policy["tenant_id"]
 
     def rule(self, rule_id: str) -> dict:
         return next(r for r in self.policy["rules"] if r["id"] == rule_id)

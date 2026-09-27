@@ -56,3 +56,19 @@ Written for a manager who has roughly twenty seconds.
 Report the mean of each judged criterion alongside the pass rate of both
 deterministic checks. Do not compute a single blended score — a high average
 would mask an `action_match` failure, and those are not interchangeable.
+
+## Addendum, 2026-09-27: retrieval added
+
+The agent now also receives handbook passages and past decisions retrieved for
+each request. The criteria above are unchanged except for what counts as a
+source:
+
+- `rationale_grounded`: a claim may trace to a finding **or** a retrieved
+  passage. A claim supported by neither is still unsupported.
+- `citations_correct`: cited passage ids are judged the same way as rule ids —
+  exactly what the reasoning rests on.
+
+This is recorded as an addendum rather than an edit so the original wording
+stays visible. Retrieval quality itself (did we fetch the right passages, is
+every claim faithful to them) is measured separately with RAGAS; see
+`evals/rag_cases.json`.
