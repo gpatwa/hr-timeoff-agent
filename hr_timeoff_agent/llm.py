@@ -18,13 +18,15 @@ from pydantic import BaseModel
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "llm_cache.json"
 
-# Claude Opus 5 runs adaptive thinking when `thinking` is omitted, which is what
-# we want for the assessment call.
-AGENT_MODEL = os.environ.get("HR_AGENT_MODEL", "claude-opus-5")
+# Claude Opus 5.5 always thinks adaptively; effort is the only control, and its
+# default is "medium", so we set it explicitly below.
+AGENT_MODEL = os.environ.get("HR_AGENT_MODEL", "claude-opus-5-5")
 
 # Kept separate so the judge is never the same instance being graded. Point this
 # at a different model to guarantee nothing marks its own homework.
-JUDGE_MODEL = os.environ.get("HR_AGENT_JUDGE_MODEL", "claude-opus-5")
+JUDGE_MODEL = os.environ.get("HR_AGENT_JUDGE_MODEL", "claude-opus-5-5")
+
+EFFORT = os.environ.get("HR_AGENT_EFFORT", "medium")
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -86,9 +88,11 @@ def structured(
     client = anthropic.Anthropic()
     response = client.messages.parse(
         model=model,
-        max_tokens=4096,
+        # Thinking counts toward max_tokens, so leave room beyond the reply itself.
+        max_tokens=16000,
         system=system,
         messages=[{"role": "user", "content": user}],
+        output_config={"effort": EFFORT},
         output_format=schema,
     )
     parsed = response.parsed_output

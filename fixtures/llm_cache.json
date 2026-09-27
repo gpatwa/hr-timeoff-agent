@@ -1,19 +1,31 @@
 {
-  "0ad919062aa307f03b35ffb2": {
-    "label": "judge:EV-03",
-    "model": "claude-opus-5",
+  "165b8c3b412766fa3c237694": {
+    "label": "judge:EV-01",
+    "model": "claude-opus-5-5",
     "response": {
       "citations_correct": 2,
-      "justification": "Both findings are surfaced and grounded, but the notice point is argued without citing NOT-01.",
+      "justification": "Claims all five checks pass but cites only three; BLK-01 and CON-01 are load-bearing for that claim and are left uncited.",
       "rationale_grounded": 3,
       "tone_appropriate": 3
     },
     "schema": "JudgeScore",
     "source": "authored-stub"
   },
-  "3213df46cc7a8b397db214f0": {
+  "2206fed1d2c079b584886c86": {
+    "label": "judge:EV-05",
+    "model": "claude-opus-5-5",
+    "response": {
+      "citations_correct": 3,
+      "justification": "Correctly separates a coverage judgement from a policy breach and names the concrete alternative, citing only the rule that drives it.",
+      "rationale_grounded": 3,
+      "tone_appropriate": 3
+    },
+    "schema": "JudgeScore",
+    "source": "authored-stub"
+  },
+  "649f1fb1d41240cd8d098a35": {
     "label": "assess:REQ-2004",
-    "model": "claude-opus-5",
+    "model": "claude-opus-5-5",
     "response": {
       "action": "decline",
       "cited_rule_ids": [
@@ -27,59 +39,9 @@
     "schema": "Recommendation",
     "source": "authored-stub"
   },
-  "41d0d63de72204f78e7b5e7a": {
-    "label": "assess:REQ-2005",
-    "model": "claude-opus-5",
-    "response": {
-      "action": "escalate",
-      "cited_rule_ids": [
-        "COV-01"
-      ],
-      "confidence": "medium",
-      "rationale": "Balance, notice and the close calendar are all clear, but Payments Platform would have nobody available on 18 November \u2014 all four members out. That is a coverage call rather than a policy breach, so it needs you to decide whether the team can absorb it or whether Priya shifts by a couple of days."
-    },
-    "schema": "Recommendation",
-    "source": "authored-stub"
-  },
-  "57a23d94ae9f0022c3d363f6": {
-    "label": "judge:EV-04",
-    "model": "claude-opus-5",
-    "response": {
-      "citations_correct": 3,
-      "justification": "'No accrual path to close it' is not supported by any finding \u2014 no accrual rate appears in the inputs. The decline still follows from BAL-01 alone.",
-      "rationale_grounded": 1,
-      "tone_appropriate": 3
-    },
-    "schema": "JudgeScore",
-    "source": "authored-stub"
-  },
-  "61cece9d95ebbf6ee4fed957": {
-    "label": "judge:EV-01",
-    "model": "claude-opus-5",
-    "response": {
-      "citations_correct": 2,
-      "justification": "Claims all five checks pass but cites only three; BLK-01 and CON-01 are load-bearing for that claim and are left uncited.",
-      "rationale_grounded": 3,
-      "tone_appropriate": 3
-    },
-    "schema": "JudgeScore",
-    "source": "authored-stub"
-  },
-  "a0466b30a6502d505b72b895": {
-    "label": "judge:EV-05",
-    "model": "claude-opus-5",
-    "response": {
-      "citations_correct": 3,
-      "justification": "Correctly separates a coverage judgement from a policy breach and names the concrete alternative, citing only the rule that drives it.",
-      "rationale_grounded": 3,
-      "tone_appropriate": 3
-    },
-    "schema": "JudgeScore",
-    "source": "authored-stub"
-  },
-  "c9f4a3f7143cf155cef22ef4": {
+  "835d9773437ee795befb1847": {
     "label": "judge:EV-02",
-    "model": "claude-opus-5",
+    "model": "claude-opus-5-5",
     "response": {
       "citations_correct": 3,
       "justification": "Leads with the blocking obstacle, cites exactly the two rules the argument rests on, and tells the manager what is not the problem.",
@@ -89,24 +51,36 @@
     "schema": "JudgeScore",
     "source": "authored-stub"
   },
-  "e7eddbf8aba465120d2ca879": {
-    "label": "assess:REQ-2003",
-    "model": "claude-opus-5",
+  "a78082c075b29718eebe64f2": {
+    "label": "assess:REQ-2002",
+    "model": "claude-opus-5-5",
     "response": {
       "action": "escalate",
       "cited_rule_ids": [
         "BLK-01",
-        "COV-01"
+        "NOT-01"
       ],
       "confidence": "high",
-      "rationale": "Two issues compound. The window overlaps fiscal year-end close, which requires an approved exception, and Ledger Services drops to 50 percent coverage on 28 December. Notice is not a factor at 98 days, so the question is whether an exception is warranted, not whether the request was made properly."
+      "rationale": "The window runs into Q3 revenue close from 28 September, which is a blocking restriction rather than a soft preference, so it needs an approved exception before it can be granted. Notice is also short at three days for a ten-day absence. Balance and coverage are fine \u2014 the close calendar is the obstacle."
     },
     "schema": "Recommendation",
     "source": "authored-stub"
   },
-  "f9b7d71ca69e960430c9ae68": {
+  "a8bb6960abb79c5977bb4ff2": {
+    "label": "judge:EV-04",
+    "model": "claude-opus-5-5",
+    "response": {
+      "citations_correct": 3,
+      "justification": "'No accrual path to close it' is not supported by any finding \u2014 no accrual rate appears in the inputs. The decline still follows from BAL-01 alone.",
+      "rationale_grounded": 1,
+      "tone_appropriate": 3
+    },
+    "schema": "JudgeScore",
+    "source": "authored-stub"
+  },
+  "aac7d74bb947b1d37526c13c": {
     "label": "assess:REQ-2001",
-    "model": "claude-opus-5",
+    "model": "claude-opus-5-5",
     "response": {
       "action": "approve",
       "cited_rule_ids": [
@@ -120,17 +94,43 @@
     "schema": "Recommendation",
     "source": "authored-stub"
   },
-  "ff64b57a3512d799186c3e35": {
-    "label": "assess:REQ-2002",
-    "model": "claude-opus-5",
+  "b2d2f68ddcf7730c7a8b5b11": {
+    "label": "judge:EV-03",
+    "model": "claude-opus-5-5",
+    "response": {
+      "citations_correct": 2,
+      "justification": "Both findings are surfaced and grounded, but the notice point is argued without citing NOT-01.",
+      "rationale_grounded": 3,
+      "tone_appropriate": 3
+    },
+    "schema": "JudgeScore",
+    "source": "authored-stub"
+  },
+  "c90b620b38460215d1993802": {
+    "label": "assess:REQ-2003",
+    "model": "claude-opus-5-5",
     "response": {
       "action": "escalate",
       "cited_rule_ids": [
         "BLK-01",
-        "NOT-01"
+        "COV-01"
       ],
       "confidence": "high",
-      "rationale": "The window runs into Q3 revenue close from 28 September, which is a blocking restriction rather than a soft preference, so it needs an approved exception before it can be granted. Notice is also short at three days for a ten-day absence. Balance and coverage are fine \u2014 the close calendar is the obstacle."
+      "rationale": "Two issues compound. The window overlaps fiscal year-end close, which requires an approved exception, and Ledger Services drops to 50 percent coverage on 28 December. Notice is not a factor at 98 days, so the question is whether an exception is warranted, not whether the request was made properly."
+    },
+    "schema": "Recommendation",
+    "source": "authored-stub"
+  },
+  "eaea0317795bb573149681d0": {
+    "label": "assess:REQ-2005",
+    "model": "claude-opus-5-5",
+    "response": {
+      "action": "escalate",
+      "cited_rule_ids": [
+        "COV-01"
+      ],
+      "confidence": "medium",
+      "rationale": "Balance, notice and the close calendar are all clear, but Payments Platform would have nobody available on 18 November \u2014 all four members out. That is a coverage call rather than a policy breach, so it needs you to decide whether the team can absorb it or whether Priya shifts by a couple of days."
     },
     "schema": "Recommendation",
     "source": "authored-stub"
