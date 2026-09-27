@@ -173,13 +173,13 @@ class PolicyIndex:
             )
         self.embedder.save()
 
-    def _query(self, collection: str, query: str, flt: qm.Filter, k: int) -> list[qm.ScoredPoint]:
+    def _query(self, collection: str, query: str, flt: qm.Filter, k: int, id_field: str) -> list[qm.ScoredPoint]:
         [dense] = self.embedder.embed([query], kind="query")
         [sparse] = self.embedder.embed_sparse([query], kind="query")
         self.embedder.save()
         # The filter goes on each sub-query, so neither retriever ever ranks a
         # passage from another tenant or audience, and again on the fused result.
-        return self.client.query_points(
+        points = self.client.query_points(
             collection,
             prefetch=[
                 qm.Prefetch(query=dense, using="dense", filter=flt, limit=k * 4),
@@ -187,9 +187,14 @@ class PolicyIndex:
             ],
             query=qm.FusionQuery(fusion=qm.Fusion.RRF),
             query_filter=flt,
-            limit=k,
+            limit=k + 5,
             with_payload=True,
         ).points
+        # RRF scores come from ranks, so ties are common. Qdrant does not order
+        # ties consistently across platforms, which changed the prompt (and so the
+        # fixture key) between macOS and Linux. Break ties by id, then cut to k.
+        points.sort(key=lambda p: (-round(p.score, 6), p.payload[id_field]))
+        return points[:k]
 
     def search_handbook(self, query: str, *, tenant_id: str, reader: str = "manager", k: int = HANDBOOK_K) -> list[Passage]:
         flt = qm.Filter(
@@ -207,7 +212,7 @@ class PolicyIndex:
                 text=p.payload["text"],
                 score=round(p.score, 4),
             )
-            for p in self._query("handbook", query, flt, k)
+            for p in self._query("handbook", query, flt, k, "passage_id")
         ]
 
     def search_precedents(self, query: str, *, tenant_id: str, k: int = PRECEDENT_K) -> list[Passage]:
@@ -221,7 +226,7 @@ class PolicyIndex:
                 text=f"{p.payload['text']} Outcome: {p.payload['outcome']}. {p.payload['note']}",
                 score=round(p.score, 4),
             )
-            for p in self._query("precedents", query, flt, k)
+            for p in self._query("precedents", query, flt, k, "precedent_id")
         ]
 
 

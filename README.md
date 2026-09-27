@@ -156,7 +156,7 @@ committed before retrieval was tuned.
 ```
 case    id_context_precision  id_context_recall   retrieved
 EV-01   0.2                   1.0                 HB-1.1, HB-7.1, HB-4.1, P-103, P-108
-EV-02   0.8                   1.0                 HB-5.1, HB-4.1, HB-4.2, P-101, P-104
+EV-02   0.8                   1.0                 HB-4.1, HB-5.1, HB-4.2, P-101, P-104
 EV-03   0.6                   1.0                 HB-4.1, HB-6.1, HB-4.2, P-102, P-101
 EV-04   0.8                   0.8                 HB-3.1, HB-7.1, HB-2.1, P-107, P-104
 EV-05   0.6                   1.0                 HB-6.1, HB-8.1, HB-3.1, P-106, P-105

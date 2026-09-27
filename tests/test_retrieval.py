@@ -57,6 +57,21 @@ def test_manager_cannot_retrieve_hr_only_guidance():
     assert hr[0].passage_id == "HB-7.2", "the HR reader should get it, proving the filter is the reason"
 
 
+def test_tied_scores_are_ordered_by_id():
+    """RRF produces ties; Qdrant orders them differently on macOS and Linux, which
+    changed the prompt and broke offline replay in CI. Ties must break by id."""
+    tenant = policy.Tenant()
+    for request in tenant.requests.values():
+        findings = policy.evaluate(tenant, request, tenant.workers[request["worker_id"]])
+        query = retrieval.build_query(request, findings)
+        for hits in (
+            _index().search_handbook(query, tenant_id=tenant.tenant_id),
+            _index().search_precedents(query, tenant_id=tenant.tenant_id),
+        ):
+            keys = [(-h.score, h.passage_id) for h in hits]
+            assert keys == sorted(keys), f"{request['request_id']}: {[h.passage_id for h in hits]}"
+
+
 def test_offline_runs_never_load_the_embedding_models():
     embedder = retrieval.Embedder()
     retrieval.PolicyIndex(embedder=embedder)
