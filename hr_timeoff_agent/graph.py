@@ -1,6 +1,6 @@
 """The time-off triage graph.
 
-    load_context → check_policy → assess → approval_gate ⏸ → record
+    load_context → check_policy → retrieve → assess → approval_gate ⏸ → record
 
 The graph physically cannot reach `record` without a human resuming it at
 `approval_gate`, and `record` rejects any decision not attributed to a human.
@@ -15,9 +15,9 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
-from . import evidence, policy
+from . import evidence, policy, retrieval
 from .llm import structured
-from .models import Decision, Finding, Recommendation
+from .models import Decision, Finding, Passage, Recommendation
 
 ASSESS_SYSTEM = """You review time off requests for an HR system and produce a \
 RECOMMENDATION for a human approver. You never make the decision yourself.
@@ -32,15 +32,22 @@ Choose exactly one action:
 - escalate: a blocking finding failed but an exception is plausible, or advisory \
 findings need human judgement.
 
-Cite the rule ids your reasoning actually rests on. Write the rationale for the \
-approving manager: two or three sentences, specific, no restating of the whole \
-request back to them."""
+You may also be given handbook passages and past decisions retrieved for this \
+request. They are guidance, not rule outcomes: use them to explain what the \
+manager can do (an exception route, unpaid leave, cover from another team), never \
+to overturn a finding. Past decisions show how similar requests went; they do not \
+bind this one. Do not rely on anything that is not in the findings or passages.
+
+Cite the rule ids and passage ids your reasoning actually rests on. Write the \
+rationale for the approving manager: two or three sentences, specific, no \
+restating of the whole request back to them."""
 
 
 class AgentState(TypedDict):
     request: dict
     worker: Optional[dict]
     findings: list[dict]
+    passages: list[dict]
     recommendation: Optional[dict]
     decision: Optional[dict]
     evidence: list[dict]
@@ -50,7 +57,9 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def build_assess_prompt(request: dict, worker: dict, findings: list[Finding]) -> str:
+def build_assess_prompt(
+    request: dict, worker: dict, findings: list[Finding], passages: list[Passage]
+) -> str:
     """Deterministic given its inputs — no clock, no ids that vary per run.
 
     That stability is what lets the fixture cache key on prompt content.
@@ -75,7 +84,22 @@ def build_assess_prompt(request: dict, worker: dict, findings: list[Finding]) ->
     for f in findings:
         lines.append(f"  [{f.rule_id}] {f.rule_name} — {f.status.upper()} ({f.severity})")
         lines.append(f"      {f.detail}")
+    for kind, heading in (
+        ("handbook", "HANDBOOK GUIDANCE (retrieved — cite by id; guidance, not rule outcomes)"),
+        ("precedent", "PAST DECISIONS (retrieved — cite by id; context, not binding)"),
+    ):
+        lines += ["", heading]
+        for p in (p for p in passages if p.kind == kind):
+            lines.append(f"  [{p.passage_id}] {p.title}")
+            lines.append(f"      {p.text}")
     return "\n".join(lines)
+
+
+def _index(tenant: policy.Tenant) -> retrieval.PolicyIndex:
+    # Built once per tenant object; embedding the corpus is the slow part.
+    if not hasattr(tenant, "_policy_index"):
+        tenant._policy_index = retrieval.PolicyIndex()
+    return tenant._policy_index
 
 
 def make_nodes(tenant: policy.Tenant, *, record_llm: bool = False):
@@ -108,9 +132,34 @@ def make_nodes(tenant: policy.Tenant, *, record_llm: bool = False):
             )
         return {"findings": [f.model_dump() for f in findings], "evidence": ledger}
 
+    def retrieve(state: AgentState) -> dict:
+        """Tenant and audience come from the loaded tenant and the approver role,
+        never from the model, and are applied inside the vector query."""
+        findings = [Finding.model_validate(f) for f in state["findings"]]
+        query = retrieval.build_query(state["request"], findings)
+        index = _index(tenant)
+        passages = index.search_handbook(query, tenant_id=tenant.tenant_id, reader="manager")
+        passages += index.search_precedents(query, tenant_id=tenant.tenant_id)
+        ledger = evidence.append(
+            state["evidence"],
+            actor="system",
+            node="retrieve",
+            summary=(
+                f"Retrieved {', '.join(p.passage_id for p in passages)} "
+                f"for {tenant.tenant_id} (reader: manager)."
+            ),
+            data={
+                "query": query,
+                "filter": {"tenant_id": tenant.tenant_id, "audience": retrieval.AUDIENCES["manager"]},
+                "results": [{"id": p.passage_id, "kind": p.kind, "score": p.score} for p in passages],
+            },
+        )
+        return {"passages": [p.model_dump() for p in passages], "evidence": ledger}
+
     def assess(state: AgentState) -> dict:
         findings = [Finding.model_validate(f) for f in state["findings"]]
-        prompt = build_assess_prompt(state["request"], state["worker"], findings)
+        passages = [Passage.model_validate(p) for p in state["passages"]]
+        prompt = build_assess_prompt(state["request"], state["worker"], findings, passages)
         rec = structured(
             system=ASSESS_SYSTEM,
             user=prompt,
@@ -139,6 +188,7 @@ def make_nodes(tenant: policy.Tenant, *, record_llm: bool = False):
                 "agent_recommendation": rec["action"],
                 "agent_rationale": rec["rationale"],
                 "cited_rules": rec["cited_rule_ids"],
+                "cited_passages": rec.get("cited_passage_ids", []),
                 "findings": [
                     {"rule_id": f["rule_id"], "status": f["status"], "detail": f["detail"]}
                     for f in state["findings"]
@@ -189,23 +239,25 @@ def make_nodes(tenant: policy.Tenant, *, record_llm: bool = False):
         )
         return {"evidence": ledger}
 
-    return load_context, check_policy, assess, approval_gate, record
+    return load_context, check_policy, retrieve, assess, approval_gate, record
 
 
 def build(tenant: policy.Tenant, *, record_llm: bool = False):
-    load_context, check_policy, assess, approval_gate, record = make_nodes(
+    load_context, check_policy, retrieve, assess, approval_gate, record = make_nodes(
         tenant, record_llm=record_llm
     )
     g = StateGraph(AgentState)
     g.add_node("load_context", load_context)
     g.add_node("check_policy", check_policy)
+    g.add_node("retrieve", retrieve)
     g.add_node("assess", assess)
     g.add_node("approval_gate", approval_gate)
     g.add_node("record", record)
 
     g.add_edge(START, "load_context")
     g.add_edge("load_context", "check_policy")
-    g.add_edge("check_policy", "assess")
+    g.add_edge("check_policy", "retrieve")
+    g.add_edge("retrieve", "assess")
     g.add_edge("assess", "approval_gate")
     g.add_edge("approval_gate", "record")
     g.add_edge("record", END)
@@ -217,6 +269,7 @@ def initial_state(request: dict) -> AgentState:
         "request": request,
         "worker": None,
         "findings": [],
+        "passages": [],
         "recommendation": None,
         "decision": None,
         "evidence": [],

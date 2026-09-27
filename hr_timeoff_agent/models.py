@@ -27,12 +27,24 @@ class Finding(BaseModel):
     evidence: dict = Field(default_factory=dict)
 
 
+class Passage(BaseModel):
+    """A retrieved handbook passage or past decision. Guidance, not a rule outcome."""
+
+    passage_id: str
+    tenant_id: str
+    kind: Literal["handbook", "precedent"]
+    title: str
+    text: str
+    score: float
+
+
 class Recommendation(BaseModel):
     """What the agent is allowed to produce. Advisory only."""
 
     action: Action
     rationale: str
     cited_rule_ids: list[str] = Field(default_factory=list)
+    cited_passage_ids: list[str] = Field(default_factory=list)
     confidence: Literal["low", "medium", "high"]
 
 

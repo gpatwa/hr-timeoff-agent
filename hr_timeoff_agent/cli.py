@@ -4,6 +4,7 @@
     python -m hr_timeoff_agent run REQ-2001 --approve --as "Dana Whitfield"
     python -m hr_timeoff_agent run REQ-2004            # pauses, decides nothing
     python -m hr_timeoff_agent eval
+    python -m hr_timeoff_agent rag-eval                # RAGAS over the retrieval step
     python -m hr_timeoff_agent report
 """
 
@@ -64,11 +65,15 @@ def cmd_run(args) -> int:
         mark = {"pass": "ok  ", "warn": "warn", "fail": "FAIL"}[f["status"]]
         print(f"  {mark}  [{f['rule_id']}] {f['detail']}")
 
+    print(f"\nRETRIEVED  (tenant {tenant.tenant_id}, reader: manager — filtered before ranking)")
+    for p in state["passages"]:
+        print(f"  {p['passage_id']:<7} {p['kind']:<9} {p['score']:.3f}  {p['title']}")
+
     rec = state["recommendation"]
     print("\nAGENT RECOMMENDATION  (advisory — the agent cannot decide)")
     print(f"  action     : {rec['action']}")
     print(f"  confidence : {rec['confidence']}")
-    print(f"  cites      : {', '.join(rec['cited_rule_ids']) or '(none)'}")
+    print(f"  cites      : {', '.join(rec['cited_rule_ids'] + rec.get('cited_passage_ids', [])) or '(none)'}")
     print(f"  rationale  : {rec['rationale']}")
 
     if "__interrupt__" not in state:
@@ -143,6 +148,41 @@ def cmd_eval(args) -> int:
     return 0 if d["all_passed"] else 1
 
 
+def cmd_rag_eval(args) -> int:
+    from . import rag_eval
+
+    report = rag_eval.run_all(policy.Tenant())
+    print(f"\nRAG eval · ragas {report['ragas_version']} · generation metrics: {report['generation_metrics']}")
+    if report["grading_model"]:
+        print(f"grading model {report['grading_model']} · agent model {report['agent_model']}")
+    names = list(report["means"])
+    print(f"\n{'case':<7} " + " ".join(f"{n:<21}" for n in names) + " retrieved")
+    for c in report["cases"]:
+        cells = " ".join(f"{c['scores'].get(n, '—')!s:<21}" for n in names)
+        print(f"{c['case_id']:<7} {cells} {', '.join(c['retrieved'])}")
+        for name, err in c["errors"].items():
+            print(f"        {name} error: {err}")
+    print("\n  means (reported separately, never blended)")
+    for n, v in report["means"].items():
+        print(f"    {n:<21} {v}")
+    OUT.mkdir(exist_ok=True)
+    path = OUT / "rag_eval.json"
+    path.write_text(json.dumps(report, indent=2) + "\n")
+    print(f"\nwrote {path}\n")
+
+    # Each floor gates its own metric; a strong recall can't cover for weak precision.
+    floors = {"id_context_recall": args.min_recall, "id_context_precision": args.min_precision}
+    below = [
+        f"{name} {report['means'][name]} < {floor}"
+        for name, floor in floors.items()
+        if floor is not None and report["means"][name] < floor
+    ]
+    errors = [f"{c['case_id']} {n}" for c in report["cases"] for n in c["errors"]]
+    for line in below + [f"metric error: {e}" for e in errors]:
+        print(f"  GATE FAILED  {line}")
+    return 1 if below or errors else 0
+
+
 def cmd_report(args) -> int:
     from .report import build
 
@@ -171,6 +211,11 @@ def main(argv: list[str] | None = None) -> int:
     e = sub.add_parser("eval", help="run the graded eval")
     e.add_argument("--record", action="store_true")
     e.set_defaults(func=cmd_eval)
+
+    g = sub.add_parser("rag-eval", help="RAGAS eval of retrieval")
+    g.add_argument("--min-recall", type=float, help="fail if mean id_context_recall is below this")
+    g.add_argument("--min-precision", type=float, help="fail if mean id_context_precision is below this")
+    g.set_defaults(func=cmd_rag_eval)
 
     sub.add_parser("report", help="build the HTML report").set_defaults(func=cmd_report)
 

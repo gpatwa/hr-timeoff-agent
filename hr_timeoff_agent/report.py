@@ -116,7 +116,7 @@ svg{display:block;max-width:100%;height:auto}
 """
 
 PIPELINE_SVG = """
-<svg viewBox="0 0 820 128" role="img" aria-label="Pipeline: load context, check policy, assess, approval gate (pauses), record">
+<svg viewBox="0 0 910 128" role="img" aria-label="Pipeline: load context, check policy, retrieve, assess, approval gate (pauses), record">
   <defs>
     <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
       <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
@@ -126,7 +126,8 @@ PIPELINE_SVG = """
     <line x1="132" y1="46" x2="166" y2="46"/>
     <line x1="290" y1="46" x2="324" y2="46"/>
     <line x1="434" y1="46" x2="468" y2="46"/>
-    <line x1="612" y1="46" x2="646" y2="46"/>
+    <line x1="578" y1="46" x2="612" y2="46"/>
+    <line x1="756" y1="46" x2="790" y2="46"/>
   </g>
   <g font-family="ui-monospace,monospace" font-size="12" text-anchor="middle">
     <g>
@@ -138,24 +139,30 @@ PIPELINE_SVG = """
       <text x="228" y="51" fill="var(--ok)">check_policy</text>
     </g>
     <g>
-      <rect x="324" y="24" width="110" height="44" rx="5" fill="var(--agent-bg)" stroke="var(--agent)"/>
-      <text x="379" y="51" fill="var(--agent)">assess</text>
+      <rect x="324" y="24" width="110" height="44" rx="5" fill="var(--surface)" stroke="var(--line)"/>
+      <text x="379" y="51" fill="var(--ink)">retrieve</text>
     </g>
     <g>
-      <rect x="468" y="24" width="144" height="44" rx="5" fill="var(--human-bg)" stroke="var(--human)" stroke-width="2"/>
-      <text x="540" y="51" fill="var(--human)">approval_gate</text>
+      <rect x="468" y="24" width="110" height="44" rx="5" fill="var(--agent-bg)" stroke="var(--agent)"/>
+      <text x="523" y="51" fill="var(--agent)">assess</text>
     </g>
     <g>
-      <rect x="646" y="24" width="110" height="44" rx="5" fill="var(--surface)" stroke="var(--line)"/>
-      <text x="701" y="51" fill="var(--ink)">record</text>
+      <rect x="612" y="24" width="144" height="44" rx="5" fill="var(--human-bg)" stroke="var(--human)" stroke-width="2"/>
+      <text x="684" y="51" fill="var(--human)">approval_gate</text>
+    </g>
+    <g>
+      <rect x="790" y="24" width="110" height="44" rx="5" fill="var(--surface)" stroke="var(--line)"/>
+      <text x="845" y="51" fill="var(--ink)">record</text>
     </g>
   </g>
   <g font-family="ui-monospace,monospace" font-size="10.5" text-anchor="middle">
     <text x="228" y="92" fill="var(--ink-soft)">deterministic</text>
-    <text x="379" y="92" fill="var(--ink-soft)">model</text>
-    <text x="540" y="92" fill="var(--human)">execution halts here</text>
-    <text x="540" y="107" fill="var(--ink-soft)">resumes only on a human decision</text>
-    <text x="701" y="92" fill="var(--ink-soft)">asserts human</text>
+    <text x="379" y="92" fill="var(--ink-soft)">hybrid RAG</text>
+    <text x="379" y="107" fill="var(--ink-soft)">tenant-filtered</text>
+    <text x="523" y="92" fill="var(--ink-soft)">model</text>
+    <text x="684" y="92" fill="var(--human)">execution halts here</text>
+    <text x="684" y="107" fill="var(--ink-soft)">resumes only on a human decision</text>
+    <text x="845" y="92" fill="var(--ink-soft)">asserts human</text>
   </g>
 </svg>
 """
@@ -207,8 +214,10 @@ def _run_card(run: dict) -> str:
         f'<div class="block agent-block"><p class="label">Agent recommendation — advisory only</p>'
         f'<p><span class="verdict">{esc(rec["action"].upper())}</span> '
         f'<span class="rule-id">confidence {esc(rec["confidence"])} · cites '
-        f'{esc(", ".join(rec["cited_rule_ids"]))}</span></p>'
-        f'<p>{esc(rec["rationale"])}</p></div>'
+        f'{esc(", ".join(rec["cited_rule_ids"] + rec.get("cited_passage_ids", [])))}</span></p>'
+        f'<p>{esc(rec["rationale"])}</p>'
+        f'<p class="rule-id">retrieved (tenant-filtered, reader: manager): '
+        f'{esc(" · ".join(p["passage_id"] for p in run.get("passages", [])))}</p></div>'
     )
     human = ""
     if dec:
@@ -258,9 +267,29 @@ def _scorecard(ev: dict) -> str:
     )
 
 
+def _rag_card(rag: dict) -> str:
+    names = list(rag["means"])
+    head = "".join(f"<th>{esc(n)}</th>" for n in names)
+    rows = "".join(
+        f'<tr><td class="rule-id">{esc(c["case_id"])}</td>'
+        + "".join(f'<td class="num">{esc(c["scores"].get(n, "—"))}</td>' for n in names)
+        + f'<td class="just">{esc(", ".join(c["retrieved"]))}</td></tr>'
+        for c in rag["cases"]
+    )
+    means = "".join(f"<span>{esc(n)} <b>{esc(v)}</b></span>" for n, v in rag["means"].items())
+    return (
+        f'<div class="card"><div class="scroll"><table class="scorecard"><thead><tr><th>case</th>{head}'
+        f"<th>retrieved</th></tr></thead><tbody>{rows}</tbody></table></div>"
+        f'<div class="means">{means}<span style="color:var(--ink-soft)">ragas {esc(rag["ragas_version"])} · '
+        f'generation metrics: {esc(rag["generation_metrics"])}</span></div></div>'
+    )
+
+
 def build() -> Path:
     ev = json.loads((OUT / "eval.json").read_text())
     runs = [json.loads(p.read_text()) for p in sorted(OUT.glob("run-*.json"))]
+    rag_path = OUT / "rag_eval.json"
+    rag = json.loads(rag_path.read_text()) if rag_path.exists() else None
     d = ev["deterministic"]
 
     assertions = "".join(
@@ -294,8 +323,9 @@ and <span class="mono">record</span> rejects any decision whose actor is not a h
 <div class="assertions">{assertions}</div>
 
 <h2>Pipeline</h2>
-<p class="note">Rules run in code, not in the model. The model sees findings it cannot dispute, and
-writes an advisory recommendation against them.</p>
+<p class="note">Rules run in code, not in the model. Retrieval adds handbook guidance and past decisions,
+filtered to the tenant and reader before ranking. The model sees findings it cannot dispute, and writes
+an advisory recommendation against them.</p>
 <div class="card"><div class="block">{PIPELINE_SVG}</div></div>
 
 <h2>Worked runs</h2>
@@ -308,6 +338,11 @@ is the decider rather than a rubber stamp.</p>
 written before the prompt was tuned. The judge is not told which action was expected, so it grades
 quality rather than agreement.</p>
 {_scorecard(ev)}
+{"" if not rag else f"""
+<h2>Retrieval eval (RAGAS)</h2>
+<p class="note">Did retrieval fetch the passages a careful reader would? Reference passages were committed
+before retrieval was tuned. Each metric is reported on its own.</p>
+{_rag_card(rag)}"""}
 
 <footer>generated by hr_timeoff_agent.report from out/*.json · mock tenant data, no real worker records</footer>
 </div></body></html>

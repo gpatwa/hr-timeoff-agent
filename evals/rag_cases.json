@@ -1,0 +1,32 @@
+[
+  {
+    "case_id": "EV-01", "request_id": "REQ-2001",
+    "reference_context_ids": ["P-108"],
+    "reference": "Every rule passes. Routine requests like this, with notice, balance and coverage in order, are approved.",
+    "notes": "Nothing in the handbook is needed; the one useful context is the routine-approval precedent."
+  },
+  {
+    "case_id": "EV-02", "request_id": "REQ-2002",
+    "reference_context_ids": ["HB-4.1", "HB-4.2", "HB-5.1", "P-101"],
+    "reference": "The window overlaps Q3 revenue close, so it needs a close-window exception. A wedding is the kind of life event exceptions are usually granted for, provided close tasks are handed to a named backup and the Finance close lead also approves. Short notice can be accepted for a life event. A previous wedding during Q3 close was approved this way.",
+    "notes": "Exception route, who approves it, short notice for life events, and the matching precedent."
+  },
+  {
+    "case_id": "EV-03", "request_id": "REQ-2003",
+    "reference_context_ids": ["HB-4.1", "HB-6.1", "P-102"],
+    "reference": "Year-end close needs an exception, and routine vacation during close is normally declined or moved. Coverage also falls below the floor, so the manager should ask to move the dates or document a backup. A similar year-end vacation was returned with a request to move it to January.",
+    "notes": "Close exception policy, coverage guidance, and the year-end precedent."
+  },
+  {
+    "case_id": "EV-04", "request_id": "REQ-2004",
+    "reference_context_ids": ["HB-2.1", "HB-3.1", "HB-7.1", "P-103", "P-104"],
+    "reference": "The balance covers 40 of the 120 hours, and accrual of 6.67 hours a month cannot close the gap before the start date. The request cannot be approved as fully paid; the manager can approve the paid portion and agree the rest as unpaid leave with the HR Partner. The 19-day span also goes to HR Partner review. Past shortfalls were either split into paid and unpaid leave or declined as submitted.",
+    "notes": "Accrual (makes 'no accrual path' checkable), unpaid leave route, extended leave review, both shortfall precedents."
+  },
+  {
+    "case_id": "EV-05", "request_id": "REQ-2005",
+    "reference_context_ids": ["HB-6.1", "P-105", "P-106"],
+    "reference": "Coverage would fall to zero. The manager should arrange on-call cover from an adjacent team before approving, or ask the employee to move the dates, as happened in past coverage cases.",
+    "notes": "Coverage guidance and both coverage precedents."
+  }
+]

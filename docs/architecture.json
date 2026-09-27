@@ -7,24 +7,33 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/gpatwa/hr-timeoff-agent",
-      "revision": "559981cee11fdc6d3a33715bbf72585613da9f05"
+      "revision": "34c6972eb6fb817cae98ca683e1cc1b28db1b4fe"
     },
-    "viewBox": [
-      1300,
-      662
-    ],
     "views": [
       {
         "id": "decision-path",
         "label": "Decision path",
         "focus": [
           "rules",
+          "retrieve",
           "context",
           "assess",
           "gate",
           "record"
         ],
         "note": "The only path to a committed outcome. It passes through a human and cannot be short-circuited."
+      },
+      {
+        "id": "retrieval",
+        "label": "Retrieval",
+        "focus": [
+          "rules",
+          "retrieve",
+          "qdrant",
+          "context",
+          "evals"
+        ],
+        "note": "Hybrid search in Qdrant, filtered to the tenant and reader before ranking, and scored with RAGAS."
       },
       {
         "id": "what-is-a-model",
@@ -35,7 +44,7 @@
           "fixtures",
           "context"
         ],
-        "note": "Exactly two model calls exist. Both are fixture-backed, and neither can write a decision."
+        "note": "Two model calls in the graph: the assessment and the judge. Retrieval embeds locally; no model call."
       },
       {
         "id": "audit",
@@ -66,14 +75,14 @@
       "id": "tenant",
       "type": "database",
       "label": "Tenant data",
-      "sublabel": "workers \u00b7 absences \u00b7 policy",
+      "sublabel": "workers \u00b7 policy \u00b7 handbook",
       "tag": "static JSON \u2014 no retrieval layer",
       "pos": [
         40,
-        420
+        544
       ],
       "size": [
-        180,
+        170,
         64
       ],
       "sources": [
@@ -92,16 +101,16 @@
       "tag": "deterministic \u00b7 no model",
       "pos": [
         40,
-        260
+        240
       ],
       "size": [
-        180,
+        170,
         64
       ],
       "sources": [
         {
           "path": "hr_timeoff_agent/policy.py",
-          "line": 191,
+          "line": 192,
           "label": "evaluate()"
         }
       ]
@@ -113,17 +122,17 @@
       "sublabel": "request + worker + findings",
       "tag": "deterministic prompt",
       "pos": [
-        300,
-        260
+        560,
+        240
       ],
       "size": [
-        180,
+        170,
         64
       ],
       "sources": [
         {
           "path": "hr_timeoff_agent/graph.py",
-          "line": 53,
+          "line": 60,
           "label": "build_assess_prompt"
         }
       ]
@@ -132,20 +141,20 @@
       "id": "assess",
       "type": "cloud",
       "label": "Assessment call",
-      "sublabel": "claude-opus-5 \u00b7 structured output",
+      "sublabel": "claude-opus-5-5 \u00b7 typed output",
       "tag": "LLM \u00b7 advisory only",
       "pos": [
-        560,
-        260
+        820,
+        240
       ],
       "size": [
-        185,
+        180,
         64
       ],
       "sources": [
         {
           "path": "hr_timeoff_agent/graph.py",
-          "line": 111,
+          "line": 159,
           "label": "assess node"
         }
       ]
@@ -157,17 +166,17 @@
       "sublabel": "interrupt() \u2014 execution halts",
       "tag": "human-in-the-loop",
       "pos": [
-        825,
-        260
+        1090,
+        240
       ],
       "size": [
-        185,
+        180,
         64
       ],
       "sources": [
         {
           "path": "hr_timeoff_agent/graph.py",
-          "line": 130,
+          "line": 179,
           "label": "approval_gate"
         }
       ]
@@ -179,17 +188,17 @@
       "sublabel": "asserts a human actor",
       "tag": "fail-closed",
       "pos": [
-        1090,
-        260
+        1105,
+        392
       ],
       "size": [
-        160,
+        150,
         64
       ],
       "sources": [
         {
           "path": "hr_timeoff_agent/graph.py",
-          "line": 167,
+          "line": 217,
           "label": "record node"
         }
       ]
@@ -201,17 +210,17 @@
       "sublabel": "InMemorySaver checkpointer",
       "tag": "makes resume possible",
       "pos": [
-        825,
-        100
+        1090,
+        90
       ],
       "size": [
-        185,
+        180,
         64
       ],
       "sources": [
         {
           "path": "hr_timeoff_agent/graph.py",
-          "line": 212,
+          "line": 264,
           "label": "compile(checkpointer=\u2026)"
         }
       ]
@@ -223,17 +232,17 @@
       "sublabel": "keyed on a hash of the prompt",
       "tag": "content-addressed \u00b7 offline",
       "pos": [
-        560,
-        100
+        820,
+        90
       ],
       "size": [
-        185,
+        180,
         64
       ],
       "sources": [
         {
           "path": "hr_timeoff_agent/llm.py",
-          "line": 61,
+          "line": 63,
           "label": "structured()"
         }
       ]
@@ -245,8 +254,8 @@
       "sublabel": "rule \u00b7 agent \u00b7 human \u00b7 system entries",
       "tag": "append-only \u00b7 SHA-256 chain",
       "pos": [
-        1030,
-        420
+        1070,
+        544
       ],
       "size": [
         220,
@@ -264,11 +273,11 @@
       "id": "evals",
       "type": "backend",
       "label": "Eval harness",
-      "sublabel": "5 cases \u00b7 rubric written first",
+      "sublabel": "graded eval + RAGAS",
       "tag": "2 assertions + 3 judged criteria",
       "pos": [
-        310,
-        580
+        300,
+        544
       ],
       "size": [
         200,
@@ -277,8 +286,13 @@
       "sources": [
         {
           "path": "hr_timeoff_agent/evals.py",
-          "line": 97,
+          "line": 104,
           "label": "run_all"
+        },
+        {
+          "path": "hr_timeoff_agent/rag_eval.py",
+          "line": 143,
+          "label": "rag_eval.run_all"
         }
       ]
     },
@@ -289,8 +303,8 @@
       "sublabel": "separable model \u00b7 fixture-backed",
       "tag": "LLM \u00b7 grades quality, not agreement",
       "pos": [
-        580,
-        580
+        570,
+        544
       ],
       "size": [
         220,
@@ -303,6 +317,53 @@
           "label": "JUDGE_SYSTEM"
         }
       ]
+    },
+    {
+      "id": "retrieve",
+      "type": "backend",
+      "label": "Hybrid retrieval",
+      "sublabel": "dense + BM25 \u00b7 RRF",
+      "pos": [
+        300,
+        240
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/graph.py",
+          "line": 135,
+          "label": "retrieve node"
+        },
+        {
+          "path": "hr_timeoff_agent/retrieval.py",
+          "line": 176,
+          "label": "filtered hybrid query"
+        }
+      ]
+    },
+    {
+      "id": "qdrant",
+      "type": "database",
+      "label": "Qdrant vector store",
+      "sublabel": "handbook + precedents",
+      "pos": [
+        300,
+        90
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/retrieval.py",
+          "line": 135,
+          "label": "PolicyIndex"
+        }
+      ]
     }
   ],
   "boundaries": [
@@ -311,6 +372,7 @@
       "label": "LangGraph StateGraph",
       "wraps": [
         "rules",
+        "retrieve",
         "context",
         "assess",
         "gate",
@@ -337,9 +399,9 @@
     },
     {
       "id": "findings",
-      "from": "rules",
+      "from": "retrieve",
       "to": "context",
-      "label": "Finding[] as ground truth",
+      "label": "passages",
       "labelDy": 56
     },
     {
@@ -381,14 +443,22 @@
       "from": "gate",
       "to": "record",
       "label": "human Decision",
-      "variant": "emphasis"
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        1180,
+        358
+      ]
     },
     {
       "id": "decision-entry",
       "from": "gate",
       "to": "ledger",
-      "label": "decision entry",
-      "variant": "dashed"
+      "label": "decision",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "right"
     },
     {
       "id": "commit",
@@ -397,14 +467,18 @@
       "label": "verify chain, then commit",
       "variant": "security",
       "fromSide": "bottom",
-      "toSide": "top"
+      "toSide": "top",
+      "labelAt": [
+        1180,
+        500
+      ]
     },
     {
       "id": "replay-cases",
       "from": "evals",
-      "to": "rules",
-      "label": "replays cases through the graph",
-      "fromSide": "top",
+      "to": "context",
+      "label": "replays cases",
+      "fromSide": "right",
       "toSide": "bottom"
     },
     {
@@ -413,6 +487,26 @@
       "to": "judge",
       "label": "scores the recommendation",
       "labelDy": 56
+    },
+    {
+      "from": "rules",
+      "to": "retrieve",
+      "label": "issues"
+    },
+    {
+      "from": "retrieve",
+      "to": "qdrant",
+      "label": "tenant + audience filter",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "from": "evals",
+      "to": "retrieve",
+      "label": "RAGAS",
+      "fromSide": "top",
+      "toSide": "bottom"
     }
   ],
   "cards": [
@@ -429,9 +523,9 @@
       "dot": "cyan",
       "title": "Where a model actually runs",
       "items": [
-        "Two calls only: the assessment and the judge",
-        "No retrieval layer \u2014 nothing is embedded, indexed or searched",
-        "Both calls are content-addressed against the fixture cache"
+        "Two calls in the graph: the assessment and the judge",
+        "Retrieval embeds locally into Qdrant, filtered by tenant before ranking",
+        "Model calls and embeddings are both fixture-backed"
       ]
     },
     {

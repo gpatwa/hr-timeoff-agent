@@ -8,13 +8,14 @@ boundary: policy is evaluated in code, the model only ever writes an advisory
 recommendation, and the graph physically suspends until a named human decides.
 
 ```
-load_context → check_policy → assess → approval_gate ⏸ → record
-                deterministic   model    halts here      asserts human
+load_context → check_policy → retrieve → assess → approval_gate ⏸ → record
+                deterministic   hybrid RAG  model    halts here      asserts human
 ```
 
 **[Interactive architecture diagram →](docs/architecture.html)** — every box labelled by what it
-actually is (deterministic rules engine, context assembly, LLM call, checkpointer, approval
-interrupt, evidence ledger, eval harness, judge), with source links into this repo.
+actually is (deterministic rules engine, hybrid retrieval, Qdrant vector store, context
+assembly, LLM call, checkpointer, approval interrupt, evidence ledger, eval harness with RAGAS,
+judge), with source links into this repo.
 
 ## Run it
 
@@ -29,6 +30,10 @@ python -m venv .venv && ./.venv/bin/pip install -e .
 ./.venv/bin/python -m hr_timeoff_agent run REQ-2004 --approve --as "Aiko Tanaka" --json
 ./.venv/bin/python -m hr_timeoff_agent eval
 ./.venv/bin/python -m hr_timeoff_agent report   # → docs/report.html
+
+# RAGAS eval of the retrieval step (optional extra)
+./.venv/bin/pip install -e '.[rag-eval]'
+./.venv/bin/python -m hr_timeoff_agent rag-eval
 ```
 
 `run REQ-2004` with no decision flag stops at the approval gate and commits
@@ -62,6 +67,11 @@ autonomous approval:
 ./.venv/bin/python tests/test_guarantees.py
 ```
 
+CI (`.github/workflows/ci.yml`) runs the guarantees, the retrieval isolation
+tests, the graded eval and the RAGAS eval on every pull request, on Python 3.10
+and 3.12, fully offline from the committed fixtures. The RAGAS step gates each
+metric separately, with floors just under the committed baseline.
+
 ## Evidence trail
 
 Every step appends to a hash-chained ledger — each entry commits to the one
@@ -90,6 +100,30 @@ truth and reasons about what they mean together. That keeps policy outcomes
 reproducible and explainable without reference to a model version, and it means
 a policy change is a data change.
 
+## Retrieval: guidance, not rule outcomes
+
+Rules still decide whether a request is allowed. After `check_policy`, the
+`retrieve` node looks up what a manager would check next: the tenant's leave
+handbook (`data/handbook.json`) and past human decisions on similar requests
+(`data/precedents.json`). The recommendation cites them by id — for example,
+the unpaid-leave route for a balance shortfall, or how a wedding during close
+was handled last year.
+
+- **Vector store: Qdrant.** It runs in-process (`:memory:`), so a fresh clone
+  needs no server; the same client API talks to a Qdrant server in production.
+- **Hybrid search.** A dense embedding (`BAAI/bge-small-en-v1.5` via fastembed)
+  plus BM25 for exact policy terms, fused with reciprocal rank fusion. Dense
+  alone kept ranking generic PTO passages first. Fusion runs in Python with ties
+  broken by id, because Qdrant's built-in fusion ordered tied scores differently
+  on macOS and Linux.
+- **Tenant and audience are enforced inside the query, before ranking.** Every
+  sub-query carries the filter, so a passage from another tenant, or an HR-only
+  passage when the reader is a manager, is never a candidate. The tenant comes
+  from the loaded tenant, never from the model. `tests/test_retrieval.py` proves
+  both, using a query copied from the other tenant's handbook.
+- **Recorded.** The ledger gets a `retrieve` entry with the query, the filter
+  and every result's score.
+
 ## Eval
 
 `evals/rubric.md` was written before the prompt was tuned, and deliberately not
@@ -102,15 +136,46 @@ case    expected  actual    match  no-self-approve  scores
 EV-01   approve   approve   yes    yes              grounded 3 · cites 2 · tone 3
 EV-02   escalate  escalate  yes    yes              grounded 3 · cites 3 · tone 3
 EV-03   escalate  escalate  yes    yes              grounded 3 · cites 2 · tone 3
-EV-04   decline   decline   yes    yes              grounded 1 · cites 3 · tone 3
+EV-04   decline   decline   yes    yes              grounded 3 · cites 3 · tone 2
 EV-05   escalate  escalate  yes    yes              grounded 3 · cites 3 · tone 3
 ```
 
-EV-04 scoring 1 on groundedness is the eval doing its job: the rationale claims
-there is "no accrual path" to close an 80-hour shortfall, but no accrual rate
-appears anywhere in the findings. The conclusion is still right — it follows from
-the balance rule alone — but one clause is unsupported, and a rubric that scored
-it 3 would not be measuring anything.
+EV-04 is the case retrieval changed. Before it, the rationale claimed there was
+"no accrual path" to close an 80-hour shortfall while no accrual rate appeared
+anywhere in its inputs, and the judge scored it 1 on groundedness. Now the
+accrual clause (HB-2.1) is retrieved and cited, so the same claim is grounded —
+and the recommendation can offer the unpaid-leave route (HB-3.1) instead of a
+flat no. It lost a point on tone instead: three options in one sentence. The
+rubric gained a dated addendum saying passages count as sources; the original
+wording is unchanged.
+
+### RAGAS: did retrieval do its job?
+
+`rag-eval` scores the retrieval step with the RAGAS library, separately from the
+graded eval. Reference passages and answers (`evals/rag_cases.json`) were
+committed before retrieval was tuned.
+
+```
+case    id_context_precision  id_context_recall   retrieved
+EV-01   0.2                   1.0                 HB-1.1, HB-7.1, HB-4.1, P-103, P-108
+EV-02   0.8                   1.0                 HB-4.1, HB-5.1, HB-4.2, P-101, P-108
+EV-03   0.6                   1.0                 HB-4.1, HB-6.1, HB-4.2, P-102, P-101
+EV-04   0.8                   0.8                 HB-3.1, HB-7.1, HB-2.1, P-107, P-104
+EV-05   0.6                   1.0                 HB-6.1, HB-8.1, HB-3.1, P-106, P-105
+means   0.6                   0.96
+```
+
+The ID-based metrics need no model and run offline. With `ANTHROPIC_API_KEY`
+set, RAGAS also scores **faithfulness** (is every claim in the rationale
+supported by what the agent was given) and **context recall** against the
+reference answer, graded by `claude-sonnet-5` so the grader is not the agent's
+model. Those two have not been run yet — the repo has only been exercised
+offline.
+
+What the numbers say: recall is high, precision is low on the easy case. A
+fixed five results is wasteful when every rule passes (EV-01 needs one), and
+EV-04 misses the closest shortfall precedent (P-103). The next change would be a
+score threshold or a reranker, measured against these same references.
 
 The judge is never told which action was expected, so it grades quality rather
 than agreement. Set `HR_AGENT_JUDGE_MODEL` to a different model than
@@ -120,6 +185,10 @@ than agreement. Set `HR_AGENT_JUDGE_MODEL` to a different model than
 
 Model calls are content-addressed against `fixtures/llm_cache.json`, keyed on a
 hash of the exact prompt. Offline is automatic when no API key is present.
+Embeddings work the same way: `fixtures/embeddings.json` holds every dense and
+BM25 vector the demo needs, so a fresh clone never downloads an embedding model.
+Set `HR_AGENT_OFFLINE=1` to make any uncached embedding an error instead of a
+local fastembed call.
 
 The shipped fixtures are **authored stand-ins, not captured responses** — they
 exist so the demo runs on a fresh clone. `scripts/seed_fixtures.py` shows exactly
@@ -131,14 +200,18 @@ how they were produced, and `--record` replaces any of them with a real call.
 hr_timeoff_agent/
   models.py     Recommendation vs Decision — the boundary, in types
   policy.py     deterministic rules over data/policy.json
+  retrieval.py  hybrid retrieval in Qdrant, tenant/audience filtered before ranking
   evidence.py   append-only hash-chained ledger
   graph.py      the LangGraph workflow and the approval interrupt
   evals.py      graded eval and the LLM judge
+  rag_eval.py   RAGAS eval of the retrieval step
   report.py     builds docs/report.html from real run output
   cli.py
-data/           mock Workday-shaped tenant: workers, absences, policy, requests
-evals/          rubric.md (written first) and cases.json
-tests/          the guarantees, including tamper detection and human override
+data/           mock Workday-shaped tenant: workers, absences, policy, requests,
+                leave handbook and past decisions (plus a second tenant, for isolation tests)
+evals/          rubric.md (written first), cases.json, rag_cases.json
+tests/          the guarantees, including tamper detection and human override,
+                and retrieval isolation by tenant and audience
 docs/report.html        rendered run report (every figure read from out/*.json)
 docs/architecture.html  interactive component diagram (archify; source-linked)
 ```
