@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  offline:
+    # Everything runs offline, from the committed fixtures: no API key, no
+    # embedding-model download. A cache miss fails the run instead of silently
+    # calling out, which also catches fixtures that drift from the prompts.
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
+    env:
+      HR_AGENT_OFFLINE: "1"
+      RAGAS_DO_NOT_TRACK: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: pip install -e '.[rag-eval]'
+
+      - name: Guarantees (human-only decisions, tamper detection, override)
+        run: python tests/test_guarantees.py
+
+      - name: Retrieval isolation (tenant and audience filtered before ranking)
+        run: python tests/test_retrieval.py
+
+      - name: Graded eval (fails if any action mismatches or the agent self-approves)
+        run: python -m hr_timeoff_agent eval
+
+      - name: RAGAS retrieval eval (floors sit just under the committed baseline)
+        run: python -m hr_timeoff_agent rag-eval --min-recall 0.9 --min-precision 0.55

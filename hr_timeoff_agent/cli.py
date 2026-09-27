@@ -169,7 +169,18 @@ def cmd_rag_eval(args) -> int:
     path = OUT / "rag_eval.json"
     path.write_text(json.dumps(report, indent=2) + "\n")
     print(f"\nwrote {path}\n")
-    return 0
+
+    # Each floor gates its own metric; a strong recall can't cover for weak precision.
+    floors = {"id_context_recall": args.min_recall, "id_context_precision": args.min_precision}
+    below = [
+        f"{name} {report['means'][name]} < {floor}"
+        for name, floor in floors.items()
+        if floor is not None and report["means"][name] < floor
+    ]
+    errors = [f"{c['case_id']} {n}" for c in report["cases"] for n in c["errors"]]
+    for line in below + [f"metric error: {e}" for e in errors]:
+        print(f"  GATE FAILED  {line}")
+    return 1 if below or errors else 0
 
 
 def cmd_report(args) -> int:
@@ -201,7 +212,10 @@ def main(argv: list[str] | None = None) -> int:
     e.add_argument("--record", action="store_true")
     e.set_defaults(func=cmd_eval)
 
-    sub.add_parser("rag-eval", help="RAGAS eval of retrieval").set_defaults(func=cmd_rag_eval)
+    g = sub.add_parser("rag-eval", help="RAGAS eval of retrieval")
+    g.add_argument("--min-recall", type=float, help="fail if mean id_context_recall is below this")
+    g.add_argument("--min-precision", type=float, help="fail if mean id_context_precision is below this")
+    g.set_defaults(func=cmd_rag_eval)
 
     sub.add_parser("report", help="build the HTML report").set_defaults(func=cmd_report)
 

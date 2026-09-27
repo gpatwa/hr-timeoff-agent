@@ -67,6 +67,11 @@ autonomous approval:
 ./.venv/bin/python tests/test_guarantees.py
 ```
 
+CI (`.github/workflows/ci.yml`) runs the guarantees, the retrieval isolation
+tests, the graded eval and the RAGAS eval on every pull request, on Python 3.10
+and 3.12, fully offline from the committed fixtures. The RAGAS step gates each
+metric separately, with floors just under the committed baseline.
+
 ## Evidence trail
 
 Every step appends to a hash-chained ledger — each entry commits to the one
