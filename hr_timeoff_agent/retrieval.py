@@ -42,6 +42,10 @@ EMBED_MODEL = os.environ.get("HR_AGENT_EMBED_MODEL", "BAAI/bge-small-en-v1.5")
 EMBED_DIM = 384
 SPARSE_MODEL = "Qdrant/bm25"
 
+# Reciprocal rank fusion: score = sum of 1 / (rank + RRF_K) over both retrievers,
+# rank starting at 0. RRF_K = 2 matches Qdrant's own default.
+RRF_K = 2
+
 HANDBOOK_K = 3
 PRECEDENT_K = 2
 
@@ -177,24 +181,24 @@ class PolicyIndex:
         [dense] = self.embedder.embed([query], kind="query")
         [sparse] = self.embedder.embed_sparse([query], kind="query")
         self.embedder.save()
-        # The filter goes on each sub-query, so neither retriever ever ranks a
-        # passage from another tenant or audience, and again on the fused result.
-        points = self.client.query_points(
-            collection,
-            prefetch=[
-                qm.Prefetch(query=dense, using="dense", filter=flt, limit=k * 4),
-                qm.Prefetch(query=sparse, using="bm25", filter=flt, limit=k * 4),
-            ],
-            query=qm.FusionQuery(fusion=qm.Fusion.RRF),
-            query_filter=flt,
-            limit=k + 5,
-            with_payload=True,
-        ).points
-        # RRF scores come from ranks, so ties are common. Qdrant does not order
-        # ties consistently across platforms, which changed the prompt (and so the
-        # fixture key) between macOS and Linux. Break ties by id, then cut to k.
-        points.sort(key=lambda p: (-round(p.score, 6), p.payload[id_field]))
-        return points[:k]
+        # Each retriever runs in Qdrant with the filter, so neither ever ranks a
+        # passage from another tenant or audience. Fusion happens here rather
+        # than in Qdrant: its RRF orders tied scores inside each list differently
+        # on macOS and Linux (BM25 ties are common), which changed which passages
+        # made the cut and broke offline replay in CI. Ties break by id instead.
+        fused: dict[str, float] = {}
+        points: dict[str, qm.ScoredPoint] = {}
+        for vector, using in ((dense, "dense"), (sparse, "bm25")):
+            hits = self.client.query_points(
+                collection, query=vector, using=using, query_filter=flt, limit=k * 4, with_payload=True
+            ).points
+            hits.sort(key=lambda p: (-round(p.score, 6), p.payload[id_field]))
+            for rank, p in enumerate(hits):
+                pid = p.payload[id_field]
+                fused[pid] = fused.get(pid, 0.0) + 1.0 / (rank + RRF_K)
+                points[pid] = p
+        order = sorted(fused, key=lambda pid: (-round(fused[pid], 9), pid))[:k]
+        return [points[pid].model_copy(update={"score": fused[pid]}) for pid in order]
 
     def search_handbook(self, query: str, *, tenant_id: str, reader: str = "manager", k: int = HANDBOOK_K) -> list[Passage]:
         flt = qm.Filter(

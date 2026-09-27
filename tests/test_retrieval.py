@@ -58,8 +58,9 @@ def test_manager_cannot_retrieve_hr_only_guidance():
 
 
 def test_tied_scores_are_ordered_by_id():
-    """RRF produces ties; Qdrant orders them differently on macOS and Linux, which
-    changed the prompt and broke offline replay in CI. Ties must break by id."""
+    """RRF and BM25 both produce ties, and Qdrant ordered them differently on macOS
+    and Linux, which changed the prompt and broke offline replay in CI. Fusion now
+    runs in retrieval.py with ties broken by id at every step."""
     tenant = policy.Tenant()
     for request in tenant.requests.values():
         findings = policy.evaluate(tenant, request, tenant.workers[request["worker_id"]])

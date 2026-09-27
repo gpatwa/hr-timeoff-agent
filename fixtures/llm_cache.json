@@ -49,6 +49,27 @@
     "schema": "Recommendation",
     "source": "authored-stub"
   },
+  "226640abe8ab68de806fb2bc": {
+    "label": "assess:REQ-2002",
+    "model": "claude-opus-5-5",
+    "response": {
+      "action": "escalate",
+      "cited_passage_ids": [
+        "HB-4.1",
+        "HB-4.2",
+        "HB-5.1",
+        "P-101"
+      ],
+      "cited_rule_ids": [
+        "BLK-01",
+        "NOT-01"
+      ],
+      "confidence": "high",
+      "rationale": "The window runs into Q3 revenue close from 28 September, a blocking restriction, so it needs a close-window exception before it can be granted. A wedding is the kind of life event HB-4.1 says exceptions are usually granted for, provided close tasks go to a named backup and the close lead also signs off (HB-4.2); P-101 was approved on exactly that basis. The three days' notice can be accepted for a life event (HB-5.1)."
+    },
+    "schema": "Recommendation",
+    "source": "authored-stub"
+  },
   "3ca36500daaa4a24da93bd5d": {
     "label": "judge:EV-04",
     "model": "claude-opus-5-5",
@@ -113,7 +134,7 @@
     "schema": "Recommendation",
     "source": "authored-stub"
   },
-  "c72d997539a46a4249140dce": {
+  "aa4a532e16d3252a99b47a50": {
     "label": "judge:EV-02",
     "model": "claude-opus-5-5",
     "response": {
@@ -135,27 +156,6 @@
       "tone_appropriate": 3
     },
     "schema": "JudgeScore",
-    "source": "authored-stub"
-  },
-  "d347aef5ef669c7ba5069372": {
-    "label": "assess:REQ-2002",
-    "model": "claude-opus-5-5",
-    "response": {
-      "action": "escalate",
-      "cited_passage_ids": [
-        "HB-4.1",
-        "HB-4.2",
-        "HB-5.1",
-        "P-101"
-      ],
-      "cited_rule_ids": [
-        "BLK-01",
-        "NOT-01"
-      ],
-      "confidence": "high",
-      "rationale": "The window runs into Q3 revenue close from 28 September, a blocking restriction, so it needs a close-window exception before it can be granted. A wedding is the kind of life event HB-4.1 says exceptions are usually granted for, provided close tasks go to a named backup and the close lead also signs off (HB-4.2); P-101 was approved on exactly that basis. The three days' notice can be accepted for a life event (HB-5.1)."
-    },
-    "schema": "Recommendation",
     "source": "authored-stub"
   }
 }
