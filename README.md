@@ -13,8 +13,9 @@ load_context → check_policy → retrieve → assess → approval_gate ⏸ → 
 ```
 
 **[Interactive architecture diagram →](docs/architecture.html)** — every box labelled by what it
-actually is (deterministic rules engine, context assembly, LLM call, checkpointer, approval
-interrupt, evidence ledger, eval harness, judge), with source links into this repo.
+actually is (deterministic rules engine, hybrid retrieval, Qdrant vector store, context
+assembly, LLM call, checkpointer, approval interrupt, evidence ledger, eval harness with RAGAS,
+judge), with source links into this repo.
 
 ## Run it
 
