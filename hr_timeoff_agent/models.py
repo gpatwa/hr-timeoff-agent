@@ -53,9 +53,13 @@ class Decision(BaseModel):
 
     `actor_type` is pinned to "human" at the type level, and the record node
     re-asserts it at runtime. An agent cannot construct a valid Decision.
+
+    `decided_by_id` is the approver's worker id; `decided_by` is their name as
+    the directory has it, never free text typed by whoever resumed the graph.
     """
 
     outcome: Outcome
+    decided_by_id: str
     decided_by: str
     actor_type: Literal["human"] = "human"
     note: str = ""

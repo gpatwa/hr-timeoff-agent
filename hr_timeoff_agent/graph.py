@@ -3,7 +3,8 @@
     load_context → check_policy → retrieve → assess → approval_gate ⏸ → record
 
 The graph physically cannot reach `record` without a human resuming it at
-`approval_gate`, and `record` rejects any decision not attributed to a human.
+`approval_gate`, and both the gate and `record` reject any decision that is not
+from a human who is the requester's direct manager.
 """
 
 from __future__ import annotations
@@ -177,33 +178,58 @@ def make_nodes(tenant: policy.Tenant, *, record_llm: bool = False):
         return {"recommendation": rec.model_dump(), "evidence": ledger}
 
     def approval_gate(state: AgentState) -> dict:
-        """Hard stop. Execution cannot continue without a human resume value."""
+        """Hard stop. Execution cannot continue without a resume from an authorized human.
+
+        An unauthorized resume does not raise: raising would mark this step failed
+        and LangGraph would replay the same refused resume forever. Instead the
+        gate pauses again, says why, and waits for the right approver. Each refused
+        attempt is written to the evidence trail once the request is decided.
+        """
         rec = state["recommendation"]
-        response: dict[str, Any] = interrupt(
-            {
-                "kind": "approval_required",
-                "request_id": state["request"]["request_id"],
-                "worker": state["worker"]["legal_name"],
-                "window": f"{state['request']['from']} to {state['request']['to']}",
-                "agent_recommendation": rec["action"],
-                "agent_rationale": rec["rationale"],
-                "cited_rules": rec["cited_rule_ids"],
-                "cited_passages": rec.get("cited_passage_ids", []),
-                "findings": [
-                    {"rule_id": f["rule_id"], "status": f["status"], "detail": f["detail"]}
-                    for f in state["findings"]
-                ],
-                "awaiting": "outcome (approved | declined | returned), decided_by, note",
-            }
-        )
+        prompt: dict[str, Any] = {
+            "kind": "approval_required",
+            "request_id": state["request"]["request_id"],
+            "worker": state["worker"]["legal_name"],
+            "window": f"{state['request']['from']} to {state['request']['to']}",
+            "agent_recommendation": rec["action"],
+            "agent_rationale": rec["rationale"],
+            "cited_rules": rec["cited_rule_ids"],
+            "cited_passages": rec.get("cited_passage_ids", []),
+            "findings": [
+                {"rule_id": f["rule_id"], "status": f["status"], "detail": f["detail"]}
+                for f in state["findings"]
+            ],
+            "awaiting": "outcome (approved | declined | returned), decided_by_id, note",
+            "approver_required": state["worker"]["manager_id"],
+        }
+        refusals: list[dict] = []
+        while True:
+            response: dict[str, Any] = interrupt(prompt)
+            ok, reason = policy.authorize_approver(tenant, state["worker"], response.get("decided_by_id"))
+            if ok:
+                break
+            refusals.append({"attempted_by_id": response.get("decided_by_id"), "reason": reason})
+            prompt = {**prompt, "refused": f"Approval refused: {reason}"}
+
+        ledger = state["evidence"]
+        for r in refusals:
+            ledger = evidence.append(
+                ledger,
+                actor="system",
+                node="approval_gate",
+                summary=f"Refused a decision attempt: {r['reason']}",
+                data=r,
+            )
+        approver = tenant.workers[response["decided_by_id"]]
         decision = Decision(
             outcome=response["outcome"],
-            decided_by=response["decided_by"],
+            decided_by_id=approver["worker_id"],
+            decided_by=approver["legal_name"],
             note=response.get("note", ""),
             at=_now(),
         )
         ledger = evidence.append(
-            state["evidence"],
+            ledger,
             actor="human",
             node="approval_gate",
             summary=(
@@ -220,6 +246,10 @@ def make_nodes(tenant: policy.Tenant, *, record_llm: bool = False):
             raise PermissionError("Only a human decision can be recorded.")
         if not decision.decided_by:
             raise PermissionError("A recorded decision must name its approver.")
+        # Re-checked here, independently of the gate, against the same policy data.
+        ok, reason = policy.authorize_approver(tenant, state["worker"], decision.decided_by_id)
+        if not ok:
+            raise PermissionError(f"Decision not recorded: {reason}")
 
         ok, reason = evidence.verify(state["evidence"])
         if not ok:
@@ -234,6 +264,7 @@ def make_nodes(tenant: policy.Tenant, *, record_llm: bool = False):
                 "request_id": state["request"]["request_id"],
                 "outcome": decision.outcome,
                 "authorized_by": decision.decided_by,
+                "authorized_by_id": decision.decided_by_id,
                 "chain_verified": True,
             },
         )

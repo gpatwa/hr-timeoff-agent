@@ -82,19 +82,32 @@ def cmd_run(args) -> int:
 
     print(f"\n⏸  PAUSED at approval_gate — decision is {state.get('decision')!r}")
 
+    manager = tenant.workers.get(worker["manager_id"] or "")
+    manager_name = manager["legal_name"] if manager else worker["manager_id"]
     outcome = args.outcome
     if not outcome:
         print(
             "\n  No human decision supplied, so nothing was committed.\n"
-            f"  Re-run with --approve, --decline or --return to resume:\n"
-            f"    python -m hr_timeoff_agent run {args.request_id} --approve --as \"Dana Whitfield\"\n"
+            f"  Only {worker['legal_name']}'s manager, {manager_name}, can decide. To resume:\n"
+            f"    python -m hr_timeoff_agent run {args.request_id} --approve --as \"{manager_name}\"\n"
         )
         return 0
+    if not args.decided_by:
+        print(f"\n  --as is required with a decision: who is deciding? ({manager_name} can.)\n")
+        return 2
 
-    resume = {"outcome": outcome, "decided_by": args.decided_by, "note": args.note}
+    approver = tenant.find_worker(args.decided_by)
+    if approver is None:
+        print(f"\n  REFUSED  {args.decided_by!r} is not a unique worker id or name in {tenant.tenant_id}.\n")
+        return 1
+    resume = {"outcome": outcome, "decided_by_id": approver["worker_id"], "note": args.note}
     final = app.invoke(Command(resume=resume), config=config)
+    if "__interrupt__" in final:
+        refused = final["__interrupt__"][0].value.get("refused", "Approval refused.")
+        print(f"\n  REFUSED  {refused}\n  Nothing was recorded; the request is still awaiting {manager_name}.\n")
+        return 1
 
-    print(f"\n▶  RESUMED by {args.decided_by} → {outcome}")
+    print(f"\n▶  RESUMED by {approver['legal_name']} ({approver['worker_id']}) → {outcome}")
     ok, reason = evidence.verify(final["evidence"])
     print(f"\nEVIDENCE TRAIL  ({len(final['evidence'])} entries · {reason})")
     print(evidence.render(final["evidence"]))
@@ -202,7 +215,10 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--approve", dest="outcome", action="store_const", const="approved")
     r.add_argument("--decline", dest="outcome", action="store_const", const="declined")
     r.add_argument("--return", dest="outcome", action="store_const", const="returned")
-    r.add_argument("--as", dest="decided_by", default="Dana Whitfield", help="approver name")
+    r.add_argument(
+        "--as", dest="decided_by",
+        help="who is deciding: worker id or exact name; must be the requester's direct manager",
+    )
     r.add_argument("--note", default="")
     r.add_argument("--record", action="store_true", help="call the live API and cache the result")
     r.add_argument("--json", action="store_true", help="write out/run-<id>.json")
