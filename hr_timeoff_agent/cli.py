@@ -6,6 +6,7 @@
     python -m hr_timeoff_agent eval
     python -m hr_timeoff_agent rag-eval                # RAGAS over the retrieval step
     python -m hr_timeoff_agent report
+    python -m hr_timeoff_agent e2e                     # self-test: every claim, pass/fail
 """
 
 from __future__ import annotations
@@ -196,6 +197,23 @@ def cmd_rag_eval(args) -> int:
     return 1 if below or errors else 0
 
 
+def cmd_e2e(args) -> int:
+    from . import e2e
+
+    print(f"\n{RULE}\n  end-to-end self-test · backend {_mode_banner()}\n{RULE}\n")
+    report = e2e.run_all(require_live=args.require_live)
+    for r in report["results"]:
+        mark = "PASS" if r["passed"] else "FAIL"
+        print(f"  {mark}  {r['check']:<42} {r['seconds']:>5}s  {r['detail']}")
+    print(f"\n  live checks: {report['live']}")
+    OUT.mkdir(exist_ok=True)
+    path = OUT / "e2e.json"
+    path.write_text(json.dumps(report, indent=2) + "\n")
+    failed = [r["check"] for r in report["results"] if not r["passed"]]
+    print(f"\n  {'ALL CHECKS PASSED' if not failed else 'FAILED: ' + ', '.join(failed)}  ·  wrote {path}\n")
+    return 0 if not failed else 1
+
+
 def cmd_report(args) -> int:
     from .report import build
 
@@ -234,6 +252,10 @@ def main(argv: list[str] | None = None) -> int:
     g.set_defaults(func=cmd_rag_eval)
 
     sub.add_parser("report", help="build the HTML report").set_defaults(func=cmd_report)
+
+    x = sub.add_parser("e2e", help="end-to-end self-test of every guarantee")
+    x.add_argument("--require-live", action="store_true", help="fail if live checks cannot run")
+    x.set_defaults(func=cmd_e2e)
 
     args = p.parse_args(argv)
     return args.func(args)

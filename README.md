@@ -85,10 +85,30 @@ tampered chain on its own — plus the case that matters most:
 ./.venv/bin/python tests/test_guarantees.py
 ```
 
+### One command checks everything
+
+```bash
+./.venv/bin/python -m hr_timeoff_agent e2e
+```
+
+`e2e` is a self-test built into the product: every claim above becomes a
+pass/fail check, with no manual steps. The agent never decides; every CLI path
+returns the right exit code and message; a refused approval does not jam the
+run; editing any evidence entry is detected; another tenant's passages and
+HR-only guidance are never retrieved; every citation was actually given to the
+agent; a policy change is a data change; the graded eval and the RAGAS floors
+pass. With `ANTHROPIC_API_KEY` set it adds a real agent call and the
+model-graded RAGAS metrics, recorded into a scratch cache so the repo never
+changes. `--require-live` fails if those can't run. Results go to
+`out/e2e.json`; the exit code is 0 only if every check passed.
+
 CI (`.github/workflows/ci.yml`) runs the guarantees, the retrieval isolation
 tests, the graded eval and the RAGAS eval on every pull request, on Python 3.10
-and 3.12, fully offline from the committed fixtures. The RAGAS step gates each
-metric separately, with floors just under the committed baseline.
+and 3.12, fully offline from the committed fixtures, then `e2e`. The RAGAS step
+gates each metric separately, with floors just under the committed baseline. A
+separate `live` job runs `e2e --require-live` against the real API; it is manual
+only (Actions → CI → Run workflow) and needs an `ANTHROPIC_API_KEY` repository
+secret.
 
 ## Evidence trail
 
