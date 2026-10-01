@@ -14,6 +14,15 @@ dependencies = [
 [project.optional-dependencies]
 # RAGAS for the retrieval eval. ragas 0.4 imports a module langchain-community
 # removed in 0.4, so that pin is needed until ragas catches up.
+# The local web app: FastAPI, server-rendered pages, SQLite for paused runs.
+web = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "langgraph-checkpoint-sqlite>=2.0",
+    "httpx>=0.27",
+]
 rag-eval = [
     "ragas>=0.4,<0.5",
     "langchain-community<0.4",
@@ -25,3 +34,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["hr_timeoff_agent*"]
+
+[tool.setuptools.package-data]
+"hr_timeoff_agent.web" = ["templates/*.html", "static/*.css"]

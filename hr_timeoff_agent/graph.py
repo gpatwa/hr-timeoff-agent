@@ -273,7 +273,10 @@ def make_nodes(tenant: policy.Tenant, *, record_llm: bool = False):
     return load_context, check_policy, retrieve, assess, approval_gate, record
 
 
-def build(tenant: policy.Tenant, *, record_llm: bool = False):
+def build(tenant: policy.Tenant, *, record_llm: bool = False, checkpointer=None):
+    """Compile the graph. The checkpointer holds paused runs: in memory by default
+    (CLI, tests), or durable (the web app's SQLite) so a pending approval
+    survives a restart."""
     load_context, check_policy, retrieve, assess, approval_gate, record = make_nodes(
         tenant, record_llm=record_llm
     )
@@ -292,7 +295,7 @@ def build(tenant: policy.Tenant, *, record_llm: bool = False):
     g.add_edge("assess", "approval_gate")
     g.add_edge("approval_gate", "record")
     g.add_edge("record", END)
-    return g.compile(checkpointer=InMemorySaver())
+    return g.compile(checkpointer=checkpointer or InMemorySaver())
 
 
 def initial_state(request: dict) -> AgentState:

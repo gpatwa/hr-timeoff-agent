@@ -59,10 +59,11 @@ def test_command_isolates_the_call():
 
 
 def test_parses_structured_output_and_sends_the_prompt_on_stdin():
-    (rec, served_by), calls = _with_fake(
-        {"is_error": False, "structured_output": REC, "modelUsage": {"claude-opus-5-5": {}}}
+    (rec, served_by, usd), calls = _with_fake(
+        {"is_error": False, "structured_output": REC, "modelUsage": {"claude-opus-5-5": {}}, "total_cost_usd": 0.0123}
     )
     assert rec.action == "decline" and served_by == ["claude-opus-5-5"]
+    assert usd == 0.0123, "the reported cost feeds the spend cap"
     assert calls[0]["input"] == "USER"
     assert Path(calls[0]["cwd"]).name != "hr-timeoff-agent", "must run outside the repo"
 
@@ -83,6 +84,12 @@ def test_refuses_an_error_result():
         assert "API Error: 400" in str(exc)
         return
     raise AssertionError("accepted an error result")
+
+
+def test_cost_uses_the_price_list():
+    assert llm.cost_usd("claude-sonnet-5-5", 1_000_000, 0) == 2.0
+    assert llm.cost_usd("claude-sonnet-5-5", 0, 1_000_000) == 10.0
+    assert llm.cost_usd("some-unknown-model", 10, 10) == llm.UNKNOWN_MODEL_CALL_USD
 
 
 if __name__ == "__main__":

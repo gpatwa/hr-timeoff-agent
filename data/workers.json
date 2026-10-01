@@ -54,5 +54,13 @@
     "supervisory_org": "Engineering Leadership", "manager_id": null,
     "hire_date": "2016-09-12", "location": "Pleasanton, CA",
     "time_off_plans": {"PTO": {"balance_hours": 160.0}, "SICK": {"balance_hours": 40.0}}
+  },
+  {
+    "worker_id": "W-100003", "legal_name": "Grace Kim",
+    "position": "HR Business Partner", "supervisory_org_id": "SO-HR-01",
+    "supervisory_org": "People Team", "manager_id": "W-100002",
+    "hire_date": "2019-02-11", "location": "Pleasanton, CA",
+    "time_off_plans": {"PTO": {"balance_hours": 104.0}, "SICK": {"balance_hours": 40.0}},
+    "roles": ["hr", "admin"]
   }
 ]

@@ -6,3 +6,4 @@ out/
 CONTEXT.md
 .DS_Store
 *.egg-info/
+var/

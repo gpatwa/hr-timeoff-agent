@@ -47,6 +47,51 @@ export ANTHROPIC_API_KEY=sk-ant-...
 ./.venv/bin/python -m hr_timeoff_agent run REQ-2001 --record
 ```
 
+## The web app
+
+The same agent, graph and guarantees, as an app people use in a browser:
+
+```bash
+./.venv/bin/pip install -e '.[web]'
+export ANTHROPIC_API_KEY=sk-ant-...     # optional: without it, seeded requests still work
+./.venv/bin/python -m hr_timeoff_agent web
+# → http://127.0.0.1:8000
+```
+
+| Who | What they can do |
+|---|---|
+| **Employee** (e.g. Priya Raman) | File a request; the agent triages it live and routes it to their manager |
+| **Manager** (Dana Whitfield, Aiko Tanaka) | See their reports' requests with the recommendation, policy checks and cited passages; approve, decline or return |
+| **HR partner + admin** (Grace Kim) | See every request and the HR-only guidance managers can't; edit policy; reset the tenant |
+
+- **Permissions are enforced on the server**, in the same code the CLI uses.
+  Anyone may *try* to decide a request; unless they are the requester's direct
+  manager the graph refuses, says why, and the request stays pending. People
+  can't view requests that aren't theirs, their reports' or (for HR) anyone's.
+- **Decisions have real effects.** An approval deducts the balance and records
+  the absence, so the next request's coverage check sees it. Balances can't go
+  negative (HB-2.1): the paid part is capped at the balance and the rest is
+  recorded as unpaid leave (HB-3.1), explicitly.
+- **Durable.** Paused runs live in SQLite, so a pending approval survives a
+  restart.
+- **Spend control.** New requests call the model; seeded ones replay at no cost.
+  `HR_WEB_DAILY_CAP_USD` (default 2.00) caps a day's model spend and
+  `HR_WEB_TRIAGES_PER_HOUR` (default 5) limits each person. Refused triage is
+  kept and can be retried. Spend is recorded per call and shown on the admin
+  page.
+- **State lives outside the repo**, in `./var` (or `HR_WEB_HOME`): a working copy
+  of the tenant and caches. The committed data and fixtures are never written.
+  Admin → Reset restores the seeded state.
+- **Sign-in is a persona picker** over the synthetic directory, behind an
+  `IdentityProvider` interface (`hr_timeoff_agent/web/identity.py`); real SSO
+  replaces that file only, since every check keys on the worker id it returns.
+  The identity cookie is HMAC-signed; set `HR_WEB_SECRET` to keep sessions
+  across restarts.
+- **Local by default:** it binds to 127.0.0.1. All data is synthetic.
+
+`tests/test_web.py` drives every flow above through HTTP as different people,
+and `e2e` includes a web check.
+
 ## The guarantee, and how it is enforced
 
 "The human is in the loop" is usually a prompt instruction, which is to say a
@@ -293,6 +338,8 @@ hr_timeoff_agent/
   graph.py      the LangGraph workflow and the approval interrupt
   evals.py      graded eval and the LLM judge
   rag_eval.py   RAGAS eval of the retrieval step
+  e2e.py        end-to-end self-test: every guarantee as a pass/fail check
+  web/          the browser app: workspace (state + rules), identity, routes, pages
   report.py     builds docs/report.html from real run output
   cli.py
 data/           mock Workday-shaped tenant: workers, absences, policy, requests,

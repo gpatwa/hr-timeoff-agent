@@ -28,13 +28,16 @@ jobs:
           cache: pip
 
       - name: Install
-        run: pip install -e '.[rag-eval]'
+        run: pip install -e '.[rag-eval,web]'
 
       - name: Guarantees (human-only decisions, tamper detection, override)
         run: python tests/test_guarantees.py
 
       - name: Retrieval isolation (tenant and audience filtered before ranking)
         run: python tests/test_retrieval.py
+
+      - name: Web app through HTTP (permissions, refusals, effects, restart, spend cap)
+        run: python tests/test_web.py
 
       - name: Recording backend (claude-cli, with the subprocess faked)
         run: python tests/test_llm.py
@@ -66,7 +69,7 @@ jobs:
           cache: pip
 
       - name: Install
-        run: pip install -e '.[rag-eval]'
+        run: pip install -e '.[rag-eval,web]'
 
       - name: End-to-end self-test, including live API checks
         run: python -m hr_timeoff_agent e2e --require-live
