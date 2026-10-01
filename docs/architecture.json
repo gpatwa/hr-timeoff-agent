@@ -141,7 +141,7 @@
       "id": "assess",
       "type": "cloud",
       "label": "Assessment call",
-      "sublabel": "claude-opus-5-5 \u00b7 typed output",
+      "sublabel": "claude-sonnet-5-5 \u00b7 typed output",
       "tag": "LLM \u00b7 advisory only",
       "pos": [
         820,

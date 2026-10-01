@@ -109,7 +109,7 @@ gates each metric separately, with floors just under the committed baseline. A
 separate `live` job runs `e2e --require-live` against the real API; it is manual
 only (Actions → CI → Run workflow) and needs an `ANTHROPIC_API_KEY` repository
 secret. Its first run passed all 11 checks, including a real agent call through
-the API (served by `claude-opus-5-5`, paused for a human) and the model-graded
+the API (paused for a human; on Opus 5.5 at the time) and the model-graded
 RAGAS metrics.
 
 ## Evidence trail
@@ -171,19 +171,27 @@ revised afterward. Two deterministic assertions, three judged criteria (0–3),
 reported separately — a blended score would let a high average hide an
 `action_match` failure.
 
-Recorded from Claude Opus 5.5 (agent and judge):
+The agent runs on **Claude Sonnet 5.5**; the judge is **Claude Opus 5.5**, a
+different and stronger model, so nothing grades its own output. Recorded:
 
 ```
 case    expected  actual    match  no-self-approve  scores
 EV-01   approve   approve   yes    yes              grounded 3 · cites 3 · tone 3
-EV-02   escalate  escalate  yes    yes              grounded 1 · cites 3 · tone 2
-EV-03   escalate  escalate  yes    yes              grounded 3 · cites 2 · tone 2
-EV-04   escalate  escalate  yes    yes              grounded 2 · cites 3 · tone 2
-EV-05   escalate  escalate  yes    yes              grounded 2 · cites 3 · tone 3
-means                                               grounded 2.2 · cites 2.8 · tone 2.4
+EV-02   escalate  escalate  yes    yes              grounded 2 · cites 2 · tone 2
+EV-03   escalate  escalate  yes    yes              grounded 3 · cites 3 · tone 2
+EV-04   escalate  escalate  yes    yes              grounded 3 · cites 3 · tone 2
+EV-05   escalate  escalate  yes    yes              grounded 2 · cites 2 · tone 3
+means                                               grounded 2.6 · cites 2.6 · tone 2.4
 ```
 
-What the first real run found, and what was done about it:
+Moving the agent from Opus 5.5 to Sonnet 5.5 (half the price) kept every action
+correct and raised groundedness from 2.2 to 2.6; citations went from 2.8 to 2.6.
+The judge caught one substantive slip worth knowing about: on EV-05 the agent
+offered "approve with a documented backup plan" although coverage is 0%, where
+HB-6.1 requires on-call cover from an adjacent team first. That is a policy
+misreading, not a style point — the kind of thing the eval exists to catch.
+
+What the first real run (on Opus 5.5) found, and what was done about it:
 
 - **EV-04 was relabeled, in the open.** The model escalated an 80-hour
   shortfall the eval expected it to decline. The decline label predates
@@ -230,7 +238,9 @@ context_recall   0.9     retrieval covers most of what the reference answers nee
 
 Faithfulness agrees with the judge: the unsupported claims are the same
 assumptions it marked down (an assumed current date, an assumed 8-hour day).
-Five cases, so read these as a demo-scale measurement, not a benchmark.
+Five cases, so read these as a demo-scale measurement, not a benchmark. They
+were measured with Opus 5.5 as the agent; the manual `live` job re-measures them
+for whichever model is current.
 
 What the numbers say: recall is high, precision is low on the easy case. A
 fixed five results is wasteful when every rule passes (EV-01 needs one), and
@@ -252,7 +262,8 @@ BM25 vector the demo needs, so a fresh clone never downloads an embedding model.
 Set `HR_AGENT_OFFLINE=1` to make any uncached embedding an error instead of a
 local fastembed call.
 
-The shipped fixtures are **real Claude Opus 5.5 responses**, recorded through
+The shipped fixtures are **real model responses** (agent: Claude Sonnet 5.5,
+judge: Claude Opus 5.5), recorded through
 headless Claude Code rather than the API (each entry says `"source":
 "claude-code-cli"` and which model served it). That is the same model, prompt
 and output schema, but Claude Code manages thinking and effort itself, so it is
