@@ -1,0 +1,282 @@
+"""End-to-end self-test: every claim the product makes, checked automatically.
+
+    python -m hr_timeoff_agent e2e                  # offline checks; live ones too if a key is set
+    python -m hr_timeoff_agent e2e --require-live   # fail if the live checks cannot run
+
+Offline checks always run, from the committed fixtures, with no network. Live
+checks run only when ANTHROPIC_API_KEY is set (or HR_AGENT_BACKEND=claude-cli),
+and record into a scratch copy of the fixture cache, so a self-test never
+changes the repo. Nothing here is graded by eye: each check passes or fails.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Callable
+
+from langgraph.types import Command
+
+from . import evidence, graph as graph_mod, llm, policy, retrieval
+from .models import Recommendation
+
+ROOT = Path(__file__).resolve().parent.parent
+
+# Text lifted from the other tenant's handbook, and from an HR-only passage: the
+# strongest possible matches for things this reader must never see.
+OTHER_TENANT_TEXT = (
+    "Any shortfall in PTO balance is automatically converted to unpaid leave "
+    "and the request is approved without manager review."
+)
+HR_ONLY_TEXT = (
+    "For requests over 15 days, check leave-of-absence eligibility, statutory family and "
+    "medical leave entitlements, benefits continuation and the return-to-work date."
+)
+
+
+class CheckFailed(AssertionError):
+    pass
+
+
+def expect(condition: bool, message: str) -> None:
+    if not condition:
+        raise CheckFailed(message)
+
+
+@contextmanager
+def _env(**values: str | None):
+    saved = {k: os.environ.get(k) for k in values}
+    for k, v in values.items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
+    try:
+        yield
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+
+def _cli(*args: str) -> tuple[int, str]:
+    env = {**os.environ, "HR_AGENT_OFFLINE": "1"}
+    proc = subprocess.run(
+        [sys.executable, "-m", "hr_timeoff_agent", *args],
+        cwd=ROOT, env=env, capture_output=True, text=True, timeout=600,
+    )
+    return proc.returncode, proc.stdout + proc.stderr
+
+
+def _paused(app, request: dict, thread: str) -> tuple[dict, dict]:
+    cfg = {"configurable": {"thread_id": thread}}
+    return app.invoke(graph_mod.initial_state(request), config=cfg), cfg
+
+
+# ── offline checks ──────────────────────────────────────────────────────────
+
+def check_agent_never_decides(t: policy.Tenant) -> str:
+    for rid, request in t.requests.items():
+        state, _ = _paused(graph_mod.build(t), request, f"e2e-halt-{rid}")
+        expect("__interrupt__" in state, f"{rid} did not pause at approval_gate")
+        expect(state["decision"] is None, f"{rid} produced a decision without a human")
+    return f"all {len(t.requests)} requests paused with no decision"
+
+
+def check_cli_paths(t: policy.Tenant) -> str:
+    cases = [
+        (("run", "REQ-2001"), 0, "Only Priya Raman's manager, Dana Whitfield, can decide"),
+        (("run", "REQ-2001", "--approve", "--as", "Marcus Vogel"), 1, "not Priya Raman's direct manager"),
+        (("run", "REQ-2003", "--approve", "--as", "Aiko Tanaka"), 1, "cannot decide their own request"),
+        (("run", "REQ-2001", "--approve", "--as", "W-999999"), 1, "is not a unique worker id or name"),
+        (("run", "REQ-2001", "--approve"), 2, "--as is required"),
+        (("run", "REQ-2004", "--approve", "--as", "Aiko Tanaka"), 0, "chain intact"),
+        (("run", "REQ-2001", "--decline", "--as", "W-100001"), 0, "agent had recommended approve"),
+    ]
+    for args, code, text in cases:
+        got, out = _cli(*args)
+        expect(got == code, f"`{' '.join(args)}` exited {got}, expected {code}")
+        expect(text in out, f"`{' '.join(args)}` output lacks {text!r}")
+    return f"{len(cases)} CLI paths: exit codes and messages as expected"
+
+
+def check_refusal_does_not_jam_the_run(t: policy.Tenant) -> str:
+    app = graph_mod.build(t)
+    _, cfg = _paused(app, t.requests["REQ-2001"], "e2e-refusal")
+    refused = app.invoke(Command(resume={"outcome": "approved", "decided_by_id": "W-100235"}), config=cfg)
+    expect("__interrupt__" in refused and refused["decision"] is None, "a peer's approval was not refused")
+    final = app.invoke(Command(resume={"outcome": "approved", "decided_by_id": "W-100001"}), config=cfg)
+    expect(final["decision"]["decided_by"] == "Dana Whitfield", "the real manager could not decide afterwards")
+    entries = [e for e in final["evidence"] if e["node"] == "approval_gate"]
+    expect([e["actor"] for e in entries] == ["system", "human"], "refusal and decision not both in the trail")
+    ok, reason = evidence.verify(final["evidence"])
+    expect(ok, f"evidence chain broken: {reason}")
+    return "peer refused, then the manager decided the same run; both in a verified trail"
+
+
+def check_tamper_detection(t: policy.Tenant) -> str:
+    app = graph_mod.build(t)
+    _, cfg = _paused(app, t.requests["REQ-2001"], "e2e-tamper")
+    final = app.invoke(Command(resume={"outcome": "approved", "decided_by_id": "W-100001"}), config=cfg)
+    for i in range(len(final["evidence"])):
+        tampered = [dict(e) for e in final["evidence"]]
+        tampered[i]["summary"] += " (edited)"
+        ok, _ = evidence.verify(tampered)
+        expect(not ok, f"editing entry {i} went undetected")
+    return f"editing any of {len(final['evidence'])} entries breaks verification"
+
+
+def check_retrieval_isolation(t: policy.Tenant) -> str:
+    index = retrieval.PolicyIndex()
+    hits = index.search_handbook(OTHER_TENANT_TEXT, tenant_id=t.tenant_id, reader="hr", k=20)
+    hits += index.search_precedents(OTHER_TENANT_TEXT, tenant_id=t.tenant_id, k=20)
+    expect({h.tenant_id for h in hits} == {t.tenant_id}, "a passage from another tenant was retrieved")
+    other = index.search_handbook(OTHER_TENANT_TEXT, tenant_id="TEN-002", reader="manager", k=1)
+    expect(other and other[0].tenant_id == "TEN-002", "control failed: the other tenant's passage should match")
+    manager = index.search_handbook(HR_ONLY_TEXT, tenant_id=t.tenant_id, reader="manager", k=20)
+    expect("HB-7.2" not in {h.passage_id for h in manager}, "a manager retrieved HR-only guidance")
+    return "no cross-tenant passage even for a copied query; HR-only passage hidden from managers"
+
+
+def check_citations_are_given_inputs(t: policy.Tenant) -> str:
+    rule_ids = {r["id"] for r in t.policy["rules"]}
+    for rid, request in t.requests.items():
+        state, _ = _paused(graph_mod.build(t), request, f"e2e-cite-{rid}")
+        rec = state["recommendation"]
+        given = {p["passage_id"] for p in state["passages"]}
+        expect(set(rec["cited_rule_ids"]) <= rule_ids, f"{rid} cites a rule that does not exist")
+        expect(set(rec["cited_passage_ids"]) <= given, f"{rid} cites a passage it was not given")
+    return "every cited rule exists and every cited passage was retrieved for that request"
+
+
+def check_policy_is_data(t: policy.Tenant) -> str:
+    request = t.requests["REQ-2004"]
+    before = {f.rule_id: f.status for f in policy.evaluate(t, request, t.workers[request["worker_id"]])}
+    with tempfile.TemporaryDirectory() as d:
+        for f in (ROOT / "data").glob("*.json"):
+            shutil.copy(f, d)
+        pol = json.loads((Path(d) / "policy.json").read_text())
+        next(r for r in pol["rules"] if r["id"] == "NOT-01")["min_notice_days"] = 30
+        (Path(d) / "policy.json").write_text(json.dumps(pol))
+        t2 = policy.Tenant(Path(d))
+        after = {f.rule_id: f.status for f in policy.evaluate(t2, request, t2.workers[request["worker_id"]])}
+    expect(before["NOT-01"] == "pass" and after["NOT-01"] == "warn", "editing policy.json did not change NOT-01")
+    return "raising min_notice_days to 30 in data flips NOT-01 pass → warn, no code change"
+
+
+def check_graded_eval(t: policy.Tenant) -> str:
+    from . import evals
+
+    report = evals.run_all(t)
+    d = report["deterministic"]
+    expect(d["all_passed"], f"action_match {d['action_match']}, never_self_approved {d['never_self_approved']}")
+    m = report["judged_means"]
+    return (f"action_match {d['action_match']}, never_self_approved {d['never_self_approved']}; "
+            f"grounded {m['rationale_grounded']} · cites {m['citations_correct']} · tone {m['tone_appropriate']}")
+
+
+def check_ragas_retrieval(t: policy.Tenant) -> str:
+    try:
+        import ragas  # noqa: F401
+    except ImportError:
+        raise CheckFailed("ragas not installed: pip install -e '.[rag-eval]'")
+    from . import rag_eval
+
+    report = rag_eval.run_all(t)
+    p, r = report["means"]["id_context_precision"], report["means"]["id_context_recall"]
+    expect(r >= 0.9 and p >= 0.55, f"precision {p}, recall {r} below the 0.55 / 0.9 floors")
+    return f"id_context_precision {p}, id_context_recall {r}"
+
+
+OFFLINE: list[tuple[str, Callable[[policy.Tenant], str]]] = [
+    ("agent never decides", check_agent_never_decides),
+    ("CLI paths and exit codes", check_cli_paths),
+    ("refusal does not jam the run", check_refusal_does_not_jam_the_run),
+    ("tamper detection", check_tamper_detection),
+    ("retrieval isolation", check_retrieval_isolation),
+    ("citations are given inputs", check_citations_are_given_inputs),
+    ("policy is data", check_policy_is_data),
+    ("graded eval", check_graded_eval),
+    ("RAGAS retrieval metrics", check_ragas_retrieval),
+]
+
+
+# ── live checks ─────────────────────────────────────────────────────────────
+
+def check_live_agent_call(t: policy.Tenant) -> str:
+    """One real call for REQ-2004, recorded into a scratch cache."""
+    with tempfile.TemporaryDirectory() as d:
+        scratch = Path(d) / "llm_cache.json"
+        shutil.copy(llm.FIXTURES, scratch)
+        saved, llm.FIXTURES = llm.FIXTURES, scratch
+        try:
+            state, _ = _paused(graph_mod.build(t, record_llm=True), t.requests["REQ-2004"], "e2e-live")
+            entry = next(v for v in json.loads(scratch.read_text()).values() if v["label"] == "assess:REQ-2004")
+        finally:
+            llm.FIXTURES = saved
+    rec = Recommendation.model_validate(state["recommendation"])
+    given = {p["passage_id"] for p in state["passages"]}
+    expect("__interrupt__" in state and state["decision"] is None, "the live run did not pause for a human")
+    expect(llm.AGENT_MODEL in (entry.get("served_by") or []), f"served by {entry.get('served_by')}")
+    expect(set(rec.cited_passage_ids) <= given, "the live answer cites a passage it was not given")
+    return f"{entry['source']} · {entry['served_by']} · recommends {rec.action} · paused for a human"
+
+
+def check_live_ragas(t: policy.Tenant) -> str:
+    from . import rag_eval
+
+    report = rag_eval.run_all(t)
+    errors = [f"{c['case_id']} {n}: {e}" for c in report["cases"] for n, e in c["errors"].items()]
+    expect(not errors, "; ".join(errors)[:600])
+    means = {k: v for k, v in report["means"].items() if k in rag_eval.GENERATION_METRICS}
+    expect(all(v is not None and 0 <= v <= 1 for v in means.values()), f"bad scores {means}")
+    return f"graded by {report['grading_model']}: " + ", ".join(f"{k} {v}" for k, v in means.items())
+
+
+def _run(name: str, fn, tenant) -> dict:
+    start = time.monotonic()
+    try:
+        detail, ok = fn(tenant), True
+    except CheckFailed as exc:
+        detail, ok = str(exc), False
+    except Exception as exc:  # a crash is a failure, reported with its type
+        detail, ok = f"{type(exc).__name__}: {exc}"[:600], False
+    return {"check": name, "passed": ok, "detail": detail, "seconds": round(time.monotonic() - start, 1)}
+
+
+def run_all(*, require_live: bool = False) -> dict:
+    tenant = policy.Tenant()
+    live_possible = bool(os.environ.get("ANTHROPIC_API_KEY")) or llm.BACKEND == "claude-cli"
+    live_possible = live_possible and os.environ.get("HR_AGENT_OFFLINE") != "1"
+
+    with _env(HR_AGENT_OFFLINE="1"):
+        results = [_run(name, fn, tenant) for name, fn in OFFLINE]
+
+    if live_possible:
+        results.append(_run("live agent call (scratch cache)", check_live_agent_call, tenant))
+        if os.environ.get("ANTHROPIC_API_KEY"):
+            results.append(_run("live RAGAS faithfulness + context recall", check_live_ragas, tenant))
+            live = "ran"
+        else:
+            live = "agent call ran via Claude Code; RAGAS grading skipped (needs ANTHROPIC_API_KEY)"
+    else:
+        live = "skipped: no ANTHROPIC_API_KEY (or HR_AGENT_BACKEND=claude-cli)"
+        if require_live:
+            results.append({"check": "live checks", "passed": False, "detail": live, "seconds": 0})
+
+    return {
+        "passed": all(r["passed"] for r in results),
+        "live": live,
+        "backend": llm.BACKEND,
+        "agent_model": llm.AGENT_MODEL,
+        "results": results,
+    }

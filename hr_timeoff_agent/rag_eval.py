@@ -142,7 +142,10 @@ async def _score_case(tenant: policy.Tenant, case: dict, generation: dict | None
 
 def run_all(tenant: policy.Tenant) -> dict:
     _ragas()
-    generation = None if is_offline() else _generation_metrics()
+    # The graded metrics call the Anthropic API through ragas, so they need a key
+    # even when the agent itself is recorded through Claude Code.
+    can_grade = not is_offline() and bool(os.environ.get("ANTHROPIC_API_KEY"))
+    generation = _generation_metrics() if can_grade else None
 
     async def run():
         return [await _score_case(tenant, c, generation) for c in _cases()]
@@ -160,7 +163,7 @@ def run_all(tenant: policy.Tenant) -> dict:
         "ragas_version": ragas.__version__,
         "agent_model": AGENT_MODEL,
         "grading_model": RAGAS_MODEL if generation else None,
-        "generation_metrics": "scored" if generation else "skipped (offline: set ANTHROPIC_API_KEY)",
+        "generation_metrics": "scored" if generation else "skipped (needs ANTHROPIC_API_KEY)",
         "k": {"handbook": retrieval.HANDBOOK_K, "precedents": retrieval.PRECEDENT_K},
         "means": {m: mean(m) for m in metrics},
         "cases": cases,

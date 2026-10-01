@@ -32,7 +32,11 @@ from typing import Type, TypeVar
 
 from pydantic import BaseModel
 
-FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "llm_cache.json"
+# Overridable so a self-test can record into a scratch copy, never the committed file.
+FIXTURES = Path(
+    os.environ.get("HR_AGENT_FIXTURES")
+    or Path(__file__).resolve().parent.parent / "fixtures" / "llm_cache.json"
+)
 
 # Claude Opus 5.5 always thinks adaptively; effort is the only control, and its
 # default is "medium", so we set it explicitly below.
