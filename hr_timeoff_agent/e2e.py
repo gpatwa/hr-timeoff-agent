@@ -197,6 +197,43 @@ def check_ragas_retrieval(t: policy.Tenant) -> str:
     return f"id_context_precision {p}, id_context_recall {r}"
 
 
+def check_web_app(t: policy.Tenant) -> str:
+    """The customer-facing app, through HTTP, as three different people."""
+    try:
+        from fastapi.testclient import TestClient
+
+        from .web.app import create_app
+    except ImportError:
+        raise CheckFailed("web extra not installed: pip install -e '.[web]'")
+    import html
+
+    saved = (llm.FIXTURES, llm.before_live_call, llm.after_live_call)
+    with tempfile.TemporaryDirectory() as home:
+        app = create_app(home)
+        try:
+            c, ws = TestClient(app), app.state.workspace
+
+            def as_(wid):
+                c.cookies.clear()
+                c.post("/signin", data={"worker_id": wid}, follow_redirects=False)
+
+            as_("W-100003")  # HR: can see it, is not the manager
+            r = c.post("/requests/REQ-2004/decide", data={"outcome": "approved"})
+            expect(r.status_code == 403 and "direct manager" in html.unescape(r.text), "HR's approval was not refused")
+            expect(ws.request("REQ-2004")["status"] == "pending", "a refused approval changed the request")
+            as_("W-100236")  # Aiko, Samuel's manager
+            c.post("/requests/REQ-2004/decide", data={"outcome": "approved"})
+            absence = next(a for a in ws._read("absences.json") if a["absence_id"] == "ABS-REQ-2004")
+            expect((absence["paid_hours"], absence["unpaid_hours"]) == (40.0, 80.0), f"recorded {absence}")
+            expect("chain verified" in c.get("/requests/REQ-2004").text, "trail not verified in the UI")
+            as_("W-100235")
+            expect(c.get("/requests/REQ-2004").status_code == 403, "a peer could view someone else's request")
+        finally:
+            app.state.workspace.close()
+            llm.FIXTURES, llm.before_live_call, llm.after_live_call = saved
+    return "HR refused, manager approved (40h paid + 80h unpaid), peer can't view, trail verified"
+
+
 OFFLINE: list[tuple[str, Callable[[policy.Tenant], str]]] = [
     ("agent never decides", check_agent_never_decides),
     ("CLI paths and exit codes", check_cli_paths),
@@ -207,6 +244,7 @@ OFFLINE: list[tuple[str, Callable[[policy.Tenant], str]]] = [
     ("policy is data", check_policy_is_data),
     ("graded eval", check_graded_eval),
     ("RAGAS retrieval metrics", check_ragas_retrieval),
+    ("web app through HTTP", check_web_app),
 ]
 
 

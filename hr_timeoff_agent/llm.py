@@ -51,6 +51,23 @@ EFFORT = os.environ.get("HR_AGENT_EFFORT", "medium")
 
 BACKEND = os.environ.get("HR_AGENT_BACKEND", "api")
 
+# USD per million tokens (input, output), from the published price list. Used to
+# account for spend; a model missing here is costed conservatively.
+PRICES: dict[str, tuple[float, float]] = {
+    "claude-sonnet-5-5": (2.0, 10.0),
+    "claude-sonnet-5": (2.0, 10.0),
+    "claude-opus-5-5": (4.0, 20.0),
+    "claude-opus-5": (5.0, 25.0),
+    "claude-haiku-4-5": (1.0, 5.0),
+}
+UNKNOWN_MODEL_CALL_USD = 0.25
+
+# Optional hooks for an embedding application (the web app's spend cap).
+#   before_live_call(model, label)            may raise to refuse the call
+#   after_live_call(model, label, usd, source) records what it cost
+before_live_call = None
+after_live_call = None
+
 T = TypeVar("T", bound=BaseModel)
 
 
@@ -112,12 +129,16 @@ def structured(
             "  • run one of the requests that ships with recorded fixtures."
         )
 
+    if before_live_call:
+        before_live_call(model, label or schema.__name__)
     if BACKEND == "claude-cli":
-        parsed, served_by = _via_claude_cli(model=model, system=system, user=user, schema=schema)
+        parsed, served_by, usd = _via_claude_cli(model=model, system=system, user=user, schema=schema)
         source = "claude-code-cli"
     else:
-        parsed, served_by = _via_api(model=model, system=system, user=user, schema=schema)
+        parsed, served_by, usd = _via_api(model=model, system=system, user=user, schema=schema)
         source = "anthropic-api"
+    if after_live_call:
+        after_live_call(model, label or schema.__name__, usd, source)
 
     cache[key] = {
         "label": label or schema.__name__,
@@ -131,7 +152,14 @@ def structured(
     return parsed
 
 
-def _via_api(*, model: str, system: str, user: str, schema: Type[T]) -> tuple[T, list[str]]:
+def cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
+    if model not in PRICES:
+        return UNKNOWN_MODEL_CALL_USD
+    per_in, per_out = PRICES[model]
+    return round((input_tokens * per_in + output_tokens * per_out) / 1_000_000, 6)
+
+
+def _via_api(*, model: str, system: str, user: str, schema: Type[T]) -> tuple[T, list[str], float]:
     import anthropic
 
     client = anthropic.Anthropic()
@@ -144,7 +172,10 @@ def _via_api(*, model: str, system: str, user: str, schema: Type[T]) -> tuple[T,
         output_config={"effort": EFFORT},
         output_format=schema,
     )
-    return response.parsed_output, [response.model]
+    usage = response.usage
+    input_tokens = (usage.input_tokens or 0) + (getattr(usage, "cache_creation_input_tokens", 0) or 0)
+    usd = cost_usd(model, input_tokens, usage.output_tokens or 0)
+    return response.parsed_output, [response.model], usd
 
 
 def claude_cli_command(*, model: str, system: str, schema: Type[BaseModel]) -> list[str]:
@@ -166,7 +197,7 @@ def claude_cli_command(*, model: str, system: str, schema: Type[BaseModel]) -> l
     ]
 
 
-def _via_claude_cli(*, model: str, system: str, user: str, schema: Type[T]) -> tuple[T, list[str]]:
+def _via_claude_cli(*, model: str, system: str, user: str, schema: Type[T]) -> tuple[T, list[str], float]:
     cmd = claude_cli_command(model=model, system=system, schema=schema)
     # An empty working directory, so no project CLAUDE.md or memory is loaded
     # into what should be exactly our prompt.
@@ -181,4 +212,6 @@ def _via_claude_cli(*, model: str, system: str, user: str, schema: Type[T]) -> t
     served_by = sorted((out.get("modelUsage") or {}).keys())
     if model not in served_by:
         raise RuntimeError(f"asked for {model} but Claude Code used {served_by}; not caching it")
-    return schema.model_validate(out["structured_output"]), served_by
+    # Claude Code reports an equivalent cost even on a subscription.
+    usd = float(out.get("total_cost_usd") or 0.0)
+    return schema.model_validate(out["structured_output"]), served_by, usd

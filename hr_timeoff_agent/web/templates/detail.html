@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}{{ d.request.request_id }}{% endblock %}
+{% block body %}
+{% set r = d.request %}
+{% set rec = d.recommendation %}
+<h1><span class="mono">{{ r.request_id }}</span> · {{ d.requester.legal_name }}
+  <span class="status s-{{ r.status }}">{{ r.status.replace('_', ' ') }}</span></h1>
+<p class="lede">{{ '%g' % r.hours }}h {{ r.plan }} · {{ r['from'] }} → {{ r['to'] }} · {{ d.requester.supervisory_org }}
+  · decided by {{ d.manager.legal_name if d.manager else 'no manager on record' }}</p>
+
+{% if refused %}<div class="notice bad"><strong>Refused.</strong> {{ refused }} Nothing was recorded; the request is still pending.</div>{% endif %}
+{% if r.status == 'needs_triage' %}
+<div class="notice bad"><strong>Triage didn't complete.</strong> {{ r.triage_error or 'Unknown error.' }}
+  <form method="post" action="/requests/{{ r.request_id }}/retriage" style="margin-top:8px"><button type="submit">Retry triage</button></form>
+</div>
+{% endif %}
+
+<div class="grid">
+  <div>
+    {% if rec %}
+    <div class="card agent">
+      <div class="tag muted">Agent recommendation · advisory only</div>
+      <div class="verdict">{{ rec.action }}</div>
+      <div class="muted" style="font-size:13px">confidence {{ rec.confidence }}</div>
+      <p>{{ rec.rationale }}</p>
+      <div>
+        {% for c in rec.cited_rule_ids %}<span class="cite" title="policy rule">{{ c }}</span>{% endfor %}
+        {% for c in rec.cited_passage_ids %}<span class="cite" title="retrieved passage">{{ c }}</span>{% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if d.findings %}
+    <div class="card">
+      <h2 style="margin-top:0">Policy checks <span class="muted" style="font-weight:400">· evaluated in code, not by the model</span></h2>
+      <div class="table-scroll"><table>
+        {% for f in d.findings %}
+        <tr><td class="tag f-{{ f.status }}">{{ f.status }}</td><td class="mono">{{ f.rule_id }}</td><td>{{ f.detail }}</td></tr>
+        {% endfor %}
+      </table></div>
+    </div>
+    {% endif %}
+
+    {% if d.passages %}
+    <div class="card">
+      <h2 style="margin-top:0">What the agent looked up <span class="muted" style="font-weight:400">· this tenant only, manager-visible guidance only</span></h2>
+      {% for p in d.passages %}
+      <div class="passage">
+        <span class="cite">{{ p.passage_id }}</span>
+        <strong>{{ p.title }}</strong>
+        {% if rec and p.passage_id in rec.cited_passage_ids %}<span class="tag f-pass">cited</span>{% endif %}
+        <div class="muted" style="font-size:14px">{{ p.text }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div>
+    {% if d.can_decide %}
+    <div class="card">
+      <h2 style="margin-top:0">Your decision</h2>
+      <p class="muted" style="font-size:14px">You are {{ d.requester.legal_name }}'s direct manager. The agent's recommendation is advice; the decision is yours.</p>
+      <form class="stack" method="post" action="/requests/{{ r.request_id }}/decide">
+        <label>Note <textarea name="note" maxlength="500" placeholder="Optional: reasoning, conditions"></textarea></label>
+        <div class="actions">
+          <button class="ok" name="outcome" value="approved" type="submit">Approve</button>
+          <button class="bad" name="outcome" value="declined" type="submit">Decline</button>
+          <button name="outcome" value="returned" type="submit">Return</button>
+        </div>
+      </form>
+    </div>
+    {% elif r.status == 'pending' and me.worker_id != r.worker_id %}
+    <div class="card">
+      <h2 style="margin-top:0">Decision</h2>
+      <p class="muted">Waiting for {{ d.manager.legal_name if d.manager else 'the manager' }}. You can try to decide it, and the server will refuse unless you're the direct manager:</p>
+      <form method="post" action="/requests/{{ r.request_id }}/decide">
+        <input type="hidden" name="note" value="">
+        <button name="outcome" value="approved" type="submit">Try to approve as {{ me.name }}</button>
+      </form>
+    </div>
+    {% endif %}
+
+    {% if d.decision %}
+    <div class="card">
+      <h2 style="margin-top:0">Decision</h2>
+      <p><span class="status s-{{ d.decision.outcome }}">{{ d.decision.outcome }}</span> by <strong>{{ d.decision.decided_by }}</strong></p>
+      {% if d.decision.note %}<p class="muted">“{{ d.decision.note }}”</p>{% endif %}
+      {% if d.absence %}<p style="font-size:14px">Recorded as {{ '%g' % d.absence.paid_hours }}h paid {{ d.absence.plan }}{% if d.absence.unpaid_hours %} + <strong>{{ '%g' % d.absence.unpaid_hours }}h unpaid leave</strong> (balance can't go negative){% endif %}.</p>{% endif %}
+      {% if d.overrides %}<p class="tag f-warn">overrides the agent's recommendation ({{ rec.action }})</p>{% endif %}
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <h2 style="margin-top:0">Request</h2>
+      <dl class="kv">
+        <dt>Submitted</dt><dd>{{ r.submitted_at }} by {{ names.get(r.submitted_by, r.submitted_by) }}</dd>
+        <dt>Note</dt><dd>{{ r.note or '—' }}</dd>
+        <dt>Balance</dt><dd>{{ '%g' % d.requester.time_off_plans[r.plan].balance_hours }}h {{ r.plan }} now</dd>
+        <dt>Position</dt><dd>{{ d.requester.position }}</dd>
+      </dl>
+    </div>
+
+    {% if d.hr_only %}
+    <div class="card hr-only">
+      <h2 style="margin-top:0">HR-only guidance</h2>
+      <p class="muted" style="font-size:13px">Visible to HR. The agent reads as a manager, so it never retrieved this.</p>
+      {% for p in d.hr_only %}
+      <div class="passage"><span class="cite">{{ p.passage_id }}</span> <strong>{{ p.title }}</strong>
+        <div class="muted" style="font-size:14px">{{ p.text }}</div></div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if d.evidence %}
+<div class="card">
+  <h2 style="margin-top:0">Evidence trail
+    {% if d.chain_ok %}<span class="badge-ok">· chain verified</span>{% else %}<span class="badge-bad">· {{ d.chain_reason }}</span>{% endif %}
+  </h2>
+  <div class="table-scroll"><table class="trail">
+    <thead><tr><th>#</th><th>Actor</th><th>Step</th><th>Entry</th><th>Hash</th></tr></thead>
+    {% for e in d.evidence %}
+    <tr><td>{{ e.seq }}</td><td class="tag">{{ e.actor }}</td><td class="mono">{{ e.node }}</td><td>{{ e.summary }}</td>
+      <td class="mono muted">{{ e.hash[:12] }}…</td></tr>
+    {% endfor %}
+  </table></div>
+</div>
+{% endif %}
+{% endblock %}

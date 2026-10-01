@@ -7,6 +7,7 @@
     python -m hr_timeoff_agent rag-eval                # RAGAS over the retrieval step
     python -m hr_timeoff_agent report
     python -m hr_timeoff_agent e2e                     # self-test: every claim, pass/fail
+    python -m hr_timeoff_agent web                     # the app, at http://127.0.0.1:8000
 """
 
 from __future__ import annotations
@@ -214,6 +215,19 @@ def cmd_e2e(args) -> int:
     return 0 if not failed else 1
 
 
+def cmd_web(args) -> int:
+    try:
+        import uvicorn
+
+        from .web.app import create_app
+    except ImportError:
+        print("The web app needs the web extra:\n  ./.venv/bin/pip install -e '.[web]'")
+        return 2
+    print(f"\n  Time-off triage · http://{args.host}:{args.port}  (Ctrl-C to stop)\n")
+    uvicorn.run(create_app(), host=args.host, port=args.port, log_level="warning")
+    return 0
+
+
 def cmd_report(args) -> int:
     from .report import build
 
@@ -252,6 +266,11 @@ def main(argv: list[str] | None = None) -> int:
     g.set_defaults(func=cmd_rag_eval)
 
     sub.add_parser("report", help="build the HTML report").set_defaults(func=cmd_report)
+
+    w = sub.add_parser("web", help="run the web app locally")
+    w.add_argument("--host", default="127.0.0.1", help="interface to bind (local only by default)")
+    w.add_argument("--port", type=int, default=8000)
+    w.set_defaults(func=cmd_web)
 
     x = sub.add_parser("e2e", help="end-to-end self-test of every guarantee")
     x.add_argument("--require-live", action="store_true", help="fail if live checks cannot run")

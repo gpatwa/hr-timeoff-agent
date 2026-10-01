@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}New request{% endblock %}
+{% block body %}
+<h1>Request time off</h1>
+<p class="lede">The agent checks policy in code, looks up guidance and past decisions, and writes a recommendation for your manager. It cannot approve anything.</p>
+<div class="grid">
+  <div class="card">
+    <form class="stack" method="post" action="/requests">
+      <div class="row">
+        <label>Plan
+          <select name="plan">
+            {% for name, plan in worker.time_off_plans.items() %}
+            <option value="{{ name }}">{{ name }} · {{ '%g' % plan.balance_hours }}h left</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>First day <input type="date" name="start" required></label>
+        <label>Last day <input type="date" name="end" required></label>
+      </div>
+      <label>Hours <span class="muted" style="font-weight:400">Leave blank for 8 hours per working day.</span>
+        <input type="number" name="hours" min="1" step="0.5">
+      </label>
+      <label>Note for your manager <textarea name="note" maxlength="500" placeholder="Why, and anything they should know"></textarea></label>
+      <div class="actions"><button class="primary" type="submit">Submit for review</button></div>
+    </form>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0">What happens next</h2>
+    <ol class="muted" style="padding-left:18px;margin:0">
+      <li>Five policy rules run in code: balance, notice, restricted periods, team coverage, consecutive days.</li>
+      <li>The agent retrieves your company's handbook guidance and how similar requests were decided.</li>
+      <li>It writes a recommendation for your manager, citing what it relied on.</li>
+      <li>Only your direct manager can approve, decline or return it.</li>
+    </ol>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Time off{% endblock %} · Time-off triage</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <div class="banner">Synthetic data · tenant TEN-001 · the agent recommends; only a person's direct manager decides</div>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="/">Time-off triage</a>
+      {% if me %}
+      <nav class="main">
+        <a href="/requests?scope=mine" class="{{ 'on' if scope == 'mine' }}">My requests</a>
+        <a href="/requests/new">New request</a>
+        {% if me.is_manager %}<a href="/requests?scope=inbox" class="{{ 'on' if scope == 'inbox' }}">Team inbox</a>{% endif %}
+        {% if me.is_hr %}<a href="/requests?scope=all" class="{{ 'on' if scope == 'all' }}">All requests</a>{% endif %}
+        {% if me.is_admin %}<a href="/admin">Admin</a>{% endif %}
+      </nav>
+      <div class="who">
+        <span class="chip" title="Agent model · {{ live }}">{{ model }}{% if live != 'live' %} · replay{% endif %}</span>
+        <span><strong>{{ me.name }}</strong></span>
+        <form method="post" action="/signout"><button class="link" type="submit">Switch person</button></form>
+      </div>
+      {% endif %}
+    </div>
+  </header>
+  <main>
+    <div class="wrap">
+      {% if msg %}<div class="notice ok">{{ msg }}</div>{% endif %}
+      {% block body %}{% endblock %}
+    </div>
+  </main>
+  <footer><div class="wrap">Every step is recorded in a hash-chained evidence trail. Policy is evaluated in code; the model only writes a recommendation.</div></footer>
+</body>
+</html>

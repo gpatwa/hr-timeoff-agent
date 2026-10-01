@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Admin{% endblock %}
+{% block body %}
+<h1>Admin</h1>
+<p class="lede">Policy is data: changes apply to requests triaged from now on, with no code change. Requests already triaged keep the findings they were assessed against.</p>
+<div class="grid">
+  <div class="card">
+    <h2 style="margin-top:0">Policy <span class="muted mono" style="font-weight:400">{{ policy.policy_id }} · revision {{ policy.revision or 0 }}</span></h2>
+    <form class="stack" method="post" action="/admin/policy">
+      <div class="row">
+        <label>Notice for &gt;3 days (days)<input type="number" name="min_notice_days" min="0" max="365" value="{{ rules['NOT-01'].min_notice_days }}"></label>
+        <label>Coverage floor (%)<input type="number" name="min_available_pct" min="0" max="100" value="{{ rules['COV-01'].min_available_pct }}"></label>
+        <label>Consecutive-day ceiling<input type="number" name="max_consecutive_days" min="1" max="365" value="{{ rules['CON-01'].max_consecutive_days }}"></label>
+      </div>
+      <label>Restricted periods <span class="muted" style="font-weight:400">one per line: name | YYYY-MM-DD | YYYY-MM-DD</span>
+        <textarea name="blackouts" rows="4">{% for w in rules['BLK-01'].blackout_windows %}{{ w.name }} | {{ w['from'] }} | {{ w['to'] }}
+{% endfor %}</textarea></label>
+      <div class="actions"><button class="primary" type="submit">Save policy</button></div>
+    </form>
+  </div>
+  <div>
+    <div class="card">
+      <h2 style="margin-top:0">Model spend today</h2>
+      <p><strong>${{ '%.4f' % spend.today }}</strong> <span class="muted">of ${{ '%.2f' % spend.cap }} daily cap · {{ spend.per_hour }} live triages per person per hour</span></p>
+      {% if spend.recent %}
+      <div class="table-scroll"><table>
+        <thead><tr><th>When</th><th>Model</th><th>USD</th></tr></thead>
+        {% for s in spend.recent %}<tr><td class="mono">{{ s.at[11:19] }}</td><td class="mono">{{ s.model }}</td><td>{{ '%.4f' % s.usd }}</td></tr>{% endfor %}
+      </table></div>
+      {% else %}<p class="muted">No live model calls yet. Seeded requests replay from recordings at no cost.</p>{% endif %}
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0">Reset the tenant</h2>
+      <p class="muted">Restore the seeded synthetic data, balances, absences and policy; clear new requests and decisions. Use it before a demo.</p>
+      <form method="post" action="/admin/reset"><button class="bad" type="submit">Reset to seeded state</button></form>
+    </div>
+  </div>
+</div>
+{% endblock %}

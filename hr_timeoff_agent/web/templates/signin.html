@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block body %}
+<h1>Who are you?</h1>
+<p class="lede">Pick a person from the synthetic directory. Permissions follow the person: employees file requests, managers decide their direct reports' requests, HR sees everything and administers policy.</p>
+<div class="personas">
+  {% for p in personas %}
+  <form method="post" action="/signin">
+    <input type="hidden" name="worker_id" value="{{ p.worker_id }}">
+    <button class="persona card" type="submit">
+      <span class="n">{{ p.name }}</span>
+      <span class="p">{{ p.position }} · {{ p.org }}</span>
+      <span class="p">
+        {% if p.is_admin %}HR + admin{% elif p.is_manager %}Manager{% else %}Employee{% endif %}
+        · <span class="mono">{{ p.worker_id }}</span>
+      </span>
+    </button>
+  </form>
+  {% endfor %}
+</div>
+{% endblock %}

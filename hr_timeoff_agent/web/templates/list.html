@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{{ {'mine': 'My requests', 'inbox': 'Team inbox', 'all': 'All requests'}[scope] }}{% endblock %}
+{% block body %}
+<h1>{{ {'mine': 'My requests', 'inbox': 'Team inbox', 'all': 'All requests'}[scope] }}</h1>
+<p class="lede">
+  {% if scope == 'inbox' %}Requests from your direct reports. Open one to see the agent's recommendation and decide.
+  {% elif scope == 'all' %}Every request in the tenant, as HR sees it.
+  {% else %}Requests you have filed. <a href="/requests/new">File a new one</a>.{% endif %}
+</p>
+<div class="card">
+  {% if rows %}
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Request</th><th>Who</th><th>Dates</th><th>Hours</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td><a class="mono" href="/requests/{{ r.request_id }}">{{ r.request_id }}</a></td>
+        <td>{{ names.get(r.worker_id, r.worker_id) }}</td>
+        <td>{{ r['from'] }} → {{ r['to'] }}</td>
+        <td>{{ '%g' % r.hours }}h {{ r.plan }}</td>
+        <td><span class="status s-{{ r.status }}">{{ r.status.replace('_', ' ') }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted">Nothing here yet.</p>
+  {% endif %}
+</div>
+{% endblock %}
