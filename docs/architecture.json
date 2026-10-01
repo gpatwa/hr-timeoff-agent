@@ -2,14 +2,25 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "hr-timeoff-agent \u2014 component architecture",
+    "title": "hr-timeoff-agent \u2014 architecture",
     "output": "architecture.html",
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/gpatwa/hr-timeoff-agent",
-      "revision": "34c6972eb6fb817cae98ca683e1cc1b28db1b4fe"
+      "revision": "c51d19295c34975ff6b5ada9775ee65e760ad354"
     },
     "views": [
+      {
+        "id": "web-app",
+        "label": "Web app",
+        "focus": [
+          "web",
+          "workspace",
+          "checkpoint",
+          "gate"
+        ],
+        "note": "Permissions are checked in the workspace layer and again at the gate; a wrong approver is refused."
+      },
       {
         "id": "decision-path",
         "label": "Decision path",
@@ -34,17 +45,6 @@
           "evals"
         ],
         "note": "Hybrid search in Qdrant, filtered to the tenant and reader before ranking, and scored with RAGAS."
-      },
-      {
-        "id": "what-is-a-model",
-        "label": "Where the model runs",
-        "focus": [
-          "assess",
-          "judge",
-          "fixtures",
-          "context"
-        ],
-        "note": "Two model calls in the graph: the assessment and the judge. Retrieval embeds locally; no model call."
       },
       {
         "id": "audit",
@@ -76,10 +76,10 @@
       "type": "database",
       "label": "Tenant data",
       "sublabel": "workers \u00b7 policy \u00b7 handbook",
-      "tag": "static JSON \u2014 no retrieval layer",
+      "tag": "static JSON \u00b7 per-tenant",
       "pos": [
         40,
-        544
+        590
       ],
       "size": [
         170,
@@ -101,7 +101,7 @@
       "tag": "deterministic \u00b7 no model",
       "pos": [
         40,
-        240
+        340
       ],
       "size": [
         170,
@@ -110,7 +110,7 @@
       "sources": [
         {
           "path": "hr_timeoff_agent/policy.py",
-          "line": 192,
+          "line": 219,
           "label": "evaluate()"
         }
       ]
@@ -123,7 +123,7 @@
       "tag": "deterministic prompt",
       "pos": [
         560,
-        240
+        340
       ],
       "size": [
         170,
@@ -132,7 +132,7 @@
       "sources": [
         {
           "path": "hr_timeoff_agent/graph.py",
-          "line": 60,
+          "line": 61,
           "label": "build_assess_prompt"
         }
       ]
@@ -145,7 +145,7 @@
       "tag": "LLM \u00b7 advisory only",
       "pos": [
         820,
-        240
+        340
       ],
       "size": [
         180,
@@ -154,7 +154,7 @@
       "sources": [
         {
           "path": "hr_timeoff_agent/graph.py",
-          "line": 159,
+          "line": 160,
           "label": "assess node"
         }
       ]
@@ -163,11 +163,11 @@
       "id": "gate",
       "type": "security",
       "label": "Approval gate",
-      "sublabel": "interrupt() \u2014 execution halts",
+      "sublabel": "authorizes approver \u00b7 halts",
       "tag": "human-in-the-loop",
       "pos": [
         1090,
-        240
+        340
       ],
       "size": [
         180,
@@ -176,8 +176,13 @@
       "sources": [
         {
           "path": "hr_timeoff_agent/graph.py",
-          "line": 179,
+          "line": 180,
           "label": "approval_gate"
+        },
+        {
+          "path": "hr_timeoff_agent/policy.py",
+          "line": 62,
+          "label": "authorize_approver"
         }
       ]
     },
@@ -185,11 +190,11 @@
       "id": "record",
       "type": "backend",
       "label": "Recorder",
-      "sublabel": "asserts a human actor",
+      "sublabel": "re-checks approver + chain",
       "tag": "fail-closed",
       "pos": [
         1105,
-        392
+        465
       ],
       "size": [
         150,
@@ -198,7 +203,7 @@
       "sources": [
         {
           "path": "hr_timeoff_agent/graph.py",
-          "line": 217,
+          "line": 243,
           "label": "record node"
         }
       ]
@@ -207,11 +212,11 @@
       "id": "checkpoint",
       "type": "database",
       "label": "Graph state",
-      "sublabel": "InMemorySaver checkpointer",
+      "sublabel": "InMemory \u00b7 SQLite in the web app",
       "tag": "makes resume possible",
       "pos": [
         1090,
-        90
+        215
       ],
       "size": [
         180,
@@ -220,7 +225,7 @@
       "sources": [
         {
           "path": "hr_timeoff_agent/graph.py",
-          "line": 264,
+          "line": 298,
           "label": "compile(checkpointer=\u2026)"
         }
       ]
@@ -233,7 +238,7 @@
       "tag": "content-addressed \u00b7 offline",
       "pos": [
         820,
-        90
+        215
       ],
       "size": [
         180,
@@ -242,7 +247,7 @@
       "sources": [
         {
           "path": "hr_timeoff_agent/llm.py",
-          "line": 63,
+          "line": 105,
           "label": "structured()"
         }
       ]
@@ -255,7 +260,7 @@
       "tag": "append-only \u00b7 SHA-256 chain",
       "pos": [
         1070,
-        544
+        590
       ],
       "size": [
         220,
@@ -277,7 +282,7 @@
       "tag": "2 assertions + 3 judged criteria",
       "pos": [
         300,
-        544
+        590
       ],
       "size": [
         200,
@@ -286,7 +291,7 @@
       "sources": [
         {
           "path": "hr_timeoff_agent/evals.py",
-          "line": 104,
+          "line": 110,
           "label": "run_all"
         },
         {
@@ -304,7 +309,7 @@
       "tag": "LLM \u00b7 grades quality, not agreement",
       "pos": [
         570,
-        544
+        590
       ],
       "size": [
         220,
@@ -325,7 +330,7 @@
       "sublabel": "dense + BM25 \u00b7 RRF",
       "pos": [
         300,
-        240
+        340
       ],
       "size": [
         170,
@@ -334,12 +339,12 @@
       "sources": [
         {
           "path": "hr_timeoff_agent/graph.py",
-          "line": 135,
+          "line": 136,
           "label": "retrieve node"
         },
         {
           "path": "hr_timeoff_agent/retrieval.py",
-          "line": 176,
+          "line": 180,
           "label": "filtered hybrid query"
         }
       ]
@@ -351,7 +356,7 @@
       "sublabel": "handbook + precedents",
       "pos": [
         300,
-        90
+        215
       ],
       "size": [
         170,
@@ -360,8 +365,57 @@
       "sources": [
         {
           "path": "hr_timeoff_agent/retrieval.py",
-          "line": 135,
+          "line": 139,
           "label": "PolicyIndex"
+        }
+      ]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "Web app",
+      "sublabel": "FastAPI \u00b7 signed persona",
+      "tag": "server-rendered \u00b7 thin routes",
+      "pos": [
+        800,
+        90
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/web/app.py",
+          "line": 30,
+          "label": "create_app"
+        },
+        {
+          "path": "hr_timeoff_agent/web/identity.py",
+          "line": 32,
+          "label": "PersonaSwitcher"
+        }
+      ]
+    },
+    {
+      "id": "workspace",
+      "type": "backend",
+      "label": "Workspace layer",
+      "sublabel": "who may see, decide, edit",
+      "tag": "authz \u00b7 spend cap \u00b7 SQLite",
+      "pos": [
+        1070,
+        90
+      ],
+      "size": [
+        220,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/web/workspace.py",
+          "line": 86,
+          "label": "Workspace"
         }
       ]
     }
@@ -385,6 +439,14 @@
       "wraps": [
         "gate",
         "record"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Customer web app",
+      "wraps": [
+        "web",
+        "workspace"
       ]
     }
   ],
@@ -436,7 +498,10 @@
       "label": "suspend \u00b7 resume",
       "fromSide": "bottom",
       "toSide": "top",
-      "labelDy": 50
+      "labelAt": [
+        1180,
+        296
+      ]
     },
     {
       "id": "decision",
@@ -447,8 +512,8 @@
       "fromSide": "bottom",
       "toSide": "top",
       "labelAt": [
-        1180,
-        358
+        1250,
+        434
       ]
     },
     {
@@ -470,7 +535,7 @@
       "toSide": "top",
       "labelAt": [
         1180,
-        500
+        560
       ]
     },
     {
@@ -507,6 +572,22 @@
       "label": "RAGAS",
       "fromSide": "top",
       "toSide": "bottom"
+    },
+    {
+      "id": "http",
+      "from": "web",
+      "to": "workspace",
+      "label": "action"
+    },
+    {
+      "id": "resume",
+      "from": "workspace",
+      "to": "checkpoint",
+      "label": "resume a paused run",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 50
     }
   ],
   "cards": [
@@ -524,16 +605,16 @@
       "title": "Where a model actually runs",
       "items": [
         "Two calls in the graph: the assessment and the judge",
-        "Retrieval embeds locally into Qdrant, filtered by tenant before ranking",
-        "Model calls and embeddings are both fixture-backed"
+        "Retrieval embeds locally; Qdrant filters by tenant first",
+        "Calls and embeddings are fixture-backed; live ones are capped"
       ]
     },
     {
       "dot": "rose",
-      "title": "Human authority, and the record of it",
+      "title": "Human authority and its record",
       "items": [
-        "approval_gate suspends the graph until a decision is supplied",
-        "Decision.actor_type is pinned to human at the type level",
+        "Only the employee's manager can approve; never themselves",
+        "Gate suspends the graph; SQLite keeps it across restarts",
         "The hash chain keeps an override visible: agent said X, human chose Y"
       ]
     }
