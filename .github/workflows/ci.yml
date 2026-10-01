@@ -34,6 +34,9 @@ jobs:
       - name: Retrieval isolation (tenant and audience filtered before ranking)
         run: python tests/test_retrieval.py
 
+      - name: Recording backend (claude-cli, with the subprocess faked)
+        run: python tests/test_llm.py
+
       - name: Graded eval (fails if any action mismatches or the agent self-approves)
         run: python -m hr_timeoff_agent eval
 

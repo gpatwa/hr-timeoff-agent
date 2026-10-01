@@ -58,22 +58,27 @@ def test_graph_halts_before_deciding():
 
 
 def test_human_can_override_the_recommendation():
-    """The human is the decider, not a rubber stamp for the agent."""
-    app, request = _app_and_request("REQ-2004")  # agent recommends decline
+    """The human is the decider, not a rubber stamp for the agent.
+
+    Whatever the agent recommends, the manager chooses something else, and the
+    trail shows both. (Does not depend on which action a given model picks.)
+    """
+    app, request = _app_and_request("REQ-2004")
     cfg = {"configurable": {"thread_id": "t-override"}}
     state = app.invoke(graph_mod.initial_state(request), config=cfg)
-    assert state["recommendation"]["action"] == "decline"
+    recommended = state["recommendation"]["action"]
+    outcome = "declined" if recommended == "approve" else "approved"
 
     final = app.invoke(
-        Command(resume={"outcome": "approved", "decided_by_id": AIKO, "note": "Unpaid leave agreed."}),
+        Command(resume={"outcome": outcome, "decided_by_id": AIKO, "note": "Manager's call."}),
         config=cfg,
     )
-    assert final["decision"]["outcome"] == "approved"
+    assert final["decision"]["outcome"] == outcome
     assert final["decision"]["decided_by"] == "Aiko Tanaka", "the name comes from the directory"
 
     overrides = [
         e for e in final["evidence"]
-        if e["actor"] == "human" and "recommended decline" in e["summary"]
+        if e["actor"] == "human" and f"recommended {recommended}" in e["summary"]
     ]
     assert overrides, "the override should be visible in the evidence trail"
 

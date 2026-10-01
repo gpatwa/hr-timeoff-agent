@@ -72,3 +72,13 @@ This is recorded as an addendum rather than an edit so the original wording
 stays visible. Retrieval quality itself (did we fetch the right passages, is
 every claim faithful to them) is measured separately with RAGAS; see
 `evals/rag_cases.json`.
+
+## Addendum, 2026-09-30: the judge sees what the agent saw
+
+On the first run against the real model, the judge marked claims as
+unsupported that came straight from the request the agent was given (the
+worker's note, the start date), because the judge prompt only carried findings
+and passages. The judge now receives the agent's input verbatim. For
+`rationale_grounded`, a claim may trace to the request, the worker, a finding or
+a retrieved passage. Arithmetic on stated figures is grounded; an assumption the
+inputs do not state — a conversion factor, a reason, a date — is not.

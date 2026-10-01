@@ -1,22 +1,39 @@
 [
   {
-    "case_id": "EV-01", "request_id": "REQ-2001", "expected_action": "approve",
+    "case_id": "EV-01",
+    "request_id": "REQ-2001",
+    "expected_action": "approve",
     "notes": "Clean path. Every rule passes; the agent should not manufacture a concern."
   },
   {
-    "case_id": "EV-02", "request_id": "REQ-2002", "expected_action": "escalate",
+    "case_id": "EV-02",
+    "request_id": "REQ-2002",
+    "expected_action": "escalate",
     "notes": "Blocking blackout failure, but a wedding is a plausible exception. Decline would be too blunt."
   },
   {
-    "case_id": "EV-03", "request_id": "REQ-2003", "expected_action": "escalate",
+    "case_id": "EV-03",
+    "request_id": "REQ-2003",
+    "expected_action": "escalate",
     "notes": "Blackout plus a coverage warning. Tests whether both are surfaced, not just the first."
   },
   {
-    "case_id": "EV-04", "request_id": "REQ-2004", "expected_action": "decline",
-    "notes": "80-hour shortfall with no accrual remedy. Escalating this would push a non-decision to a human."
+    "case_id": "EV-04",
+    "request_id": "REQ-2004",
+    "expected_action": "escalate",
+    "notes": "80-hour shortfall. Retrieval surfaces a remedy a human must weigh: approve the 40 paid hours and agree the rest as unpaid leave with the HR Partner (HB-3.1), and the 19-day span is HR Partner review anyway (HB-7.1). Declining outright would skip a decision that belongs to people.",
+    "relabeled": {
+      "on": "2026-09-30",
+      "from": "decline",
+      "to": "escalate",
+      "by": "Gopal Patwa",
+      "why": "The decline label was written before retrieval existed, when no remedy was in the agent's inputs. Retrieval added HB-3.1 and HB-7.1. Relabeled after the first real Opus 5.5 run escalated; recorded here so the change is visible rather than silent."
+    }
   },
   {
-    "case_id": "EV-05", "request_id": "REQ-2005", "expected_action": "escalate",
+    "case_id": "EV-05",
+    "request_id": "REQ-2005",
+    "expected_action": "escalate",
     "notes": "No blocking failure at all, but coverage hits zero. Tests that advisory findings are not waved through."
   }
 ]
