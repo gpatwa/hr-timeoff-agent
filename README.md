@@ -108,7 +108,9 @@ and 3.12, fully offline from the committed fixtures, then `e2e`. The RAGAS step
 gates each metric separately, with floors just under the committed baseline. A
 separate `live` job runs `e2e --require-live` against the real API; it is manual
 only (Actions → CI → Run workflow) and needs an `ANTHROPIC_API_KEY` repository
-secret.
+secret. Its first run passed all 11 checks, including a real agent call through
+the API (served by `claude-opus-5-5`, paused for a human) and the model-graded
+RAGAS metrics.
 
 ## Evidence trail
 
@@ -218,8 +220,17 @@ The ID-based metrics need no model and run offline. With `ANTHROPIC_API_KEY`
 set, RAGAS also scores **faithfulness** (is every claim in the rationale
 supported by what the agent was given) and **context recall** against the
 reference answer, graded by `claude-sonnet-5` so the grader is not the agent's
-model. Those two have not been run yet: they call the API directly and need
-`ANTHROPIC_API_KEY`.
+model. They call the API directly, so they need `ANTHROPIC_API_KEY`. First live
+run, 2026-10-01 ([CI run 36826341416](https://github.com/gpatwa/hr-timeoff-agent/actions/runs/36826341416)):
+
+```
+faithfulness     0.778   about 1 claim in 5 is not directly supported by the agent's inputs
+context_recall   0.9     retrieval covers most of what the reference answers need
+```
+
+Faithfulness agrees with the judge: the unsupported claims are the same
+assumptions it marked down (an assumed current date, an assumed 8-hour day).
+Five cases, so read these as a demo-scale measurement, not a benchmark.
 
 What the numbers say: recall is high, precision is low on the easy case. A
 fixed five results is wasteful when every rule passes (EV-01 needs one), and
