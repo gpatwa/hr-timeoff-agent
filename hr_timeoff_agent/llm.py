@@ -38,12 +38,13 @@ FIXTURES = Path(
     or Path(__file__).resolve().parent.parent / "fixtures" / "llm_cache.json"
 )
 
-# Claude Opus 5.5 always thinks adaptively; effort is the only control, and its
-# default is "medium", so we set it explicitly below.
-AGENT_MODEL = os.environ.get("HR_AGENT_MODEL", "claude-opus-5-5")
+# The agent runs on Sonnet 5.5: the production tier, at half Opus 5.5's price
+# ($2/$10 vs $4/$20 per MTok). Effort is set explicitly below rather than left
+# to the model's default.
+AGENT_MODEL = os.environ.get("HR_AGENT_MODEL", "claude-sonnet-5-5")
 
-# Kept separate so the judge is never the same instance being graded. Point this
-# at a different model to guarantee nothing marks its own homework.
+# The judge is deliberately a different, stronger model than the agent, so
+# nothing grades its own output.
 JUDGE_MODEL = os.environ.get("HR_AGENT_JUDGE_MODEL", "claude-opus-5-5")
 
 EFFORT = os.environ.get("HR_AGENT_EFFORT", "medium")
