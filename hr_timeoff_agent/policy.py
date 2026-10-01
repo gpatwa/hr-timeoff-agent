@@ -51,6 +51,33 @@ class Tenant:
     def org_members(self, org_id: str) -> list[dict]:
         return [w for w in self.workers.values() if w["supervisory_org_id"] == org_id]
 
+    def find_worker(self, id_or_name: str) -> dict | None:
+        """Look up by worker id, or by exact legal name if it is unique."""
+        if id_or_name in self.workers:
+            return self.workers[id_or_name]
+        matches = [w for w in self.workers.values() if w["legal_name"] == id_or_name]
+        return matches[0] if len(matches) == 1 else None
+
+
+def authorize_approver(tenant: Tenant, worker: dict, approver_id: str | None) -> tuple[bool, str]:
+    """Deterministic check of who may decide a request, from policy data.
+
+    Like the policy rules, this is never delegated to the model. The approver's
+    identity is a worker id from the directory, not a free-text name.
+    """
+    rule = tenant.policy["approval"]
+    approver = tenant.workers.get(approver_id or "")
+    if approver is None:
+        return False, f"{approver_id!r} is not a worker in tenant {tenant.tenant_id}."
+    if approver_id == worker["worker_id"] and not rule["allow_self_approval"]:
+        return False, f"{approver['legal_name']} cannot decide their own request."
+    if rule["approver"] == "direct_manager" and worker["manager_id"] != approver_id:
+        return False, (
+            f"{approver['legal_name']} ({approver_id}) is not {worker['legal_name']}'s "
+            f"direct manager ({worker['manager_id']})."
+        )
+    return True, f"{approver['legal_name']} is {worker['legal_name']}'s direct manager."
+
 
 def _finding(rule: dict, status: str, detail: str, evidence: dict) -> Finding:
     return Finding(

@@ -3,6 +3,11 @@
   "policy_id": "TIMEOFF-US-2026.2",
   "effective_from": "2026-01-01",
   "effective_to": null,
+  "approval": {
+    "approver": "direct_manager",
+    "allow_self_approval": false,
+    "text": "A time off request is decided by the requester's direct manager. Nobody may decide their own request."
+  },
   "rules": [
     {
       "id": "BAL-01",

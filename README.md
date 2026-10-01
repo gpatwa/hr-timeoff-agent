@@ -61,7 +61,24 @@ autonomous approval:
 3. **The recorder re-checks.** `record` asserts the decision names a human
    approver and re-verifies the evidence chain before committing.
 
-`tests/test_guarantees.py` tests all three, plus the case that matters most:
+A human decision is not enough on its own: it has to be the *right* human. The
+approval rule lives in `data/policy.json` (`"approver": "direct_manager"`, no
+self-approval) and is checked deterministically, twice — at the gate and again
+in `record`. The approver is a worker id from the directory; the name on the
+decision comes from the directory, not from whatever was typed. An unauthorized
+resume does not fail the run: the gate pauses again with the reason, the
+refused attempt goes into the evidence trail, and the real manager can still
+decide.
+
+```
+$ run REQ-2001 --approve --as "Marcus Vogel"
+  REFUSED  Approval refused: Marcus Vogel (W-100235) is not Priya Raman's direct manager (W-100001).
+  Nothing was recorded; the request is still awaiting Dana Whitfield.
+```
+
+`tests/test_guarantees.py` tests all of this — a peer, a self-approval and an
+unknown id are refused, the recorder rejects an unauthorized decision and a
+tampered chain on its own — plus the case that matters most:
 
 ```bash
 ./.venv/bin/python tests/test_guarantees.py

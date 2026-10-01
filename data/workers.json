@@ -23,7 +23,7 @@
   {
     "worker_id": "W-100237", "legal_name": "Samuel Ortiz",
     "position": "Software Engineer", "supervisory_org_id": "SO-LED-02",
-    "supervisory_org": "Ledger Services", "manager_id": "W-100002",
+    "supervisory_org": "Ledger Services", "manager_id": "W-100236",
     "hire_date": "2025-06-02", "location": "Austin, TX",
     "time_off_plans": {"PTO": {"balance_hours": 40.0}, "SICK": {"balance_hours": 24.0}}
   },
@@ -40,5 +40,19 @@
     "supervisory_org": "Payments Platform", "manager_id": "W-100001",
     "hire_date": "2021-05-17", "location": "Remote, WA",
     "time_off_plans": {"PTO": {"balance_hours": 64.0}, "SICK": {"balance_hours": 40.0}}
+  },
+  {
+    "worker_id": "W-100001", "legal_name": "Dana Whitfield",
+    "position": "Engineering Manager, Payments Platform", "supervisory_org_id": "SO-ENG-00",
+    "supervisory_org": "Engineering Leadership", "manager_id": "W-100002",
+    "hire_date": "2018-04-02", "location": "Pleasanton, CA",
+    "time_off_plans": {"PTO": {"balance_hours": 128.0}, "SICK": {"balance_hours": 40.0}}
+  },
+  {
+    "worker_id": "W-100002", "legal_name": "Rohan Mehta",
+    "position": "Director of Engineering", "supervisory_org_id": "SO-ENG-00",
+    "supervisory_org": "Engineering Leadership", "manager_id": null,
+    "hire_date": "2016-09-12", "location": "Pleasanton, CA",
+    "time_off_plans": {"PTO": {"balance_hours": 160.0}, "SICK": {"balance_hours": 40.0}}
   }
 ]
