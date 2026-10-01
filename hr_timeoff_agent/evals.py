@@ -22,9 +22,11 @@ JUDGE_SYSTEM = """You are grading the quality of a recommendation written for a 
 manager reviewing a time off request. Apply the rubric literally and score each \
 criterion 0-3.
 
-You are given the deterministic policy findings and the retrieved handbook \
-passages and past decisions the recommendation was based on. A claim is \
-"grounded" only if it traces to one of those findings or passages.
+You are given exactly what the agent was given — the request, the worker, the \
+deterministic policy findings, and the retrieved handbook passages and past \
+decisions — followed by its recommendation. A claim is "grounded" only if it \
+traces to something in those inputs. Arithmetic on stated figures is grounded; \
+an assumption the inputs do not state (a conversion factor, a reason, a date) is not.
 
 You are NOT told which action was expected. Do not reward or penalise the chosen \
 action itself — grade how well the reasoning is supported, cited, and written.
@@ -41,15 +43,19 @@ def _cases() -> list[dict]:
     return json.loads((EVAL_DIR / "cases.json").read_text())
 
 
-def build_judge_prompt(findings: list[Finding], passages: list[Passage], rec: Recommendation) -> str:
-    lines = ["RUBRIC", _rubric_text(), "", "POLICY FINDINGS"]
-    for f in findings:
-        lines.append(f"  [{f.rule_id}] {f.rule_name} — {f.status.upper()} ({f.severity})")
-        lines.append(f"      {f.detail}")
-    lines += ["", "RETRIEVED PASSAGES"]
-    for p in passages:
-        lines.append(f"  [{p.passage_id}] ({p.kind}) {p.title}")
-        lines.append(f"      {p.text}")
+def build_judge_prompt(
+    request: dict, worker: dict, findings: list[Finding], passages: list[Passage], rec: Recommendation
+) -> str:
+    """The judge sees the agent's own input verbatim, so it can't mark a claim
+    unsupported when the agent was in fact given it (the first real run did)."""
+    lines = [
+        "RUBRIC",
+        _rubric_text(),
+        "",
+        "=== WHAT THE AGENT WAS GIVEN (verbatim) ===",
+        graph_mod.build_assess_prompt(request, worker, findings, passages),
+        "=== END OF AGENT INPUT ===",
+    ]
     lines += [
         "",
         "RECOMMENDATION UNDER REVIEW",
@@ -92,7 +98,7 @@ def run_case(tenant: policy.Tenant, case: dict, *, record: bool = False) -> Case
     passages = [Passage.model_validate(p) for p in state["passages"]]
     result.scores = structured(
         system=JUDGE_SYSTEM,
-        user=build_judge_prompt(findings, passages, rec),
+        user=build_judge_prompt(request, state["worker"], findings, passages, rec),
         schema=JudgeScore,
         model=JUDGE_MODEL,
         record=record,

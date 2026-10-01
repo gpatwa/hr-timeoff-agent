@@ -6,29 +6,37 @@
       "action": "escalate",
       "cited_passage_ids": [
         "HB-4.1",
+        "HB-4.2",
+        "HB-6.1",
         "P-102"
       ],
       "cited_rule_ids": [
         "BLK-01",
         "COV-01"
       ],
-      "confidence": "high",
-      "rationale": "Two issues compound. The window overlaps fiscal year-end close, where HB-4.1 says routine vacation is normally declined or moved, and Ledger Services drops to 50 percent coverage on 28 December. Notice is not a factor at 98 days; a similar year-end request (P-102) was returned with a suggestion to move it to January, which is the likely path here."
+      "confidence": "medium",
+      "rationale": "The window overlaps fiscal year-end close (BLK-01), so it needs an approved exception. HB-4.1 normally declines or moves routine vacation like this, and coverage would also fall to 50% on 12-28 (COV-01). P-102, a near-identical Ledger Services request, was returned and moved to the second week of January. With 98 days' notice, the likely path is to ask the employee to move the trip past 2027-01-06. Pursue an exception only if there's a major life event behind it: that needs sign-off from both the manager and the Finance close lead, with a named backup and handoff date recorded first (HB-4.2), plus a documented coverage plan (HB-6.1)."
     },
     "schema": "Recommendation",
-    "source": "authored-stub"
+    "served_by": [
+      "claude-opus-5-5"
+    ],
+    "source": "claude-code-cli"
   },
-  "1377222243bd4b317fdca68c": {
-    "label": "judge:EV-01",
+  "0e4fc7556f1962c94b70aba6": {
+    "label": "judge:EV-02",
     "model": "claude-opus-5-5",
     "response": {
-      "citations_correct": 2,
-      "justification": "Claims all five checks pass but cites only three; BLK-01 and CON-01 are load-bearing for that claim and are left uncited.",
-      "rationale_grounded": 3,
-      "tone_appropriate": 3
+      "citations_correct": 3,
+      "justification": "The claim that the window has already started and close is in progress assumes a current date that the agent's inputs never state. The request was submitted 2026-09-21, before the 09-24 start, so this is an unsupported date assumption, although every other claim traces to BLK-01, NOT-01, HB-4.1/4.2/5.1, P-101 or the worker's note. Every cited id carries weight with nothing missing or decorative, but the rationale runs to five sentences, over the 2\u20134 target, though it does name the restricted-period obstacle first.",
+      "rationale_grounded": 1,
+      "tone_appropriate": 2
     },
     "schema": "JudgeScore",
-    "source": "authored-stub"
+    "served_by": [
+      "claude-opus-5-5"
+    ],
+    "source": "claude-code-cli"
   },
   "13f1ef20296ee37703dbf5b2": {
     "label": "assess:REQ-2001",
@@ -41,13 +49,18 @@
       "cited_rule_ids": [
         "BAL-01",
         "NOT-01",
-        "COV-01"
+        "BLK-01",
+        "COV-01",
+        "CON-01"
       ],
       "confidence": "high",
-      "rationale": "All five checks pass. The 40 hours sit well inside Priya's 96-hour PTO balance, 42 days of notice is ample for a five-day absence, and Payments Platform still holds 75 percent coverage on the tightest day. This is the same routine case as P-108 and needs nothing beyond your sign-off."
+      "rationale": "All five findings pass, with nothing advisory to weigh. After this request 56h of PTO remains, notice is 42 days, the window misses any restricted period, and team coverage stays at 75% on the tightest day, above the 60% floor. This is the same kind of routine week-long request that was approved in P-108."
     },
     "schema": "Recommendation",
-    "source": "authored-stub"
+    "served_by": [
+      "claude-opus-5-5"
+    ],
+    "source": "claude-code-cli"
   },
   "226640abe8ab68de806fb2bc": {
     "label": "assess:REQ-2002",
@@ -65,22 +78,43 @@
         "NOT-01"
       ],
       "confidence": "high",
-      "rationale": "The window runs into Q3 revenue close from 28 September, a blocking restriction, so it needs a close-window exception before it can be granted. A wedding is the kind of life event HB-4.1 says exceptions are usually granted for, provided close tasks go to a named backup and the close lead also signs off (HB-4.2); P-101 was approved on exactly that basis. The three days' notice can be accepted for a life event (HB-5.1)."
+      "rationale": "BLK-01 fails because the request overlaps Q3 revenue close (Sep 28\u2013Oct 3). A sister's wedding is the kind of major life event that usually gets a close-window exception under HB-4.1, and P-101 approved a similar Payments Platform wedding request once close tasks went to a named backup. To grant it, you and the Finance close lead both need to approve, with the backup's name and handoff date recorded in the request comments (HB-4.2). Note that the window already started on Sep 24 and close is in progress, so confirm a handoff happened or can happen now. The 3-day notice (NOT-01) is short, but HB-5.1 lets you accept that when the dates were outside the employee's control."
     },
     "schema": "Recommendation",
-    "source": "authored-stub"
+    "served_by": [
+      "claude-opus-5-5"
+    ],
+    "source": "claude-code-cli"
   },
-  "3ca36500daaa4a24da93bd5d": {
+  "3b4929fbcad8619875986f67": {
+    "label": "judge:EV-05",
+    "model": "claude-opus-5-5",
+    "response": {
+      "citations_correct": 3,
+      "justification": "Grounding loses one mark because the rationale says \"all 4 of 4 Payments Platform engineers,\" but COV-01 only says \"4 of 4 out in Payments Platform\" and never gives their roles. Every other claim, and every cited id (COV-01, BAL-01/BLK-01 for \"all blocking rules pass,\" HB-6.1, P-105, P-106), matches the inputs, and the four sentences name the 0% coverage obstacle and give two concrete next steps.",
+      "rationale_grounded": 2,
+      "tone_appropriate": 3
+    },
+    "schema": "JudgeScore",
+    "served_by": [
+      "claude-opus-5-5"
+    ],
+    "source": "claude-code-cli"
+  },
+  "59c916b543f95c0337239466": {
     "label": "judge:EV-04",
     "model": "claude-opus-5-5",
     "response": {
       "citations_correct": 3,
-      "justification": "The accrual claim is now supported by HB-2.1 and every remedy is cited, but three options in one long sentence bury the recommendation for a busy manager.",
-      "rationale_grounded": 3,
+      "justification": "The '80h (about 10 working days)' conversion assumes an 8-hour day that the inputs never state. That figure supports the 'more than five working days' trigger. It can be worked out (120h across the 15 weekdays in the window), but the rationale doesn't show that. Every cited rule and passage is used, including HB-2.1 for 'can't be advanced' and P-107, but the rationale runs to five sentences, over the two-to-four target.",
+      "rationale_grounded": 2,
       "tone_appropriate": 2
     },
     "schema": "JudgeScore",
-    "source": "authored-stub"
+    "served_by": [
+      "claude-opus-5-5"
+    ],
+    "source": "claude-code-cli"
   },
   "5fbf4dd19483bdfa61ebc5e4": {
     "label": "assess:REQ-2005",
@@ -93,69 +127,72 @@
         "P-106"
       ],
       "cited_rule_ids": [
-        "COV-01"
+        "COV-01",
+        "BAL-01",
+        "BLK-01"
       ],
-      "confidence": "medium",
-      "rationale": "Balance, notice and the close calendar are all clear, but Payments Platform would have nobody available on 18 November \u2014 all four members out. HB-6.1 says to arrange on-call cover from an adjacent team before approving, or ask Priya to move the dates; both have worked before (P-105, P-106)."
+      "confidence": "high",
+      "rationale": "All blocking rules pass, but on 2026-11-18 all 4 of 4 Payments Platform engineers would be out, so team coverage drops to 0% (COV-01). Under HB-6.1, when nobody on the team is available you need to arrange on-call cover from an adjacent team before approving. In P-105, a similar four-day Payments request was approved once Ledger Services on-call agreed to cover. If you can't get cover, you can ask the employee to move the dates instead, as in P-106."
     },
     "schema": "Recommendation",
-    "source": "authored-stub"
-  },
-  "71598c44b81e675d229b37ae": {
-    "label": "judge:EV-03",
-    "model": "claude-opus-5-5",
-    "response": {
-      "citations_correct": 2,
-      "justification": "Both findings and the precedent are grounded, but the notice point is argued without citing NOT-01.",
-      "rationale_grounded": 3,
-      "tone_appropriate": 3
-    },
-    "schema": "JudgeScore",
-    "source": "authored-stub"
+    "served_by": [
+      "claude-opus-5-5"
+    ],
+    "source": "claude-code-cli"
   },
   "7940286c6dc36ff34e4c234d": {
     "label": "assess:REQ-2004",
     "model": "claude-opus-5-5",
     "response": {
-      "action": "decline",
+      "action": "escalate",
       "cited_passage_ids": [
-        "HB-2.1",
         "HB-3.1",
         "HB-7.1",
-        "P-104"
+        "HB-2.1",
+        "P-107"
       ],
       "cited_rule_ids": [
         "BAL-01",
-        "CON-01"
+        "CON-01",
+        "COV-01"
       ],
       "confidence": "high",
-      "rationale": "This is 120 hours against a 40-hour balance, and at 6.67 hours a month (HB-2.1) accrual cannot close an 80-hour gap before 19 October. HB-3.1 rules out approving it as fully paid, but you could approve the 40 paid hours and agree the rest as unpaid leave with the HR Partner, who reviews a 19-day span anyway (HB-7.1). As submitted, it should be declined, as P-104 was."
+      "rationale": "The request can't be approved as fully paid because it is 80h (about 10 working days) over the 40h PTO balance, and PTO can't be advanced. One option is to approve 40h as paid and the rest as unpaid leave. Because the unpaid part is more than five working days, an HR Partner would have to agree to it. The 19-day stretch also goes over the 15-day ceiling, which already sends the request to an HR Partner, so they can decide whether a formal leave of absence fits better, as happened in P-107. Before agreeing to a split, check the coverage warning: Ledger Services drops to 50% on 2026-10-19."
     },
     "schema": "Recommendation",
-    "source": "authored-stub"
+    "served_by": [
+      "claude-opus-5-5"
+    ],
+    "source": "claude-code-cli"
   },
-  "aa4a532e16d3252a99b47a50": {
-    "label": "judge:EV-02",
+  "aec0c758f5c469b018281e42": {
+    "label": "judge:EV-03",
+    "model": "claude-opus-5-5",
+    "response": {
+      "citations_correct": 2,
+      "justification": "Every claim in the rationale traces to the inputs: the overlap with year-end close and the 2027-01-06 end date (BLK-01), 50% coverage on 12-28 (COV-01), the outcome of P-102, and the two-party sign-off (HB-4.2). However, it uses the 98 days' notice from NOT-01 to argue for moving the trip without citing NOT-01, and at five sentences with a long final sentence it runs past the 2\u20134 sentence target.",
+      "rationale_grounded": 3,
+      "tone_appropriate": 2
+    },
+    "schema": "JudgeScore",
+    "served_by": [
+      "claude-opus-5-5"
+    ],
+    "source": "claude-code-cli"
+  },
+  "f29558fd878c9eb4b931b77e": {
+    "label": "judge:EV-01",
     "model": "claude-opus-5-5",
     "response": {
       "citations_correct": 3,
-      "justification": "Leads with the blocking obstacle, then gives the manager the exception route and a matching precedent, citing exactly the rules and passages it uses.",
+      "justification": "Every claim is grounded: the 56h remaining is arithmetic on the stated 96h balance and 40h request, and the 42 days of notice, restricted-period pass, 75%/60% coverage and P-108 precedent all appear in the inputs. The five cited rules support the 'all five pass' argument, P-108 is the one precedent relied on, and the three sentences are specific and useful for the decision without restating the request.",
       "rationale_grounded": 3,
       "tone_appropriate": 3
     },
     "schema": "JudgeScore",
-    "source": "authored-stub"
-  },
-  "d08b411a54521bdf6182500b": {
-    "label": "judge:EV-05",
-    "model": "claude-opus-5-5",
-    "response": {
-      "citations_correct": 3,
-      "justification": "Separates a coverage judgement from a policy breach and names two concrete remedies with the guidance and precedents behind them.",
-      "rationale_grounded": 3,
-      "tone_appropriate": 3
-    },
-    "schema": "JudgeScore",
-    "source": "authored-stub"
+    "served_by": [
+      "claude-opus-5-5"
+    ],
+    "source": "claude-code-cli"
   }
 }

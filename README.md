@@ -39,7 +39,8 @@ python -m venv .venv && ./.venv/bin/pip install -e .
 `run REQ-2004` with no decision flag stops at the approval gate and commits
 nothing. That is the whole point — there is no flag that makes the agent decide.
 
-To use the live API instead of fixtures:
+To call the model live instead of replaying fixtures (only uncached calls go
+out; `--record` forces fresh ones):
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
@@ -148,23 +149,34 @@ revised afterward. Two deterministic assertions, three judged criteria (0–3),
 reported separately — a blended score would let a high average hide an
 `action_match` failure.
 
+Recorded from Claude Opus 5.5 (agent and judge):
+
 ```
 case    expected  actual    match  no-self-approve  scores
-EV-01   approve   approve   yes    yes              grounded 3 · cites 2 · tone 3
-EV-02   escalate  escalate  yes    yes              grounded 3 · cites 3 · tone 3
-EV-03   escalate  escalate  yes    yes              grounded 3 · cites 2 · tone 3
-EV-04   decline   decline   yes    yes              grounded 3 · cites 3 · tone 2
-EV-05   escalate  escalate  yes    yes              grounded 3 · cites 3 · tone 3
+EV-01   approve   approve   yes    yes              grounded 3 · cites 3 · tone 3
+EV-02   escalate  escalate  yes    yes              grounded 1 · cites 3 · tone 2
+EV-03   escalate  escalate  yes    yes              grounded 3 · cites 2 · tone 2
+EV-04   escalate  escalate  yes    yes              grounded 2 · cites 3 · tone 2
+EV-05   escalate  escalate  yes    yes              grounded 2 · cites 3 · tone 3
+means                                               grounded 2.2 · cites 2.8 · tone 2.4
 ```
 
-EV-04 is the case retrieval changed. Before it, the rationale claimed there was
-"no accrual path" to close an 80-hour shortfall while no accrual rate appeared
-anywhere in its inputs, and the judge scored it 1 on groundedness. Now the
-accrual clause (HB-2.1) is retrieved and cited, so the same claim is grounded —
-and the recommendation can offer the unpaid-leave route (HB-3.1) instead of a
-flat no. It lost a point on tone instead: three options in one sentence. The
-rubric gained a dated addendum saying passages count as sources; the original
-wording is unchanged.
+What the first real run found, and what was done about it:
+
+- **EV-04 was relabeled, in the open.** The model escalated an 80-hour
+  shortfall the eval expected it to decline. The decline label predates
+  retrieval; with the unpaid-leave route (HB-3.1) and HR Partner review (HB-7.1)
+  now in its inputs, there is a decision for people to make. The label changed
+  to escalate with a dated `relabeled` record in `evals/cases.json` saying who,
+  when and why — not silently.
+- **The judge had a blind spot.** It only saw findings and passages, so it
+  marked claims from the request itself (the worker's note, the start date) as
+  unsupported. It now sees the agent's input verbatim; a dated rubric addendum
+  records the change. The deductions left are real: EV-02 assumes today's date,
+  EV-04 assumes an 8-hour day, EV-05 calls the team "engineers".
+- **The model ignores the length limit.** The prompt asks for two or three
+  sentences; real rationales run to four or five, and lose a tone point. Left as
+  a finding rather than tuned away.
 
 ### RAGAS: did retrieval do its job?
 
@@ -186,8 +198,8 @@ The ID-based metrics need no model and run offline. With `ANTHROPIC_API_KEY`
 set, RAGAS also scores **faithfulness** (is every claim in the rationale
 supported by what the agent was given) and **context recall** against the
 reference answer, graded by `claude-sonnet-5` so the grader is not the agent's
-model. Those two have not been run yet — the repo has only been exercised
-offline.
+model. Those two have not been run yet: they call the API directly and need
+`ANTHROPIC_API_KEY`.
 
 What the numbers say: recall is high, precision is low on the easy case. A
 fixed five results is wasteful when every rule passes (EV-01 needs one), and
@@ -201,15 +213,32 @@ than agreement. Set `HR_AGENT_JUDGE_MODEL` to a different model than
 ## Offline mode
 
 Model calls are content-addressed against `fixtures/llm_cache.json`, keyed on a
-hash of the exact prompt. Offline is automatic when no API key is present.
+hash of the exact prompt. Offline is automatic when no API key is present. In
+live mode a cached response is still replayed; only a miss calls the model, and
+`--record` forces fresh calls.
 Embeddings work the same way: `fixtures/embeddings.json` holds every dense and
 BM25 vector the demo needs, so a fresh clone never downloads an embedding model.
 Set `HR_AGENT_OFFLINE=1` to make any uncached embedding an error instead of a
 local fastembed call.
 
-The shipped fixtures are **authored stand-ins, not captured responses** — they
-exist so the demo runs on a fresh clone. `scripts/seed_fixtures.py` shows exactly
-how they were produced, and `--record` replaces any of them with a real call.
+The shipped fixtures are **real Claude Opus 5.5 responses**, recorded through
+headless Claude Code rather than the API (each entry says `"source":
+"claude-code-cli"` and which model served it). That is the same model, prompt
+and output schema, but Claude Code manages thinking and effort itself, so it is
+a close stand-in for the API call, not a byte-identical one. To re-record:
+
+```bash
+HR_AGENT_BACKEND=claude-cli ./.venv/bin/python -m hr_timeoff_agent eval --record
+```
+
+`HR_AGENT_BACKEND=claude-cli` uses whatever Claude Code is logged in with, such
+as a personal subscription, and is meant for recording fixtures locally. A
+deployed service uses the default `api` backend with an API key. The backend
+refuses to cache a response served by any model other than the one asked for.
+
+`scripts/seed_fixtures.py` holds the authored stand-ins the repo shipped with
+before the first real run; it only fills keys with no recording and never
+overwrites one.
 
 ## Layout
 

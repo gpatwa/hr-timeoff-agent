@@ -1,4 +1,8 @@
-"""Seed the offline fixture cache.
+"""Seed the offline fixture cache with authored stand-ins.
+
+The shipped fixtures are real Opus 5.5 recordings (see README, "Offline mode").
+This script is the fallback that existed before them, and it never overwrites a
+recorded response: it only fills keys that have no recording.
 
 These are authored stand-ins, not captured API responses — they exist so the
 demo runs for someone who just cloned the repo with no API key. Set
@@ -144,6 +148,7 @@ def main() -> int:
     cache = json.loads(FIXTURES.read_text()) if FIXTURES.exists() else {}
     recs: dict[str, Recommendation] = {}
     passages: dict[str, list] = {}
+    recorded: set[str] = set()
 
     def retrieve(request, findings):
         query = retrieval.build_query(request, findings)
@@ -164,6 +169,10 @@ def main() -> int:
         assert not uncited, f"{request_id} cites passages it was never given: {uncited}"
         recs[request_id] = rec
         key = _key(AGENT_MODEL, ASSESS_SYSTEM, prompt, Recommendation)
+        if cache.get(key, {}).get("source", "authored-stub") != "authored-stub":
+            print(f"kept recorded assess {request_id:<9} {key}")
+            recorded.add(request_id)
+            continue
         cache[key] = {
             "label": f"assess:{request_id}",
             "model": AGENT_MODEL,
@@ -179,9 +188,14 @@ def main() -> int:
         worker = tenant.workers[request["worker_id"]]
         findings = policy.evaluate(tenant, request, worker)
 
+        if request_id in recorded:  # never author a judgment of a real response
+            continue
         score = JudgeScore.model_validate(JUDGED[case_id])
-        prompt = build_judge_prompt(findings, passages[request_id], recs[request_id])
+        prompt = build_judge_prompt(request, worker, findings, passages[request_id], recs[request_id])
         key = _key(JUDGE_MODEL, JUDGE_SYSTEM, prompt, JudgeScore)
+        if cache.get(key, {}).get("source", "authored-stub") != "authored-stub":
+            print(f"kept recorded judge  {case_id:<9} {key}")
+            continue
         cache[key] = {
             "label": f"judge:{case_id}",
             "model": JUDGE_MODEL,
