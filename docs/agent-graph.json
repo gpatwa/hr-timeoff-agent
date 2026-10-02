@@ -1,0 +1,525 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "hr-timeoff-agent \u2014 agent graph",
+    "output": "agent-graph.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/gpatwa/hr-timeoff-agent",
+      "revision": "9896b4c22b0532166d96777205dea03f8a6a0bc2"
+    },
+    "views": [
+      {
+        "id": "single",
+        "label": "Single agent",
+        "focus": [
+          "rules",
+          "retrieve",
+          "assess",
+          "gate",
+          "record"
+        ],
+        "note": "The default: retrieval runs in the graph, then one assessment call."
+      },
+      {
+        "id": "multi",
+        "label": "Multi-agent",
+        "focus": [
+          "rules",
+          "pol",
+          "cov",
+          "coord",
+          "mcp",
+          "gate"
+        ],
+        "note": "Opt-in: two tool-calling specialists reach data only through MCP; a coordinator writes the recommendation."
+      },
+      {
+        "id": "audit",
+        "label": "Audit",
+        "focus": [
+          "gate",
+          "record",
+          "ledger",
+          "checkpoint"
+        ],
+        "note": "Suspension, human attribution and the hash chain that makes an override visible."
+      },
+      {
+        "id": "replay",
+        "label": "Replay",
+        "focus": [
+          "fixtures",
+          "assess",
+          "pol",
+          "cov",
+          "mcp"
+        ],
+        "note": "A fixture stores the calls the model chose; replay re-runs them against the real tools."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "rules",
+      "type": "backend",
+      "label": "Policy rules engine",
+      "sublabel": "5 rules \u00b7 no model",
+      "tag": "deterministic",
+      "pos": [
+        40,
+        215
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/policy.py",
+          "line": 219,
+          "label": "evaluate()"
+        }
+      ]
+    },
+    {
+      "id": "retrieve",
+      "type": "backend",
+      "label": "Hybrid retrieval",
+      "sublabel": "Qdrant \u00b7 dense + BM25",
+      "tag": "single mode",
+      "pos": [
+        300,
+        215
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/graph.py",
+          "line": 138,
+          "label": "retrieve node"
+        }
+      ]
+    },
+    {
+      "id": "assess",
+      "type": "cloud",
+      "label": "Assessment call",
+      "sublabel": "claude-sonnet-5-5",
+      "tag": "single mode \u00b7 advisory",
+      "pos": [
+        560,
+        215
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/graph.py",
+          "line": 162,
+          "label": "assess node"
+        }
+      ]
+    },
+    {
+      "id": "pol",
+      "type": "cloud",
+      "label": "Policy specialist",
+      "sublabel": "tool-calling loop",
+      "tag": "multi mode \u00b7 MCP",
+      "pos": [
+        300,
+        340
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/agents.py",
+          "line": 147,
+          "label": "policy_specialist"
+        }
+      ]
+    },
+    {
+      "id": "cov",
+      "type": "cloud",
+      "label": "Coverage specialist",
+      "sublabel": "tool-calling loop",
+      "tag": "multi mode \u00b7 MCP",
+      "pos": [
+        560,
+        340
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/agents.py",
+          "line": 157,
+          "label": "coverage_specialist"
+        }
+      ]
+    },
+    {
+      "id": "coord",
+      "type": "cloud",
+      "label": "Coordinator",
+      "sublabel": "no tools \u00b7 typed output",
+      "tag": "multi mode \u00b7 advisory",
+      "pos": [
+        820,
+        340
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/agents.py",
+          "line": 162,
+          "label": "assess (coordinator)"
+        }
+      ]
+    },
+    {
+      "id": "mcp",
+      "type": "backend",
+      "label": "MCP tool server",
+      "sublabel": "6 read-only tools",
+      "tag": "tenant + audience fixed",
+      "pos": [
+        300,
+        465
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/mcp_server.py",
+          "line": 90,
+          "label": "HRToolServer"
+        }
+      ]
+    },
+    {
+      "id": "fixtures",
+      "type": "database",
+      "label": "Fixture cache",
+      "sublabel": "calls and trajectories",
+      "tag": "replays offline",
+      "pos": [
+        560,
+        90
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/llm.py",
+          "line": 105,
+          "label": "structured()"
+        },
+        {
+          "path": "hr_timeoff_agent/agentloop.py",
+          "line": 101,
+          "label": "run_agent()"
+        }
+      ]
+    },
+    {
+      "id": "checkpoint",
+      "type": "database",
+      "label": "Graph state",
+      "sublabel": "InMemory \u00b7 SQLite",
+      "tag": "makes resume possible",
+      "pos": [
+        1090,
+        90
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/graph.py",
+          "line": 320,
+          "label": "compile(checkpointer=\u2026)"
+        }
+      ]
+    },
+    {
+      "id": "gate",
+      "type": "security",
+      "label": "Approval gate",
+      "sublabel": "authorizes the approver",
+      "tag": "human-in-the-loop",
+      "pos": [
+        1090,
+        215
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/graph.py",
+          "line": 182,
+          "label": "approval_gate"
+        }
+      ]
+    },
+    {
+      "id": "record",
+      "type": "backend",
+      "label": "Recorder",
+      "sublabel": "re-checks approver + chain",
+      "tag": "fail-closed",
+      "pos": [
+        1090,
+        340
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/graph.py",
+          "line": 245,
+          "label": "record node"
+        }
+      ]
+    },
+    {
+      "id": "ledger",
+      "type": "database",
+      "label": "Evidence ledger",
+      "sublabel": "agent \u00b7 tool \u00b7 human entries",
+      "tag": "SHA-256 chain",
+      "pos": [
+        1090,
+        465
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/evidence.py",
+          "line": 29,
+          "label": "append / verify"
+        }
+      ]
+    },
+    {
+      "id": "evals",
+      "type": "backend",
+      "label": "Eval harness",
+      "sublabel": "graded eval + RAGAS",
+      "tag": "single or multi",
+      "pos": [
+        40,
+        465
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/evals.py",
+          "line": 116,
+          "label": "run_all"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "LangGraph StateGraph",
+      "wraps": [
+        "rules",
+        "retrieve",
+        "assess",
+        "pol",
+        "cov",
+        "coord",
+        "gate",
+        "record"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "human authority required",
+      "wraps": [
+        "gate",
+        "record"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "s-issues",
+      "from": "rules",
+      "to": "retrieve",
+      "label": "3 \u00b7 issues"
+    },
+    {
+      "id": "s-passages",
+      "from": "retrieve",
+      "to": "assess",
+      "label": "4 \u00b7 passages"
+    },
+    {
+      "id": "s-rec",
+      "from": "assess",
+      "to": "gate",
+      "label": "5 \u00b7 Recommendation",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m-findings",
+      "from": "rules",
+      "to": "pol",
+      "label": "3 \u00b7 findings"
+    },
+    {
+      "id": "m-reports1",
+      "from": "pol",
+      "to": "cov",
+      "label": "4"
+    },
+    {
+      "id": "m-reports",
+      "from": "cov",
+      "to": "coord",
+      "label": "4 \u00b7 reports"
+    },
+    {
+      "id": "m-rec",
+      "from": "coord",
+      "to": "gate",
+      "label": "5 \u00b7 Recommendation",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m-tools1",
+      "from": "pol",
+      "to": "mcp",
+      "label": "3 \u00b7 tools",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        395,
+        434
+      ]
+    },
+    {
+      "id": "m-tools2",
+      "from": "cov",
+      "to": "mcp",
+      "label": "3 \u00b7 tools",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "right"
+    },
+    {
+      "id": "replay",
+      "from": "fixtures",
+      "to": "assess",
+      "label": "4 \u00b7 replay",
+      "variant": "dashed",
+      "labelAt": [
+        655,
+        184
+      ]
+    },
+    {
+      "id": "suspend",
+      "from": "checkpoint",
+      "to": "gate",
+      "label": "6 \u00b7 suspend \u00b7 resume",
+      "labelAt": [
+        1185,
+        184
+      ]
+    },
+    {
+      "id": "decision",
+      "from": "gate",
+      "to": "record",
+      "label": "8 \u00b7 human Decision",
+      "variant": "emphasis",
+      "labelAt": [
+        1185,
+        309
+      ]
+    },
+    {
+      "id": "commit",
+      "from": "record",
+      "to": "ledger",
+      "label": "9 \u00b7 commit",
+      "variant": "security",
+      "labelAt": [
+        1185,
+        434
+      ]
+    },
+    {
+      "id": "replays",
+      "from": "evals",
+      "to": "rules",
+      "label": "replays cases"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Two assessment paths",
+      "items": [
+        "Single (default): retrieval, then one call",
+        "Multi: specialists call MCP tools, then a coordinator",
+        "Same graph, gate, recorder and ledger either way"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Replayable agents",
+      "items": [
+        "Fixtures store the trajectory and result digests",
+        "Replay re-runs the tools and rejects stale data"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Human authority",
+      "items": [
+        "approval_gate waits for the direct manager",
+        "Decision.actor_type is pinned to human",
+        "The hash chain keeps an override visible"
+      ]
+    }
+  ]
+}
