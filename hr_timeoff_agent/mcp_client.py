@@ -68,3 +68,40 @@ async def _list(target) -> list[dict]:
 
 def list_tools(server: HRToolServer | None = None, *, reader: str = "manager") -> list[dict]:
     return asyncio.run(_list(server.server if server is not None else stdio_params(reader)))
+
+
+async def _try(target, calls: list[tuple[str, dict]]) -> list[tuple[bool, Any]]:
+    out: list[tuple[bool, Any]] = []
+    async with Client(target) as client:
+        for name, arguments in calls:
+            result = await client.call_tool(name, arguments)
+            if result.is_error:
+                out.append((False, result.content[0].text if result.content else f"{name} failed"))
+            else:
+                out.append((True, result.structured_content))
+    return out
+
+
+def try_tools(calls: list[tuple[str, dict]], server: HRToolServer | None = None, *, reader: str = "manager") -> list[tuple[bool, Any]]:
+    """Like call_tools, but a failed call is data, not an exception: (False, message).
+    An agent's bad argument is something to show it, not something to crash on."""
+    target = server.server if server is not None else stdio_params(reader)
+    return asyncio.run(_try(target, calls))
+
+
+async def _definitions(target, names: list[str]) -> list[dict]:
+    async with Client(target) as client:
+        listed = {t.name: t for t in (await client.list_tools()).tools}
+    missing = [n for n in names if n not in listed]
+    if missing:
+        raise KeyError(f"no such tools: {missing}")
+    return [
+        {"name": n, "description": listed[n].description or "", "input_schema": listed[n].input_schema}
+        for n in names
+    ]
+
+
+def tool_definitions(names: list[str], server: HRToolServer | None = None, *, reader: str = "manager") -> list[dict]:
+    """The named tools as Messages-API tool definitions, straight from the MCP server."""
+    target = server.server if server is not None else stdio_params(reader)
+    return asyncio.run(_definitions(target, names))

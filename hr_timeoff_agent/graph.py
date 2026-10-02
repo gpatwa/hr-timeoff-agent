@@ -9,6 +9,7 @@ from a human who is the requester's direct manager.
 
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 from typing import Any, Optional, TypedDict
 
@@ -52,6 +53,7 @@ class AgentState(TypedDict):
     recommendation: Optional[dict]
     decision: Optional[dict]
     evidence: list[dict]
+    agent_reports: Optional[dict]
 
 
 def _now() -> str:
@@ -273,26 +275,46 @@ def make_nodes(tenant: policy.Tenant, *, record_llm: bool = False):
     return load_context, check_policy, retrieve, assess, approval_gate, record
 
 
-def build(tenant: policy.Tenant, *, record_llm: bool = False, checkpointer=None):
+def agent_mode() -> str:
+    """'single' (default): one assessment call. 'multi': tool-calling specialists
+    plus a coordinator. Chosen per process with HR_AGENT_MODE or per graph with build()."""
+    return os.environ.get("HR_AGENT_MODE", "single")
+
+
+def build(tenant: policy.Tenant, *, record_llm: bool = False, checkpointer=None, agents: str | None = None):
     """Compile the graph. The checkpointer holds paused runs: in memory by default
     (CLI, tests), or durable (the web app's SQLite) so a pending approval
-    survives a restart."""
+    survives a restart. `agents` picks the single-agent or multi-agent assessment."""
+    mode = agents or agent_mode()
+    if mode not in ("single", "multi"):
+        raise ValueError(f"agents must be 'single' or 'multi', not {mode!r}")
     load_context, check_policy, retrieve, assess, approval_gate, record = make_nodes(
         tenant, record_llm=record_llm
     )
     g = StateGraph(AgentState)
     g.add_node("load_context", load_context)
     g.add_node("check_policy", check_policy)
-    g.add_node("retrieve", retrieve)
-    g.add_node("assess", assess)
     g.add_node("approval_gate", approval_gate)
     g.add_node("record", record)
-
     g.add_edge(START, "load_context")
     g.add_edge("load_context", "check_policy")
-    g.add_edge("check_policy", "retrieve")
-    g.add_edge("retrieve", "assess")
-    g.add_edge("assess", "approval_gate")
+    if mode == "single":
+        g.add_node("retrieve", retrieve)
+        g.add_node("assess", assess)
+        g.add_edge("check_policy", "retrieve")
+        g.add_edge("retrieve", "assess")
+        g.add_edge("assess", "approval_gate")
+    else:
+        from .agents import make_multi_nodes  # needs the mcp extra
+
+        policy_specialist, coverage_specialist, coordinate = make_multi_nodes(tenant, record_llm=record_llm)
+        g.add_node("policy_specialist", policy_specialist)
+        g.add_node("coverage_specialist", coverage_specialist)
+        g.add_node("assess", coordinate)
+        g.add_edge("check_policy", "policy_specialist")
+        g.add_edge("policy_specialist", "coverage_specialist")
+        g.add_edge("coverage_specialist", "assess")
+        g.add_edge("assess", "approval_gate")
     g.add_edge("approval_gate", "record")
     g.add_edge("record", END)
     return g.compile(checkpointer=checkpointer or InMemorySaver())
@@ -307,4 +329,5 @@ def initial_state(request: dict) -> AgentState:
         "recommendation": None,
         "decision": None,
         "evidence": [],
+        "agent_reports": None,
     }

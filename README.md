@@ -241,6 +241,65 @@ server, so there is one auditable boundary between an agent and the data:
 - `tests/test_mcp.py` calls the tools through the real MCP client, in process and
   over stdio as a subprocess; `e2e` runs the stdio path.
 
+## Multi-agent mode
+
+By default one model call writes the recommendation. With `--agents multi` (or
+`HR_AGENT_MODE=multi`) the assessment becomes a small team that works through the
+MCP tools above:
+
+```
+load_context → check_policy → policy_specialist → coverage_specialist → assess (coordinator) → approval_gate ⏸ → record
+```
+
+```bash
+./.venv/bin/python -m hr_timeoff_agent run REQ-2004 --agents multi
+./.venv/bin/python -m hr_timeoff_agent eval --agents multi
+```
+
+- **Specialists are tool-calling loops.** The policy specialist (`search_handbook`,
+  `search_precedents`, `get_worker`) and the coverage specialist (`team_availability`,
+  `get_balance`, `get_worker`) each decide which tools to call and with what
+  arguments, then return a typed report. They adapt: a routine request takes one
+  search and one availability check; REQ-2004 takes four searches and three
+  availability checks, trying alternative windows when coverage is short. Each
+  agent is offered only its own tools, and a call outside the allowlist is refused.
+- **The coordinator has no tools.** It reads the findings, the passages the policy
+  specialist retrieved and both reports, and writes the same `Recommendation`.
+- **Nothing downstream changes.** The rules engine still decides what passes, the
+  gate still waits for the requester's direct manager, and no agent can decide.
+  `tests/test_agents.py` and an `e2e` check confirm all five requests pause for a
+  human with every tool call in the ledger.
+- **Every tool call is in the evidence ledger**, with the agent, the arguments, the
+  tenant and reader, and a digest of what came back.
+- **Replay re-runs the tools.** A fixture stores the trajectory (the calls the model
+  chose, plus a digest of each result) and the final report. Offline, the same calls
+  run against the real MCP server and every digest is checked, so a replay still
+  exercises the tools and refuses to pass if the data behind them has changed. Only
+  the model's choices come from the fixture.
+- **Two backends.** `claude-cli` hands Claude Code the MCP server and an allowlist and
+  lets it run the loop; `api` is a manual Messages-API tool loop over the same
+  tools. The API loop is tested with a faked SDK and run for real only by the manual
+  `live` job (`e2e --require-live`); the Claude Code path was run for real to record
+  the committed fixtures.
+
+Measured on the same five cases (Sonnet 5.5 agent, Opus 5.5 judge, one run each, so
+treat differences of a few tenths as noise):
+
+| | single agent | multi-agent |
+|---|---|---|
+| action matches expected | 5/5 | 5/5 |
+| judged: grounded / cites / tone (0-3) | 2.6 / 2.6 / 2.4 | 3.0 / 2.0 / 2.4 |
+| cost per triage (Claude Code's reported equivalent) | about $0.008 | $0.03 routine, $0.05 hard |
+| wall time per triage | 4-8 s | 22-33 s |
+| tool calls per request | 0 | 2-7 |
+
+Multi-agent was better grounded and worse cited: the judge marked it down for
+citing rules and passages the rationale never used. It costs roughly 4-6x as much
+and takes about 5x as long, for a problem the single agent already gets right, so
+single stays the default. The multi-agent path earns its place when the work needs
+exploration (trying alternative dates, searching more than once) rather than a
+single read of well-prepared inputs.
+
 ## Eval
 
 `evals/rubric.md` was written before the prompt was tuned, and deliberately not
@@ -373,6 +432,8 @@ hr_timeoff_agent/
   e2e.py        end-to-end self-test: every guarantee as a pass/fail check
   mcp_server.py the HR tools as an MCP server (read-only, tenant and audience fixed)
   mcp_client.py a small synchronous client for it
+  agentloop.py  tool-calling agent loops with replayable trajectories
+  agents.py     the policy and coverage specialists and the coordinator
   web/          the browser app: workspace (state + rules), identity, routes, pages
   report.py     builds docs/report.html from real run output
   cli.py

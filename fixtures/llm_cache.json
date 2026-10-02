@@ -1,4 +1,59 @@
 {
+  "1707353fa1fefd05f2c88235": {
+    "label": "judge:EV-03",
+    "model": "claude-opus-5-5",
+    "response": {
+      "citations_correct": 1,
+      "justification": "Every claim traces to the inputs: BLK-01, HB-4.1/4.2, P-102, and the 2-person coverage point from COV-01 and the coverage specialist. However, BAL-01 and P-101 are cited even though the rationale never uses them, which makes them decorative. The rationale is specific and names the obstacle, but at five sentences it runs past the 2\u20134 sentence target.",
+      "rationale_grounded": 3,
+      "tone_appropriate": 2
+    },
+    "schema": "JudgeScore",
+    "served_by": [
+      "claude-opus-5-5"
+    ],
+    "source": "claude-code-cli"
+  },
+  "18c0d6a7691fbd30a407b2c7": {
+    "label": "judge:EV-02",
+    "model": "claude-opus-5-5",
+    "response": {
+      "citations_correct": 1,
+      "justification": "Every claim traces to the inputs: the BLK-01 overlap, HB-4.1/HB-4.2, P-101 and the 10/1-vs-9/24 date gap all come from what the agent was given. Citations lose marks because BAL-01 and COV-01 are cited but never used in the rationale. Tone loses a mark because the rationale runs to five dense sentences, over the 2\u20134 target, although it does lead with the actual obstacle.",
+      "rationale_grounded": 3,
+      "tone_appropriate": 2
+    },
+    "schema": "JudgeScore",
+    "served_by": [
+      "claude-opus-5-5"
+    ],
+    "source": "claude-code-cli"
+  },
+  "3a11e7aa48690a9b023b6b51": {
+    "label": "coordinator:REQ-2003",
+    "model": "claude-sonnet-5-5",
+    "response": {
+      "action": "escalate",
+      "cited_passage_ids": [
+        "HB-4.1",
+        "HB-4.2",
+        "P-102",
+        "P-101"
+      ],
+      "cited_rule_ids": [
+        "BLK-01",
+        "COV-01",
+        "BAL-01"
+      ],
+      "confidence": "medium",
+      "rationale": "BLK-01 fails: the window overlaps fiscal year-end close (to 2027-01-06) and needs an approved exception. HB-4.1 says routine vacation during close is normally declined or moved, and \"visiting family overseas\" doesn't clearly qualify as a major life event, so find out whether it is one. If it is, the exception needs a named close-task backup and approval from you and the Finance close lead (HB-4.2). If it isn't, follow P-102 and ask the worker to move the trip to after 2027-01-06. COV-01 (50% coverage in a 2-person org) is advisory and would happen on any absence, so it shouldn't decide this."
+    },
+    "schema": "Recommendation",
+    "served_by": [
+      "claude-sonnet-5-5"
+    ],
+    "source": "claude-code-cli"
+  },
   "4e06df2c0af3b83e3a621cc2": {
     "label": "judge:EV-02",
     "model": "claude-opus-5-5",
@@ -14,6 +69,57 @@
     ],
     "source": "claude-code-cli"
   },
+  "5f3542c07509fd12f9c5c75a": {
+    "label": "coordinator:REQ-2004",
+    "model": "claude-sonnet-5-5",
+    "response": {
+      "action": "escalate",
+      "cited_passage_ids": [
+        "HB-3.1",
+        "HB-7.1",
+        "HB-6.1",
+        "HB-2.1",
+        "P-103",
+        "P-107"
+      ],
+      "cited_rule_ids": [
+        "BAL-01",
+        "CON-01",
+        "COV-01"
+      ],
+      "confidence": "high",
+      "rationale": "BAL-01 fails by 80h, so this can't be approved as fully paid (HB-3.1, HB-2.1). A plausible route is to approve 40h paid and agree the other 80h as unpaid leave, as in P-103. That needs HR Partner agreement because it exceeds five working days, and the 19-day span also goes to HR Partner review (CON-01, HB-7.1), who may consider a formal leave of absence, as in P-107. Coverage drops to 50% on a two-person team (COV-01), and moving the dates doesn't fix it per the coverage specialist. Approving would need a documented backup plan, ideally cover from another team (HB-6.1)."
+    },
+    "schema": "Recommendation",
+    "served_by": [
+      "claude-sonnet-5-5"
+    ],
+    "source": "claude-code-cli"
+  },
+  "60f9fa929a72e4fa7f17f82f": {
+    "label": "coordinator:REQ-2005",
+    "model": "claude-sonnet-5-5",
+    "response": {
+      "action": "escalate",
+      "cited_passage_ids": [
+        "HB-6.1",
+        "P-106"
+      ],
+      "cited_rule_ids": [
+        "COV-01",
+        "BAL-01",
+        "BLK-01",
+        "NOT-01"
+      ],
+      "confidence": "high",
+      "rationale": "All blocking rules pass (BAL-01, BLK-01), but COV-01 warns that all 4 of 4 Payments Platform members would be out on 2026-11-18, which is 0% coverage against the 60% floor. Under HB-6.1, nobody being available means you need to arrange on-call cover from an adjacent team before approving. Otherwise, ask the employee to move the dates, as in P-106, where the resubmission was approved. With 57 days of notice there is time to do either."
+    },
+    "schema": "Recommendation",
+    "served_by": [
+      "claude-sonnet-5-5"
+    ],
+    "source": "claude-code-cli"
+  },
   "6f0196e12df7d1f7fd93480b": {
     "label": "judge:EV-05",
     "model": "claude-opus-5-5",
@@ -26,6 +132,31 @@
     "schema": "JudgeScore",
     "served_by": [
       "claude-opus-5-5"
+    ],
+    "source": "claude-code-cli"
+  },
+  "752af9599c57a5d1b3246998": {
+    "label": "coordinator:REQ-2002",
+    "model": "claude-sonnet-5-5",
+    "response": {
+      "action": "escalate",
+      "cited_passage_ids": [
+        "HB-4.1",
+        "HB-4.2",
+        "P-101"
+      ],
+      "cited_rule_ids": [
+        "BLK-01",
+        "NOT-01",
+        "BAL-01",
+        "COV-01"
+      ],
+      "confidence": "medium",
+      "rationale": "BLK-01 fails because the window overlaps Q3 revenue close (9/28\u201310/3), so it needs a close-window exception. A sister's wedding is the kind of major life event HB-4.1 usually grants, and P-101 approved a similar Payments Platform case once close tasks went to a named backup. If you grant it, HB-4.2 requires both you and the Finance close lead to approve, with the backup's name and handoff date recorded in the comments first. Notice was short (NOT-01, advisory), and the specialists note the request start date (9/24) is already before today's date (10/1). Please confirm whether this is retroactive and whether a backup was named, since neither is in the findings."
+    },
+    "schema": "Recommendation",
+    "served_by": [
+      "claude-sonnet-5-5"
     ],
     "source": "claude-code-cli"
   },
@@ -68,6 +199,60 @@
     ],
     "source": "claude-code-cli"
   },
+  "9529172d831378a6f02073d0": {
+    "label": "judge:EV-04",
+    "model": "claude-opus-5-5",
+    "response": {
+      "citations_correct": 3,
+      "justification": "Every claim traces to the inputs: the 80h shortfall, the 40h-paid/80h-unpaid route and its HR sign-off, the 19-day HR review, and the two-person team that moving dates can't fix. Each cited rule and passage is actually used. Tone loses a mark because the rationale runs to five sentences, over the 2\u20134 limit, though it names the obstacle up front.",
+      "rationale_grounded": 3,
+      "tone_appropriate": 2
+    },
+    "schema": "JudgeScore",
+    "served_by": [
+      "claude-opus-5-5"
+    ],
+    "source": "claude-code-cli"
+  },
+  "97132b2152ab4fc7e0d0f216": {
+    "label": "coordinator:REQ-2001",
+    "model": "claude-sonnet-5-5",
+    "response": {
+      "action": "approve",
+      "cited_passage_ids": [
+        "HB-2.2"
+      ],
+      "cited_rule_ids": [
+        "BAL-01",
+        "BLK-01",
+        "NOT-01",
+        "COV-01",
+        "CON-01"
+      ],
+      "confidence": "high",
+      "rationale": "All five findings pass, including the blocking checks: the 40h request is well within the 96h balance (BAL-01) and the window doesn't touch a restricted period (BLK-01). Notice (42 days), team coverage (75% vs 60% floor) and the 5-day length are all within limits, so no exception route or HR review applies. Optionally, the worker could be reminded that HB-2.2 caps carryover at 40 hours, but this doesn't affect the decision."
+    },
+    "schema": "Recommendation",
+    "served_by": [
+      "claude-sonnet-5-5"
+    ],
+    "source": "claude-code-cli"
+  },
+  "ac55ee96ebbfadf544b38d86": {
+    "label": "judge:EV-05",
+    "model": "claude-opus-5-5",
+    "response": {
+      "citations_correct": 3,
+      "justification": "Every claim traces to the inputs: 0% coverage with 4 of 4 out on 2026-11-18 (COV-01), the on-call cover requirement (HB-6.1), the shift-and-resubmit precedent (P-106) and the 57 days of notice (NOT-01). Each cited id is actually used in the reasoning. The four sentences name the coverage obstacle first and give the manager two concrete paths.",
+      "rationale_grounded": 3,
+      "tone_appropriate": 3
+    },
+    "schema": "JudgeScore",
+    "served_by": [
+      "claude-opus-5-5"
+    ],
+    "source": "claude-code-cli"
+  },
   "afeb72083f27d3d0a97257fa": {
     "label": "judge:EV-03",
     "model": "claude-opus-5-5",
@@ -82,6 +267,566 @@
       "claude-opus-5-5"
     ],
     "source": "claude-code-cli"
+  },
+  "agent-08037cd76525971765280f36": {
+    "kind": "agent",
+    "label": "policy_specialist:REQ-2001",
+    "model": "claude-sonnet-5-5",
+    "response": {
+      "cited_passage_ids": [
+        "HB-7.1",
+        "HB-4.1",
+        "HB-2.2"
+      ],
+      "cited_rule_ids": [
+        "BAL-01",
+        "NOT-01",
+        "BLK-01",
+        "COV-01",
+        "CON-01"
+      ],
+      "gaps": [
+        "I did not search past decisions, because every rule passed.",
+        "I did not verify the worker's note that the trip was booked months ago. It doesn't affect the rule outcomes.",
+        "I don't know the worker's other planned time off this year, so I can't say how much PTO would be forfeited at year end."
+      ],
+      "options": [
+        "Approve as submitted. Every rule passes, and nothing in the retrieved handbook text adds a condition. HB-7.1 applies only above 15 consecutive calendar days, and this request is 5 days (CON-01).",
+        "HB-4.1 (restricted-period exceptions) doesn't apply, because BLK-01 shows the window isn't in a restricted period. No exception or backup handoff is needed.",
+        "Optional: HB-2.2 says up to 40 hours of unused PTO carries over, with the rest forfeited on 31 December unless HR approves an extension. Using 40 of the 96 hours now may help the worker with year-end forfeiture, but I did not check the worker's other planned time off."
+      ],
+      "summary": "All five rules pass for REQ-2001 (BAL-01, NOT-01, BLK-01, COV-01, CON-01), so no exception or escalation is needed. The handbook passages I retrieved cover only situations that don't apply here (extended leave over 15 days, restricted periods), so I found nothing blocking approval. I did not search past decisions, since the rules gave no issue to look up."
+    },
+    "schema": "SpecialistReport",
+    "served_by": [
+      "claude-sonnet-5-5"
+    ],
+    "source": "claude-code-cli",
+    "tools": [
+      "get_worker",
+      "search_handbook",
+      "search_precedents"
+    ],
+    "trace": [
+      {
+        "arguments": {
+          "query": "PTO request approval routine guidance"
+        },
+        "result_sha256": "dbe3173a0b6212ac",
+        "tool": "search_handbook"
+      }
+    ]
+  },
+  "agent-2e2f4f2986d6850a393168cd": {
+    "kind": "agent",
+    "label": "policy_specialist:REQ-2002",
+    "model": "claude-sonnet-5-5",
+    "response": {
+      "cited_passage_ids": [
+        "HB-4.1",
+        "HB-4.2",
+        "P-101"
+      ],
+      "cited_rule_ids": [
+        "BLK-01",
+        "NOT-01",
+        "BAL-01",
+        "COV-01",
+        "CON-01"
+      ],
+      "gaps": [
+        "The handbook passages I retrieved set no rule on the short-notice warning (NOT-01), and I did not search for one.",
+        "I can't tell whether a backup has been named or whether the Finance close lead has been consulted.",
+        "Today is 2026-10-01, after the requested start date of 2026-09-24. I don't know whether the dates have already passed or the request is retroactive, and the handbook passages I retrieved don't address that.",
+        "I did not search for any handbook rule on the 2026-09-24 to 2026-09-27 days outside the restricted period."
+      ],
+      "options": [
+        "Approve with a close-window exception (HB-4.1, P-101): a sister's wedding is a major life event. Condition it on the worker handing close tasks to a named backup before the window starts.",
+        "If granting the exception, follow HB-4.2: the manager and the Finance close lead must both approve. Record the backup's name and the handoff date in the request comments first.",
+        "Approve only the non-close days (2026-09-24 to 2026-09-27) if the exception is not granted. This is my reading of HB-4.1's 'declined or moved' language, not an explicit handbook option.",
+        "Decline or ask the worker to move the close-overlap days if the Finance close lead withholds approval (HB-4.1: routine vacation during close is normally declined or moved)."
+      ],
+      "summary": "The blocking failure is BLK-01: the request overlaps Q3 revenue close (2026-09-28 to 2026-10-03), so it needs an approved exception. The handbook says exceptions are usually granted for major life events such as weddings, and precedent P-101 approved a near-identical Payments Platform wedding case after a backup handoff. The short notice (NOT-01) is only advisory."
+    },
+    "schema": "SpecialistReport",
+    "served_by": [
+      "claude-sonnet-5-5"
+    ],
+    "source": "claude-code-cli",
+    "tools": [
+      "get_worker",
+      "search_handbook",
+      "search_precedents"
+    ],
+    "trace": [
+      {
+        "arguments": {
+          "query": "restricted period exception request"
+        },
+        "result_sha256": "494d8e55b250e0a5",
+        "tool": "search_handbook"
+      },
+      {
+        "arguments": {
+          "query": "exception to restricted period short notice family wedding"
+        },
+        "result_sha256": "150d52758f2df3f3",
+        "tool": "search_precedents"
+      }
+    ]
+  },
+  "agent-3d3f2f338fcff9d145fbe4d0": {
+    "kind": "agent",
+    "label": "policy_specialist:REQ-2005",
+    "model": "claude-sonnet-5-5",
+    "response": {
+      "cited_passage_ids": [
+        "HB-6.1",
+        "P-106"
+      ],
+      "cited_rule_ids": [
+        "COV-01",
+        "BAL-01",
+        "BLK-01",
+        "NOT-01"
+      ],
+      "gaps": [
+        "I found no precedent for a case where the whole team was out (0% coverage), so I don't know how adjacent-team on-call cover was handled before.",
+        "I did not check whether the other three team members' absences are already approved or only pending.",
+        "I did not check which adjacent team could provide cover."
+      ],
+      "options": [
+        "Arrange on-call cover from an adjacent team, then approve. HB-6.1 requires this first because nobody on the team would be available.",
+        "Approve with a documented backup plan for the coverage gap (HB-6.1).",
+        "Ask the employee to move the dates (HB-6.1). In precedent P-106, an engineer was asked to shift by two days during a low-coverage week and the resubmission was approved.",
+        "Notice is 57 days and the balance is 96h, so there is time to arrange cover or reschedule. No unpaid-leave or restricted-period exception handling applies (BAL-01 and BLK-01 pass)."
+      ],
+      "summary": "REQ-2005 passes every blocking rule, but COV-01 warns that all 4 of 4 Payments Platform members would be out on 2026-11-18 (0% against a 60% floor). HB-6.1 lets the manager approve with a documented backup plan or ask the employee to move the dates. Because nobody would be available, HB-6.1 also requires on-call cover from an adjacent team before approval."
+    },
+    "schema": "SpecialistReport",
+    "served_by": [
+      "claude-sonnet-5-5"
+    ],
+    "source": "claude-code-cli",
+    "tools": [
+      "get_worker",
+      "search_handbook",
+      "search_precedents"
+    ],
+    "trace": [
+      {
+        "arguments": {
+          "query": "team coverage floor below minimum"
+        },
+        "result_sha256": "ab6dd4e15d458be3",
+        "tool": "search_handbook"
+      },
+      {
+        "arguments": {
+          "query": "coverage floor warning approved PTO team fully out"
+        },
+        "result_sha256": "bcc10855fff77e31",
+        "tool": "search_precedents"
+      }
+    ]
+  },
+  "agent-69cde9a3fbc924cf5f2f3999": {
+    "kind": "agent",
+    "label": "policy_specialist:REQ-2003",
+    "model": "claude-sonnet-5-5",
+    "response": {
+      "cited_passage_ids": [
+        "HB-4.1",
+        "HB-4.2",
+        "P-102",
+        "P-101"
+      ],
+      "cited_rule_ids": [
+        "BLK-01",
+        "COV-01",
+        "BAL-01",
+        "NOT-01"
+      ],
+      "gaps": [
+        "The request doesn't say whether the overseas family visit is a major life event, so I can't tell whether it qualifies for an exception under HB-4.1.",
+        "I didn't check who the Finance close lead is or whether a backup is available.",
+        "HB-9.1 says a company holiday inside a PTO request isn't deducted from the balance, but the 2027 holiday calendar isn't published yet, so I can't say whether it affects the 32 hours."
+      ],
+      "options": [
+        "Return the request and ask the worker to move the trip to after the close window, which ends 2027-01-06. P-102 did this for a similar Ledger Services request, and HB-4.1 says routine vacation during close is normally declined or moved.",
+        "Ask the worker whether the trip is tied to a major life event, since HB-4.1 lists weddings, bereavement and medical needs. If it is, an exception is possible, as in P-101.",
+        "To grant an exception, get a named backup for the close tasks before the window starts. Then approve with the Finance close lead, as HB-4.2 requires. Record the backup's name and the handoff date in the request comments (HB-4.1, HB-4.2, P-101).",
+        "If granting an exception, consider the COV-01 warning that Ledger Services coverage drops to 50% on 2026-12-28. P-102 had the same drop and was returned."
+      ],
+      "summary": "The blocking BLK-01 failure means this request needs an approved close-window exception. HB-4.1 says routine vacation during close is normally declined or moved, and the worker's note (visiting family overseas) doesn't describe a listed major life event. The closest precedent, P-102 (Ledger Services, same 50% coverage drop), was returned with a request to move the trip. P-101 was approved only because it was a wedding and the close tasks were handed to a named backup."
+    },
+    "schema": "SpecialistReport",
+    "served_by": [
+      "claude-sonnet-5-5"
+    ],
+    "source": "claude-code-cli",
+    "tools": [
+      "get_worker",
+      "search_handbook",
+      "search_precedents"
+    ],
+    "trace": [
+      {
+        "arguments": {
+          "query": "restricted period exception fiscal year-end close"
+        },
+        "result_sha256": "962374d8fe80ad08",
+        "tool": "search_handbook"
+      },
+      {
+        "arguments": {
+          "query": "restricted period exception approved year-end close coverage"
+        },
+        "result_sha256": "e6eb15ad181a0f72",
+        "tool": "search_precedents"
+      }
+    ]
+  },
+  "agent-7ea1e963c2db70275915009d": {
+    "kind": "agent",
+    "label": "coverage_specialist:REQ-2005",
+    "model": "claude-sonnet-5-5",
+    "response": {
+      "cited_passage_ids": [],
+      "cited_rule_ids": [
+        "COV-01",
+        "BAL-01",
+        "NOT-01",
+        "BLK-01"
+      ],
+      "gaps": [
+        "I only checked two alternative windows, Nov 10\u201313 and Nov 24\u201327. I did not check other dates.",
+        "I did not run the full rules check on Nov 10\u201313. I have not confirmed it clears the restricted-period rule BLK-01 or the other rules, only that team coverage holds.",
+        "I did not search the handbook or past decisions, so I can't say how coverage warnings were handled before.",
+        "The availability results do not say whether the other three members' time off is already approved or only requested."
+      ],
+      "options": [
+        "Approve the request as submitted, with the manager accepting the advisory COV-01 warning. This leaves the team with nobody available on Nov 18.",
+        "Suggest that the worker move to Nov 10\u201313. The same 32 hours are covered by the 96h balance, and coverage stays at 75%, above the 60% floor.",
+        "Decline Nov 17\u201320 and ask the worker to pick new dates. Nov 24\u201327 is not a fix, since coverage there drops to 50% with W-100239 also out.",
+        "Ask the other three team members (W-100235, W-100238, W-100239) whether any can change their Nov 17\u201320 time off. That would raise coverage without moving the requester."
+      ],
+      "summary": "The requested window (Nov 17\u201320) takes Payments Platform to 0% coverage on Nov 18, because all 4 of 4 members are out (W-100234, W-100235, W-100238, W-100239). That is below the 60% floor. The week before (Nov 10\u201313) holds 75% coverage, with only the requester out. The week after (Nov 24\u201327) is still below the floor at 50%."
+    },
+    "schema": "SpecialistReport",
+    "served_by": [
+      "claude-sonnet-5-5"
+    ],
+    "source": "claude-code-cli",
+    "tools": [
+      "get_balance",
+      "get_worker",
+      "team_availability"
+    ],
+    "trace": [
+      {
+        "arguments": {
+          "end": "2026-11-20",
+          "start": "2026-11-17",
+          "worker_id": "W-100234"
+        },
+        "result_sha256": "28a10d3886b43ef4",
+        "tool": "team_availability"
+      },
+      {
+        "arguments": {
+          "end": "2026-11-13",
+          "start": "2026-11-10",
+          "worker_id": "W-100234"
+        },
+        "result_sha256": "ae6aad33993646f4",
+        "tool": "team_availability"
+      },
+      {
+        "arguments": {
+          "end": "2026-11-27",
+          "start": "2026-11-24",
+          "worker_id": "W-100234"
+        },
+        "result_sha256": "50ce9a3930e7825b",
+        "tool": "team_availability"
+      }
+    ]
+  },
+  "agent-8b44180d01c290feb1acbcf4": {
+    "kind": "agent",
+    "label": "coverage_specialist:REQ-2003",
+    "model": "claude-sonnet-5-5",
+    "response": {
+      "cited_passage_ids": [],
+      "cited_rule_ids": [
+        "COV-01",
+        "BLK-01"
+      ],
+      "gaps": [
+        "Only one alternative window (one week earlier) was checked; any single absence in a 2-person org likely yields 50%.",
+        "The handbook and precedents were not searched for how BLK-01 exceptions are granted."
+      ],
+      "options": [
+        "Approve with the COV-01 shortfall accepted as advisory, since a 2-person org can't stay at or above 60% when either person is out. This would also require an approved exception for BLK-01.",
+        "Decline, or ask the worker to move dates outside the close period (2026-12-28 to 2027-01-06). The week of 2026-12-21 to 12-26 avoids BLK-01 but still gives 50% coverage."
+      ],
+      "summary": "Ledger Services has only 2 people, so any absence by W-100236 drops coverage to 50%, below the 60% floor (COV-01). The requested window and the alternative week of 2026-12-21 to 12-26 both give 50%, so shifting a week would not restore coverage. The request also fails BLK-01 (fiscal year-end close restriction), which needs an approved exception."
+    },
+    "schema": "SpecialistReport",
+    "served_by": [
+      "claude-sonnet-5-5"
+    ],
+    "source": "claude-code-cli",
+    "tools": [
+      "get_balance",
+      "get_worker",
+      "team_availability"
+    ],
+    "trace": [
+      {
+        "arguments": {
+          "end": "2027-01-02",
+          "start": "2026-12-28",
+          "worker_id": "W-100236"
+        },
+        "result_sha256": "fa829e30d6846ed6",
+        "tool": "team_availability"
+      },
+      {
+        "arguments": {
+          "end": "2026-12-26",
+          "start": "2026-12-21",
+          "worker_id": "W-100236"
+        },
+        "result_sha256": "0a29db6182a507d8",
+        "tool": "team_availability"
+      }
+    ]
+  },
+  "agent-8bb3acf7074de3239a3b198f": {
+    "kind": "agent",
+    "label": "policy_specialist:REQ-2004",
+    "model": "claude-sonnet-5-5",
+    "response": {
+      "cited_passage_ids": [
+        "HB-3.1",
+        "HB-2.1",
+        "HB-7.1",
+        "HB-6.1",
+        "P-103",
+        "P-107"
+      ],
+      "cited_rule_ids": [
+        "BAL-01",
+        "CON-01",
+        "COV-01",
+        "NOT-01",
+        "BLK-01"
+      ],
+      "gaps": [
+        "I didn't check whether the worker qualifies for a formal leave of absence, so that decision is left to the HR Partner.",
+        "I found no handbook rule or precedent on the exact unpaid-leave arrangement for a 120h request. P-103 is a smaller case (80h requested against a 40h balance).",
+        "I didn't search for what an accrual before the leave start date would add to the balance. HB-2.1 gives the rate as 6.67h per month for employees with under five years of service, credited on the last day of each month, but I didn't calculate the effect."
+      ],
+      "options": [
+        "Approve 40h as paid PTO and agree the remaining 80h as unpaid leave. The unpaid portion is more than five working days, so it needs HR Partner agreement (HB-3.1). Precedent P-103 did the same for an engineer's family relocation: 40h paid, the rest unpaid with the HR Partner.",
+        "Send the request to the HR Partner, as the 19 consecutive days exceed the 15-day limit. The manager records a recommendation, and the HR Partner checks whether a formal leave of absence fits better than PTO (HB-7.1). In precedent P-107 the HR Partner converted part of a long request to formal leave, and the manager approved the PTO portion.",
+        "To address the coverage drop to 50% on 2026-10-19, approve with a documented backup plan, or ask the employee to move the dates (HB-6.1).",
+        "Ask the employee to shorten the request or change the dates so it fits the 40h balance. This follows from HB-3.1, which says the request can't be approved as fully paid. I found no passage that allows an advance against future accrual (HB-2.1)."
+      ],
+      "summary": "The request can't be approved as fully paid, because BAL-01 fails by 80h and the handbook says PTO can't be advanced (HB-3.1, HB-2.1). The handbook lets the manager approve the 40 paid hours and agree the other 80 as unpaid leave. Because that is more than five working days, the HR Partner has to agree. The 19-day span also goes to HR Partner review (HB-7.1), and the coverage warning needs a backup plan or a date change (HB-6.1)."
+    },
+    "schema": "SpecialistReport",
+    "served_by": [
+      "claude-sonnet-5-5"
+    ],
+    "source": "claude-code-cli",
+    "tools": [
+      "get_worker",
+      "search_handbook",
+      "search_precedents"
+    ],
+    "trace": [
+      {
+        "arguments": {
+          "query": "insufficient PTO balance shortfall unpaid leave advance"
+        },
+        "result_sha256": "86ab35b2d71f293e",
+        "tool": "search_handbook"
+      },
+      {
+        "arguments": {
+          "query": "consecutive days extended leave HR Partner review"
+        },
+        "result_sha256": "556bbef481ded787",
+        "tool": "search_handbook"
+      },
+      {
+        "arguments": {
+          "query": "PTO request exceeding balance extended leave"
+        },
+        "result_sha256": "2feef997fcb95d6b",
+        "tool": "search_precedents"
+      },
+      {
+        "arguments": {
+          "query": "team coverage floor below minimum"
+        },
+        "result_sha256": "ab6dd4e15d458be3",
+        "tool": "search_handbook"
+      }
+    ]
+  },
+  "agent-d1868b860d7697dd4e5465d6": {
+    "kind": "agent",
+    "label": "coverage_specialist:REQ-2004",
+    "model": "claude-sonnet-5-5",
+    "response": {
+      "cited_passage_ids": [],
+      "cited_rule_ids": [
+        "COV-01",
+        "BAL-01",
+        "CON-01"
+      ],
+      "gaps": [
+        "I did not check whether a cross-team backup exists. The tool only shows the requester out on the worst days.",
+        "I did not search the handbook or precedents for how the coverage floor applies to a two-person team.",
+        "I did not call get_balance. BAL-01 already shows a 40h balance against 120h requested, which is blocking and 80h short, and CON-01 shows 19 consecutive days against the 15-day ceiling."
+      ],
+      "options": [
+        "Approve knowingly with the coverage exception, since the floor is advisory and the shortfall is the same in every window checked (2026-10-12 to 10-30 and 2026-10-26 to 11-13 both give 50%).",
+        "Ask the worker to shorten the leave or split it into shorter absences. Shorter windows were not tested, so this is unconfirmed.",
+        "Arrange a temporary backup from outside Ledger Services for the absence, if one exists. I did not verify this."
+      ],
+      "summary": "Ledger Services has only 2 people, so the requested window (2026-10-19 to 11-06) drops coverage to 50%, below the 60% floor (COV-01, advisory). Windows one week earlier (10-12 to 10-30) and one week later (10-26 to 11-13) also give 50%. With a team of two, any absence by this worker breaches the floor, so moving the dates won't fix it."
+    },
+    "schema": "SpecialistReport",
+    "served_by": [
+      "claude-sonnet-5-5"
+    ],
+    "source": "claude-code-cli",
+    "tools": [
+      "get_balance",
+      "get_worker",
+      "team_availability"
+    ],
+    "trace": [
+      {
+        "arguments": {
+          "end": "2026-11-06",
+          "start": "2026-10-19",
+          "worker_id": "W-100237"
+        },
+        "result_sha256": "4785d44d82962d24",
+        "tool": "team_availability"
+      },
+      {
+        "arguments": {
+          "end": "2026-10-30",
+          "start": "2026-10-12",
+          "worker_id": "W-100237"
+        },
+        "result_sha256": "00bb60e8315d1ba4",
+        "tool": "team_availability"
+      },
+      {
+        "arguments": {
+          "end": "2026-11-13",
+          "start": "2026-10-26",
+          "worker_id": "W-100237"
+        },
+        "result_sha256": "c95b4239073db3c4",
+        "tool": "team_availability"
+      }
+    ]
+  },
+  "agent-e0879148bac1a8dbf25e606f": {
+    "kind": "agent",
+    "label": "coverage_specialist:REQ-2002",
+    "model": "claude-sonnet-5-5",
+    "response": {
+      "cited_passage_ids": [],
+      "cited_rule_ids": [
+        "COV-01",
+        "BLK-01",
+        "NOT-01",
+        "BAL-01"
+      ],
+      "gaps": [
+        "I did not search the handbook or precedents for how exceptions to the Q3 revenue close restriction are handled.",
+        "I did not check whether the worker's role is critical during the Q3 close. Headcount coverage doesn't show that.",
+        "Today is 2026-10-01 and the requested start date of 2026-09-24 has already passed. I could not confirm whether this is a retroactive request."
+      ],
+      "options": [
+        "Coverage doesn't limit approval (COV-01 passes at 75% against a 60% floor), so the decision rests on the BLK-01 restricted-period exception.",
+        "If the manager won't grant the exception, the worker could shorten the request to end before 2026-09-28, when the restricted period starts. I haven't checked this against coverage or the balance. Coverage should hold, since it is already 75% at its tightest.",
+        "If the manager grants the exception, note that notice was only 3 days against the 14-day minimum (NOT-01, advisory)."
+      ],
+      "summary": "Team coverage is fine. Payments Platform has 4 people, and coverage on the tightest day (2026-09-24) is 75% with only the requester out. The floor is 60%, so I did not look at alternative windows. The blocking problem is separate: the window overlaps the Q3 revenue close restricted period (BLK-01), which needs an approved exception. Notice is also short (NOT-01)."
+    },
+    "schema": "SpecialistReport",
+    "served_by": [
+      "claude-sonnet-5-5"
+    ],
+    "source": "claude-code-cli",
+    "tools": [
+      "get_balance",
+      "get_worker",
+      "team_availability"
+    ],
+    "trace": [
+      {
+        "arguments": {
+          "end": "2026-10-03",
+          "start": "2026-09-24",
+          "worker_id": "W-100235"
+        },
+        "result_sha256": "93f646f68e872df7",
+        "tool": "team_availability"
+      }
+    ]
+  },
+  "agent-eef8653c5d3342ca5bb34193": {
+    "kind": "agent",
+    "label": "coverage_specialist:REQ-2001",
+    "model": "claude-sonnet-5-5",
+    "response": {
+      "cited_passage_ids": [],
+      "cited_rule_ids": [
+        "COV-01"
+      ],
+      "gaps": [
+        "I did not check alternative windows because coverage is above the floor.",
+        "I did not check the balance because the findings show it clearly (BAL-01 passes, 40h requested against 96h).",
+        "team_availability reports only W-100234 out on the worst day. I did not confirm whether other team members have time off elsewhere in the window."
+      ],
+      "options": [
+        "Coverage is not a concern for 2026-11-02 to 2026-11-06. The manager can weigh the request on its other findings, which all pass."
+      ],
+      "summary": "Team coverage holds if this request is approved. Payments Platform has 4 people. On the tightest day, 2026-11-02, 75% are available, with only W-100234 out. That is above the 60% floor, so no alternative window is needed."
+    },
+    "schema": "SpecialistReport",
+    "served_by": [
+      "claude-sonnet-5-5"
+    ],
+    "source": "claude-code-cli",
+    "tools": [
+      "get_balance",
+      "get_worker",
+      "team_availability"
+    ],
+    "trace": [
+      {
+        "arguments": {
+          "end": "2026-11-06",
+          "start": "2026-11-02",
+          "worker_id": "W-100234"
+        },
+        "result_sha256": "45025412b0bf36c7",
+        "tool": "team_availability"
+      }
+    ]
   },
   "b93abe359f8762e028d961c7": {
     "label": "judge:EV-01",
@@ -170,6 +915,21 @@
     "schema": "Recommendation",
     "served_by": [
       "claude-sonnet-5-5"
+    ],
+    "source": "claude-code-cli"
+  },
+  "ec66973a36d957c4288ab9d0": {
+    "label": "judge:EV-01",
+    "model": "claude-opus-5-5",
+    "response": {
+      "citations_correct": 2,
+      "justification": "Every figure in the rationale (40h of 96h, 42 days of notice, 75% coverage against a 60% floor, 5 days) comes from the findings. However, it cites HB-2.2 while saying that passage doesn't affect the decision, and it says no exception route or HR review applies without citing HB-4.1 or HB-7.1, the passages that claim relies on.",
+      "rationale_grounded": 3,
+      "tone_appropriate": 3
+    },
+    "schema": "JudgeScore",
+    "served_by": [
+      "claude-opus-5-5"
     ],
     "source": "claude-code-cli"
   },

@@ -264,6 +264,30 @@ def check_mcp_tools(t: policy.Tenant) -> str:
     return "6 read-only tools over stdio; policy matches the engine; HR-only guidance withheld from the manager server"
 
 
+def check_multi_agent(t: policy.Tenant) -> str:
+    """The multi-agent assessment on all five requests, replayed from recorded trajectories."""
+    try:
+        from .agents import POLICY_TOOLS, COVERAGE_TOOLS
+    except ImportError:
+        raise CheckFailed("mcp extra not installed: pip install -e '.[mcp]'")
+    allowed = {"policy_specialist": set(POLICY_TOOLS), "coverage_specialist": set(COVERAGE_TOOLS)}
+    counts = {}
+    for rid, request in t.requests.items():
+        state, _ = _paused(graph_mod.build(t, agents="multi"), request, f"e2e-multi-{rid}")
+        expect("__interrupt__" in state and state["decision"] is None, f"{rid}: the specialists decided something")
+        calls = [e for e in state["evidence"] if e["data"].get("via") == "mcp"]
+        expect({c["data"]["agent"] for c in calls} == set(allowed), f"{rid}: both specialists should have used tools")
+        for c in calls:
+            expect(c["data"]["tool"] in allowed[c["data"]["agent"]], f"{rid}: {c['data']['agent']} used {c['data']['tool']}")
+            expect(c["data"]["result_sha256"] or c["data"]["error"], f"{rid}: a tool call with no recorded result")
+        given = {p["passage_id"] for p in state["passages"]}
+        rec = Recommendation.model_validate(state["recommendation"])
+        expect(set(rec.cited_passage_ids) <= given, f"{rid}: cites a passage no tool returned")
+        expect(evidence.verify(state["evidence"])[0], f"{rid}: evidence chain broke")
+        counts[rid] = len(calls)
+    return f"all {len(counts)} requests paused for a human; tool calls per request {sorted(counts.values())}; every call in the ledger"
+
+
 OFFLINE: list[tuple[str, Callable[[policy.Tenant], str]]] = [
     ("agent never decides", check_agent_never_decides),
     ("CLI paths and exit codes", check_cli_paths),
@@ -276,6 +300,7 @@ OFFLINE: list[tuple[str, Callable[[policy.Tenant], str]]] = [
     ("RAGAS retrieval metrics", check_ragas_retrieval),
     ("web app through HTTP", check_web_app),
     ("MCP tools over stdio", check_mcp_tools),
+    ("multi-agent assessment (replayed)", check_multi_agent),
 ]
 
 
@@ -298,6 +323,36 @@ def check_live_agent_call(t: policy.Tenant) -> str:
     expect(llm.AGENT_MODEL in (entry.get("served_by") or []), f"served by {entry.get('served_by')}")
     expect(set(rec.cited_passage_ids) <= given, "the live answer cites a passage it was not given")
     return f"{entry['source']} · {entry['served_by']} · recommends {rec.action} · paused for a human"
+
+
+def check_live_multi_agent(t: policy.Tenant) -> str:
+    """The specialists run live for REQ-2004 into scratch caches, then replay from them."""
+    from . import retrieval
+    from .agents import _mcp_server
+
+    with tempfile.TemporaryDirectory() as d:
+        scratch, emb = Path(d) / "llm_cache.json", Path(d) / "embeddings.json"
+        shutil.copy(llm.FIXTURES, scratch)
+        shutil.copy(retrieval.EMBED_CACHE, emb)
+        saved = llm.FIXTURES
+        llm.FIXTURES = scratch
+        try:
+            with _env(HR_AGENT_EMBEDDINGS=str(emb), HR_AGENT_FIXTURES=str(scratch)):
+                tenant = policy.Tenant()
+                tenant._policy_index = retrieval.PolicyIndex(embedder=retrieval.Embedder(cache_path=emb))
+                state, _ = _paused(graph_mod.build(tenant, record_llm=True, agents="multi"), tenant.requests["REQ-2004"], "e2e-live-multi")
+                entries = [v for v in json.loads(scratch.read_text()).values() if v.get("kind") == "agent" and v["label"].endswith("REQ-2004")]
+                calls = [e for e in state["evidence"] if e["data"].get("via") == "mcp"]
+                expect("__interrupt__" in state and state["decision"] is None, "the live multi-agent run did not pause for a human")
+                expect(len(entries) == 2 and all(llm.AGENT_MODEL in e["served_by"] for e in entries), f"served by {[e.get('served_by') for e in entries]}")
+                expect(calls, "the specialists made no tool calls")
+                # and what was just recorded replays without the model
+                with _env(HR_AGENT_OFFLINE="1"):
+                    again, _ = _paused(graph_mod.build(tenant, agents="multi"), tenant.requests["REQ-2004"], "e2e-live-multi-replay")
+                expect(again["recommendation"] == state["recommendation"], "the recorded trajectory did not replay to the same recommendation")
+        finally:
+            llm.FIXTURES = saved
+    return f"{entries[0]['source']} · {len(calls)} tool calls recorded and replayed · paused for a human"
 
 
 def check_live_ragas(t: policy.Tenant) -> str:
@@ -332,6 +387,7 @@ def run_all(*, require_live: bool = False) -> dict:
 
     if live_possible:
         results.append(_run("live agent call (scratch cache)", check_live_agent_call, tenant))
+        results.append(_run("live multi-agent run (scratch cache)", check_live_multi_agent, tenant))
         if os.environ.get("ANTHROPIC_API_KEY"):
             results.append(_run("live RAGAS faithfulness + context recall", check_live_ragas, tenant))
             live = "ran"
