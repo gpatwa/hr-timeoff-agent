@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "hr-timeoff-agent \u2014 one request, end to end",
+    "output": "sequence.html",
+    "viewBox": [
+      1000,
+      540
+    ],
+    "column_fit": "spread",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    {
+      "id": "emp",
+      "type": "external",
+      "label": "Employee",
+      "sublabel": "files request"
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "Web app",
+      "sublabel": "FastAPI"
+    },
+    {
+      "id": "ws",
+      "type": "backend",
+      "label": "Workspace",
+      "sublabel": "authz \u00b7 SQLite"
+    },
+    {
+      "id": "graph",
+      "type": "backend",
+      "label": "Agent graph",
+      "sublabel": "rules \u00b7 retrieve \u00b7 gate"
+    },
+    {
+      "id": "llm",
+      "type": "cloud",
+      "label": "Model",
+      "sublabel": "Sonnet 5.5"
+    },
+    {
+      "id": "led",
+      "type": "database",
+      "label": "Ledger",
+      "sublabel": "hash chain"
+    },
+    {
+      "id": "mgr",
+      "type": "external",
+      "label": "Manager",
+      "sublabel": "decides"
+    }
+  ],
+  "segments": [],
+  "messages": [
+    {
+      "id": "e-file",
+      "from": "emp",
+      "to": "web",
+      "y": 162,
+      "label": "file request",
+      "variant": "default"
+    },
+    {
+      "id": "w-submit",
+      "from": "web",
+      "to": "ws",
+      "y": 190,
+      "label": "submit (signed persona)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "ws-triage",
+      "from": "ws",
+      "to": "graph",
+      "y": 218,
+      "label": "triage: request + worker",
+      "variant": "emphasis"
+    },
+    {
+      "id": "g-model",
+      "from": "graph",
+      "to": "llm",
+      "y": 246,
+      "label": "Findings + passages",
+      "variant": "security"
+    },
+    {
+      "id": "m-rec",
+      "from": "llm",
+      "to": "graph",
+      "y": 274,
+      "label": "Recommendation (advisory)",
+      "variant": "return"
+    },
+    {
+      "id": "g-pause",
+      "from": "graph",
+      "to": "ws",
+      "y": 302,
+      "label": "paused at the gate",
+      "variant": "return"
+    },
+    {
+      "id": "mgr-decide",
+      "from": "mgr",
+      "to": "web",
+      "y": 330,
+      "label": "approve or decline",
+      "variant": "default"
+    },
+    {
+      "id": "w-decide",
+      "from": "web",
+      "to": "ws",
+      "y": 358,
+      "label": "decide(outcome)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "ws-resume",
+      "from": "ws",
+      "to": "graph",
+      "y": 386,
+      "label": "resume as the manager",
+      "variant": "security"
+    },
+    {
+      "id": "g-auth",
+      "from": "graph",
+      "to": "led",
+      "y": 414,
+      "label": "verify chain, then commit",
+      "variant": "security"
+    },
+    {
+      "id": "g-done",
+      "from": "graph",
+      "to": "ws",
+      "y": 442,
+      "label": "recorded, balance applied",
+      "variant": "return"
+    }
+  ]
+}
