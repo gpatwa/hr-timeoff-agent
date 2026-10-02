@@ -1,0 +1,49 @@
+{
+  "tenant_id": "TEN-001",
+  "note": "Synthetic compensation data for the payroll-impact peer agent.",
+  "pay_frequency": "biweekly",
+  "period_anchor": "2026-01-05",
+  "hours_per_year": 2080,
+  "rules": {
+    "payroll_signoff_over_unpaid_hours": 40,
+    "benefits_review_over_unpaid_hours": 80
+  },
+  "workers": {
+    "W-100234": {
+      "annual_salary": 172000,
+      "currency": "USD"
+    },
+    "W-100235": {
+      "annual_salary": 198000,
+      "currency": "USD"
+    },
+    "W-100236": {
+      "annual_salary": 186000,
+      "currency": "USD"
+    },
+    "W-100237": {
+      "annual_salary": 128000,
+      "currency": "USD"
+    },
+    "W-100238": {
+      "annual_salary": 126000,
+      "currency": "USD"
+    },
+    "W-100239": {
+      "annual_salary": 164000,
+      "currency": "USD"
+    },
+    "W-100001": {
+      "annual_salary": 205000,
+      "currency": "USD"
+    },
+    "W-100002": {
+      "annual_salary": 262000,
+      "currency": "USD"
+    },
+    "W-100003": {
+      "annual_salary": 118000,
+      "currency": "USD"
+    }
+  }
+}

@@ -9,6 +9,8 @@
     python -m hr_timeoff_agent e2e                     # self-test: every claim, pass/fail
     python -m hr_timeoff_agent web                     # the app, at http://127.0.0.1:8000
     python -m hr_timeoff_agent mcp                     # the HR tools as an MCP server (stdio)
+    python -m hr_timeoff_agent a2a                     # the time-off agent and a payroll agent, over A2A
+    python -m hr_timeoff_agent a2a-demo                # a walkthrough of the A2A conversation
 """
 
 from __future__ import annotations
@@ -244,6 +246,116 @@ def cmd_mcp(args) -> int:
     return 0
 
 
+def _a2a_setup(home: Path):
+    """Workspace, token directory and apps for the two A2A agents."""
+    import secrets as _secrets
+
+    from .a2a_common import BearerTokens
+    from .web.workspace import Workspace
+
+    ws = Workspace(home)
+    secret = os.environ.get("HR_A2A_SECRET") or _secrets.token_hex(16)
+    people = ws.personas()
+    tokens = BearerTokens.derive(secret, [p.worker_id for p in people] + ["timeoff-agent"])
+    return ws, tokens, people
+
+
+def cmd_a2a(args) -> int:
+    try:
+        import asyncio
+
+        import uvicorn
+
+        from .a2a_client import A2AAgent
+        from .a2a_payroll import create_payroll_app
+        from .a2a_server import create_timeoff_app
+    except ImportError:
+        print("The A2A agents need the a2a extra:\n  ./.venv/bin/pip install -e '.[a2a]'")
+        return 2
+    home = Path(args.home or os.environ.get("HR_A2A_HOME", "var/a2a"))
+    ws, tokens, people = _a2a_setup(home)
+    tf_url, pay_url = f"http://{args.host}:{args.port}", f"http://{args.host}:{args.payroll_port}"
+    payroll = A2AAgent(pay_url, tokens.for_principal("timeoff-agent"))
+    servers = [
+        uvicorn.Server(uvicorn.Config(create_timeoff_app(ws, tokens, payroll=payroll, base_url=tf_url), host=args.host, port=args.port, log_level="warning")),
+        uvicorn.Server(uvicorn.Config(create_payroll_app(tokens, base_url=pay_url), host=args.host, port=args.payroll_port, log_level="warning")),
+    ]
+    print(f"\n  Time-off agent   {tf_url}/.well-known/agent-card.json\n  Payroll agent    {pay_url}/.well-known/agent-card.json", flush=True)
+    print(f"  State in {home}  (separate from the web app's ./var; don't point both at one home at once)\n", flush=True)
+    print("  Demo bearer tokens (set HR_A2A_SECRET to keep them stable across restarts):", flush=True)
+    for p in people:
+        print(f"    {p.name:<16} {','.join(sorted(p.roles)):<22} {tokens.for_principal(p.worker_id)}", flush=True)
+    print("\n  Ctrl-C to stop.\n", flush=True)
+
+    async def serve():
+        await asyncio.gather(*(s.serve() for s in servers))
+
+    try:
+        asyncio.run(serve())
+    except KeyboardInterrupt:
+        pass
+    return 0
+
+
+def cmd_a2a_demo(args) -> int:
+    """The A2A conversation end to end, in process (no ports), replayed offline."""
+    try:
+        import asyncio
+        import tempfile
+
+        import httpx
+
+        from .a2a_client import A2AAgent
+        from .a2a_payroll import create_payroll_app
+        from .a2a_server import create_timeoff_app
+    except ImportError:
+        print("The A2A agents need the a2a extra:\n  ./.venv/bin/pip install -e '.[a2a]'")
+        return 2
+    import logging
+
+    logging.getLogger("a2a").setLevel(logging.ERROR)  # the SDK logs a warning when an in-process client closes
+    os.environ.setdefault("HR_AGENT_OFFLINE", "1")
+
+    async def run(home):
+        ws, tokens, _ = _a2a_setup(Path(home))
+        pay_app = create_payroll_app(tokens, base_url="http://payroll")
+        client = lambda app, base, who: A2AAgent(base, tokens.for_principal(who), httpx_client=httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=base))
+        payroll = client(pay_app, "http://payroll", "timeoff-agent")
+        tf_app = create_timeoff_app(ws, tokens, payroll=payroll, base_url="http://timeoff")
+        manager, hr = client(tf_app, "http://timeoff", "W-100236"), client(tf_app, "http://timeoff", "W-100003")
+
+        def say(who, what):
+            print(f"  {who:<22} {what}")
+
+        await manager.connect()
+        card = manager.card
+        print(f"\n{RULE}\n  A2A · {card.name} · skills: {', '.join(s.id for s in card.skills)}\n{RULE}")
+        say("Aiko's agent  →", "review_time_off_request REQ-2004")
+        r = await manager.send({"skill": "review_time_off_request", "request_id": "REQ-2004"})
+        say("  task state", r.state)
+        say("  agent says", r.text)
+        pi = (r.data or {}).get("payroll_impact") or {}
+        if pi.get("available"):
+            say("  payroll agent (A2A)", f"{pi['unpaid_hours']:g}h unpaid ≈ {pi['estimated_pay_reduction']:,.2f} {pi['currency']}; payroll sign-off required: {pi['payroll_signoff_required']}")
+        say("Grace's agent (HR) →", "review_time_off_request REQ-2004")
+        h = await hr.send({"skill": "review_time_off_request", "request_id": "REQ-2004"})
+        say("  task state", f"{h.state}  (view only: she is not Samuel's manager)")
+        say("Aiko's agent  →", "outcome=approved on the same task")
+        d = await manager.send({"outcome": "approved", "note": "40h paid, 80h unpaid"}, task_id=r.task_id, context_id=r.context_id)
+        say("  task state", d.state)
+        say("  agent says", d.text)
+        dec = d.artifacts.get("decision", {})
+        say("  recorded", f"{dec.get('paid_hours'):g}h paid + {dec.get('unpaid_hours'):g}h unpaid; evidence chain verified: {dec['evidence']['chain_verified']}")
+        print()
+        for a in (manager, hr, payroll):
+            await a.close()
+        ws.close()
+
+    with tempfile.TemporaryDirectory() as home:
+        asyncio.run(run(home))
+    return 0
+
+
 def cmd_report(args) -> int:
     from .report import build
 
@@ -295,6 +407,15 @@ def main(argv: list[str] | None = None) -> int:
     m.add_argument("--http", type=int, metavar="PORT", help="serve streamable HTTP on this port instead of stdio")
     m.add_argument("--host", default="127.0.0.1")
     m.set_defaults(func=cmd_mcp)
+
+    a = sub.add_parser("a2a", help="serve the time-off agent and a payroll agent over A2A")
+    a.add_argument("--host", default="127.0.0.1")
+    a.add_argument("--port", type=int, default=8100, help="time-off agent")
+    a.add_argument("--payroll-port", type=int, default=8101, help="payroll agent")
+    a.add_argument("--home", help="state directory (default: HR_A2A_HOME or var/a2a)")
+    a.set_defaults(func=cmd_a2a)
+
+    sub.add_parser("a2a-demo", help="walk through the A2A conversation, in process").set_defaults(func=cmd_a2a_demo)
 
     x = sub.add_parser("e2e", help="end-to-end self-test of every guarantee")
     x.add_argument("--require-live", action="store_true", help="fail if live checks cannot run")

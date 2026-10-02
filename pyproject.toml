@@ -27,6 +27,15 @@ web = [
 mcp = [
     "mcp>=2.2",
 ]
+# The time-off agent and the payroll agent as A2A agents. They sit on the same
+# workspace the web app uses, so this needs the web extra's dependencies too.
+a2a = [
+    "a2a-sdk[http-server]>=1.2",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "langgraph-checkpoint-sqlite>=2.0",
+    "httpx>=0.27",
+]
 rag-eval = [
     "ragas>=0.4,<0.5",
     "langchain-community<0.4",

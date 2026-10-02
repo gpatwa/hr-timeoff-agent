@@ -300,6 +300,52 @@ single stays the default. The multi-agent path earns its place when the work nee
 exploration (trying alternative dates, searching more than once) rather than a
 single read of well-prepared inputs.
 
+## Agents over A2A
+
+The product is also reachable by other agents, over the [A2A protocol](https://a2a-protocol.org)
+(spec 1.0, JSON-RPC, SDK `a2a-sdk` 1.x). Two agents, each with an Agent Card at
+`/.well-known/agent-card.json`:
+
+```bash
+./.venv/bin/pip install -e '.[a2a]'
+./.venv/bin/python -m hr_timeoff_agent a2a-demo      # the whole conversation, in process, no ports
+./.venv/bin/python -m hr_timeoff_agent a2a           # serve both (8100 and 8101); prints demo tokens
+```
+
+**The time-off agent** (`a2a_server.py`) is a second front door onto the same
+workspace, graph, authorization and evidence trail the web app uses. It has one skill
+for each side of the conversation:
+
+| Skill | Caller | What happens |
+|---|---|---|
+| `file_time_off_request` | an employee's agent | files and triages a request; the task **completes** with the request id and who must approve it |
+| `review_time_off_request` | the approver's agent | for the requester's direct manager the task pauses in **`input-required`** with the advisory recommendation, the findings and the payroll impact; the decision arrives as a follow-up message on the same task and the task **completes**. HR and the requester get a **completed**, view-only review; anyone else is **rejected** |
+
+The mapping is deliberate: A2A's `input-required` means "the agent needs input from
+the caller", and the caller who owns that task is the approver. An employee's task has
+nothing left to wait for, so it completes. A task belongs to the caller who opened it:
+another caller cannot continue it (`TaskNotFound`), and the approval gate still checks
+the approver independently. A refused decision leaves the task waiting, the same way the
+gate pauses again.
+
+**The payroll agent** (`a2a_payroll.py`) is a separate service with its own data
+(`data/payroll.json`), its own token and its own tenant check. When an approval would
+leave unpaid hours, the time-off agent asks it over A2A what that costs, so the manager
+sees the pay effect before deciding. It is deliberately deterministic: money arithmetic
+is not a model's guess, and an A2A agent is defined by its interface, not its internals.
+If it is down, the review still works and says the impact is unavailable.
+
+- **Identity** is a bearer token that maps to a worker (or, for the payroll call, a
+  service). The JSON-RPC endpoint returns 401 without one; the card stays public. The
+  demo tokens are derived from `HR_A2A_SECRET`; a real deployment puts OIDC or a gateway
+  in front and fills the same `ServerCallContext.user`.
+- **State**: tasks live in an in-memory task store, but the pending request itself is in
+  the workspace's SQLite, so it survives a restart and can still be decided in the web
+  app. The agents use their own `var/a2a` home by default; don't point them and the web
+  app at one home at the same time.
+- `tests/test_a2a.py` drives both agents through the real protocol and `e2e` runs the
+  flow.
+
 ## Eval
 
 `evals/rubric.md` was written before the prompt was tuned, and deliberately not
@@ -434,6 +480,9 @@ hr_timeoff_agent/
   mcp_client.py a small synchronous client for it
   agentloop.py  tool-calling agent loops with replayable trajectories
   agents.py     the policy and coverage specialists and the coordinator
+  a2a_server.py the time-off agent over A2A (file, review, decide)
+  a2a_payroll.py a separate payroll-impact agent over A2A
+  a2a_client.py, a2a_common.py  the A2A client, bearer-token identity, helpers
   web/          the browser app: workspace (state + rules), identity, routes, pages
   report.py     builds docs/report.html from real run output
   cli.py
