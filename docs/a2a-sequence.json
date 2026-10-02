@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "hr-timeoff-agent \u2014 over A2A",
+    "output": "a2a-sequence.html",
+    "viewBox": [
+      1000,
+      540
+    ],
+    "column_fit": "spread",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    {
+      "id": "emp",
+      "type": "external",
+      "label": "Employee agent",
+      "sublabel": "A2A client"
+    },
+    {
+      "id": "mgr",
+      "type": "external",
+      "label": "Manager agent",
+      "sublabel": "A2A client"
+    },
+    {
+      "id": "tf",
+      "type": "security",
+      "label": "Time-off agent",
+      "sublabel": "A2A server"
+    },
+    {
+      "id": "ws",
+      "type": "backend",
+      "label": "Workspace",
+      "sublabel": "graph \u00b7 gate"
+    },
+    {
+      "id": "pay",
+      "type": "cloud",
+      "label": "Payroll agent",
+      "sublabel": "A2A peer"
+    }
+  ],
+  "messages": [
+    {
+      "id": "m0",
+      "from": "emp",
+      "to": "tf",
+      "y": 162,
+      "label": "1 file_time_off_request",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m1",
+      "from": "tf",
+      "to": "ws",
+      "y": 190,
+      "label": "1 submit + triage",
+      "variant": "default"
+    },
+    {
+      "id": "m2",
+      "from": "tf",
+      "to": "emp",
+      "y": 218,
+      "label": "1 completed: request id",
+      "variant": "return"
+    },
+    {
+      "id": "m3",
+      "from": "mgr",
+      "to": "tf",
+      "y": 246,
+      "label": "6 review_time_off_request",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m4",
+      "from": "tf",
+      "to": "ws",
+      "y": 274,
+      "label": "6 read the paused run",
+      "variant": "default"
+    },
+    {
+      "id": "m5",
+      "from": "tf",
+      "to": "pay",
+      "y": 302,
+      "label": "6 unpaid-leave impact (A2A)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m6",
+      "from": "pay",
+      "to": "tf",
+      "y": 330,
+      "label": "6 impact: pay, signoff",
+      "variant": "return"
+    },
+    {
+      "id": "m7",
+      "from": "tf",
+      "to": "mgr",
+      "y": 358,
+      "label": "6 input-required",
+      "variant": "return"
+    },
+    {
+      "id": "m8",
+      "from": "mgr",
+      "to": "tf",
+      "y": 386,
+      "label": "7 decision, same task",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m9",
+      "from": "tf",
+      "to": "ws",
+      "y": 414,
+      "label": "8 resume as the manager",
+      "variant": "security"
+    },
+    {
+      "id": "m10",
+      "from": "tf",
+      "to": "mgr",
+      "y": 442,
+      "label": "10 completed, chain verified",
+      "variant": "return"
+    }
+  ]
+}

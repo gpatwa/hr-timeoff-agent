@@ -12,33 +12,33 @@
         "focus": [
           "request",
           "rules",
-          "assess",
+          "coord",
           "gate",
           "recorder",
           "ledger"
         ],
-        "note": "What moves between steps: Findings, Recommendation, Decision, Evidence."
+        "note": "Numbers are the steps of one request and match the sequence diagrams. Step 6 is the pause at the gate."
       },
       {
-        "id": "retrieval-data",
-        "label": "Retrieval",
+        "id": "tools",
+        "label": "Tool calls",
         "focus": [
-          "tenant",
+          "spec",
+          "mcp",
           "qdrant",
-          "retrieve",
-          "assess"
+          "tenant"
         ],
-        "note": "Handbook and precedent passages reach the model only after tenant and audience filtering."
+        "note": "Specialists reach data only through MCP; tenant and audience are fixed server-side."
       },
       {
         "id": "model-boundary",
         "label": "Model boundary",
         "focus": [
-          "assess",
-          "fixtures",
+          "spec",
+          "coord",
           "gate"
         ],
-        "note": "The model sees findings and passages and returns advice; it never writes a decision."
+        "note": "Models read findings and tool results and return advice; none writes a decision."
       }
     ],
     "viewBox": [
@@ -54,7 +54,7 @@
       "label": "Deterministic"
     },
     {
-      "label": "Model"
+      "label": "Agents"
     },
     {
       "label": "Human"
@@ -71,7 +71,7 @@
       "sublabel": "dates, plan, note",
       "stage": 0,
       "row": 0,
-      "tag": "form input"
+      "tag": "form or A2A"
     },
     {
       "id": "tenant",
@@ -101,31 +101,31 @@
       "tag": "deterministic"
     },
     {
-      "id": "retrieve",
+      "id": "mcp",
       "type": "backend",
-      "label": "Retrieval",
-      "sublabel": "hybrid, RRF",
+      "label": "MCP tool server",
+      "sublabel": "6 read-only tools",
       "stage": 1,
       "row": 2,
-      "tag": "passages"
+      "tag": "audited"
     },
     {
-      "id": "assess",
+      "id": "coord",
       "type": "cloud",
-      "label": "Assessment",
-      "sublabel": "claude-sonnet-5-5",
+      "label": "Coordinator",
+      "sublabel": "no tools",
       "stage": 2,
       "row": 1,
       "tag": "advisory"
     },
     {
-      "id": "fixtures",
-      "type": "database",
-      "label": "Fixture cache",
-      "sublabel": "keyed by prompt hash",
+      "id": "spec",
+      "type": "cloud",
+      "label": "Specialists",
+      "sublabel": "2 tool-calling loops",
       "stage": 2,
       "row": 2,
-      "tag": "offline replay"
+      "tag": "multi mode"
     },
     {
       "id": "gate",
@@ -178,7 +178,7 @@
       "id": "f-request",
       "from": "request",
       "to": "rules",
-      "label": "request",
+      "label": "1 \u00b7 request",
       "classification": "input",
       "variant": "emphasis",
       "route": "straight"
@@ -187,7 +187,7 @@
       "id": "f-policy",
       "from": "tenant",
       "to": "rules",
-      "label": "policy.json",
+      "label": "2 \u00b7 policy.json",
       "classification": "data",
       "variant": "default",
       "labelAt": [
@@ -219,34 +219,39 @@
     {
       "id": "f-hits",
       "from": "qdrant",
-      "to": "retrieve",
-      "label": "filtered hits",
+      "to": "mcp",
+      "label": "3 \u00b7 hits",
       "classification": "tenant + audience",
-      "variant": "security"
+      "variant": "security",
+      "route": "straight"
     },
     {
       "id": "f-findings",
       "from": "rules",
-      "to": "assess",
-      "label": "Findings",
+      "to": "coord",
+      "label": "2 \u00b7 Findings",
       "classification": "facts",
-      "variant": "emphasis"
+      "variant": "emphasis",
+      "labelAt": [
+        422,
+        215
+      ]
     },
     {
-      "id": "f-passages",
-      "from": "retrieve",
-      "to": "assess",
-      "label": "Passages",
-      "classification": "cited by id",
-      "variant": "default"
+      "id": "f-tools",
+      "from": "spec",
+      "to": "mcp",
+      "label": "3 \u00b7 calls",
+      "variant": "security",
+      "route": "straight"
     },
     {
-      "id": "f-replay",
-      "from": "fixtures",
-      "to": "assess",
-      "label": "replay",
-      "classification": "offline",
-      "variant": "dashed",
+      "id": "f-reports",
+      "from": "spec",
+      "to": "coord",
+      "label": "4 \u00b7 reports",
+      "classification": "advisory",
+      "variant": "default",
       "route": "straight",
       "labelAt": [
         530,
@@ -255,9 +260,9 @@
     },
     {
       "id": "f-rec",
-      "from": "assess",
+      "from": "coord",
       "to": "gate",
-      "label": "Recommendation",
+      "label": "5 \u00b7 Recommendation",
       "classification": "advisory",
       "variant": "emphasis",
       "route": "straight"
@@ -266,7 +271,7 @@
       "id": "f-decision",
       "from": "manager",
       "to": "gate",
-      "label": "Decision",
+      "label": "7 \u00b7 Decision",
       "classification": "human",
       "variant": "security",
       "route": "straight",
@@ -279,7 +284,7 @@
       "id": "f-authorized",
       "from": "gate",
       "to": "recorder",
-      "label": "authorized Decision",
+      "label": "8 \u00b7 authorized",
       "classification": "actor = human",
       "variant": "security",
       "route": "straight"
@@ -288,7 +293,7 @@
       "id": "f-evidence",
       "from": "recorder",
       "to": "ledger",
-      "label": "evidence",
+      "label": "9 \u00b7 evidence",
       "classification": "chain",
       "variant": "security",
       "route": "straight",
@@ -301,7 +306,7 @@
       "id": "f-apply",
       "from": "recorder",
       "to": "store",
-      "label": "balance",
+      "label": "10 \u00b7 balance",
       "classification": "paid + unpaid hours",
       "variant": "default",
       "route": "straight",
@@ -316,18 +321,18 @@
       "dot": "emerald",
       "title": "What moves",
       "items": [
-        "Request \u2192 Findings \u2192 Recommendation \u2192 Decision \u2192 Evidence",
-        "Findings are computed in code, never inferred",
-        "Every step also appends a ledger entry"
+        "Request, Findings, tool results, reports,",
+        "then Recommendation, Decision, Evidence",
+        "Every tool call also lands in the ledger"
       ]
     },
     {
       "dot": "cyan",
-      "title": "Model boundary",
+      "title": "Shown: multi-agent mode",
       "items": [
-        "The model gets findings and filtered passages",
-        "It returns advice with citations, nothing else",
-        "Cached responses replay offline"
+        "Single mode drops MCP and the specialists:",
+        "retrieval runs in the graph, then one call",
+        "writes the Recommendation; the rest is identical"
       ]
     },
     {
@@ -336,7 +341,7 @@
       "items": [
         "Only the employee's manager can decide",
         "Checked at the gate and again in the recorder",
-        "A wrong approver is refused; the request stays pending"
+        "A wrong approver is refused; the request waits"
       ]
     }
   ]

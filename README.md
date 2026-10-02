@@ -12,15 +12,20 @@ load_context → check_policy → retrieve → assess → approval_gate ⏸ → 
                 deterministic   hybrid RAG  model    halts here      asserts human
 ```
 
-**[Interactive architecture diagram →](docs/architecture.html)** — every box labelled by what it
-actually is (deterministic rules engine, hybrid retrieval, Qdrant vector store, context
-assembly, LLM call, checkpointer, approval interrupt, evidence ledger, eval harness with RAGAS,
-judge), with source links into this repo.
+**How the system is put together** (interactive diagrams, source-linked, with the same step numbers
+across them: 1 file, 2 rules, 3 retrieve or investigate, 4 assess, 5 recommend, 6 pause, 7 decide,
+8 authorize and resume, 9 verify and commit, 10 apply the balance):
 
-**[Data-flow diagram →](docs/data-flow.html)** — what moves between steps (request, findings,
-passages, recommendation, decision, evidence), which stores each step touches, and where the model
-and human boundaries sit. **[Sequence diagram →](docs/sequence.html)** — one request end to end
-through the web app: file, triage, pause at the gate, the manager's decision, verify and commit.
+- **[System architecture →](docs/architecture.html)**: the agent topology. A single agent or a supervisor
+  with two specialists, tools only through an MCP server, a time-off agent and a payroll agent
+  talking A2A, the web app and the A2A agent sharing one workspace, one gate, one ledger.
+- **[Agent graph →](docs/agent-graph.html)**: inside the graph. The single-agent and multi-agent
+  paths side by side, the approval gate, the recorder, fixtures and replay.
+- **[Data flow →](docs/data-flow.html)**: what moves between steps (request, findings, tool results,
+  reports, recommendation, decision, evidence) and where the model and human boundaries sit.
+- **Sequences**: **[web flow →](docs/sequence.html)** (an employee files, the manager decides) and
+  **[over A2A →](docs/a2a-sequence.html)** (another agent files, reviews, pauses for the approver,
+  asks the payroll agent, and completes).
 
 ## Run it
 
@@ -492,9 +497,11 @@ evals/          rubric.md (written first), cases.json, rag_cases.json
 tests/          the guarantees, including tamper detection and human override,
                 and retrieval isolation by tenant and audience
 docs/report.html        rendered run report (every figure read from out/*.json)
-docs/architecture.html  interactive component diagram (archify; source-linked)
-docs/data-flow.html     data-flow diagram: payloads, stores, model and human boundaries
-docs/sequence.html      sequence diagram: one request through the web app
+docs/architecture.html  system architecture: agents, MCP, A2A, front doors (archify; source-linked)
+docs/agent-graph.html   the graph in detail: single and multi-agent paths, gate, replay
+docs/data-flow.html     data flow: payloads, stores, model and human boundaries
+docs/sequence.html      sequence: one request through the web app
+docs/a2a-sequence.html  sequence: the A2A conversation, including the payroll peer
 ```
 
 All tenant data is fabricated. No real worker records are involved.

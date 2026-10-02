@@ -2,246 +2,233 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "hr-timeoff-agent \u2014 architecture",
+    "title": "hr-timeoff-agent \u2014 system architecture",
     "output": "architecture.html",
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/gpatwa/hr-timeoff-agent",
-      "revision": "c51d19295c34975ff6b5ada9775ee65e760ad354"
+      "revision": "9896b4c22b0532166d96777205dea03f8a6a0bc2"
     },
     "views": [
       {
-        "id": "web-app",
-        "label": "Web app",
+        "id": "topology",
+        "label": "Agent topology",
+        "focus": [
+          "graph",
+          "mcp",
+          "model",
+          "ledger"
+        ],
+        "note": "Single agent or a supervisor with two specialists; tools only through MCP; nothing here decides."
+      },
+      {
+        "id": "protocols",
+        "label": "Protocols",
+        "focus": [
+          "ext",
+          "a2a",
+          "payroll",
+          "graph",
+          "mcp"
+        ],
+        "note": "A2A between agents, MCP between an agent and its tools."
+      },
+      {
+        "id": "front-doors",
+        "label": "Front doors",
         "focus": [
           "web",
+          "a2a",
           "workspace",
-          "checkpoint",
-          "gate"
+          "state"
         ],
-        "note": "Permissions are checked in the workspace layer and again at the gate; a wrong approver is refused."
-      },
-      {
-        "id": "decision-path",
-        "label": "Decision path",
-        "focus": [
-          "rules",
-          "retrieve",
-          "context",
-          "assess",
-          "gate",
-          "record"
-        ],
-        "note": "The only path to a committed outcome. It passes through a human and cannot be short-circuited."
-      },
-      {
-        "id": "retrieval",
-        "label": "Retrieval",
-        "focus": [
-          "rules",
-          "retrieve",
-          "qdrant",
-          "context",
-          "evals"
-        ],
-        "note": "Hybrid search in Qdrant, filtered to the tenant and reader before ranking, and scored with RAGAS."
+        "note": "The web app and the A2A agent share one workspace, graph and approval gate."
       },
       {
         "id": "audit",
-        "label": "Audit surface",
+        "label": "Audit",
         "focus": [
-          "gate",
-          "record",
+          "graph",
+          "mcp",
           "ledger",
-          "checkpoint"
+          "state"
         ],
-        "note": "Suspension, human attribution, and the hash-chained ledger that makes an override visible afterward."
-      },
-      {
-        "id": "evaluation",
-        "label": "Evaluation",
-        "focus": [
-          "evals",
-          "judge",
-          "rules",
-          "assess"
-        ],
-        "note": "The harness replays cases through the real graph rather than testing the prompt in isolation."
+        "note": "Every step and every tool call lands in a hash-chained ledger."
       }
     ]
   },
   "components": [
     {
-      "id": "tenant",
+      "id": "ext",
+      "type": "external",
+      "label": "Other agents",
+      "sublabel": "employee, manager, any A2A client",
+      "tag": "A2A callers",
+      "pos": [
+        300,
+        90
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/a2a_client.py",
+          "line": 42,
+          "label": "A2AAgent"
+        }
+      ]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "Web app",
+      "sublabel": "FastAPI \u00b7 signed session",
+      "tag": "browser users",
+      "pos": [
+        820,
+        90
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/web/app.py",
+          "line": 30,
+          "label": "create_app"
+        }
+      ]
+    },
+    {
+      "id": "payroll",
+      "type": "cloud",
+      "label": "Payroll agent",
+      "sublabel": "own data \u00b7 deterministic",
+      "tag": "A2A peer \u00b7 separate service",
+      "pos": [
+        40,
+        215
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/a2a_payroll.py",
+          "line": 139,
+          "label": "create_payroll_app"
+        }
+      ]
+    },
+    {
+      "id": "a2a",
+      "type": "security",
+      "label": "Time-off agent",
+      "sublabel": "Agent Card \u00b7 bearer token",
+      "tag": "A2A server",
+      "pos": [
+        300,
+        215
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/a2a_server.py",
+          "line": 247,
+          "label": "create_timeoff_app"
+        }
+      ]
+    },
+    {
+      "id": "workspace",
+      "type": "backend",
+      "label": "Workspace layer",
+      "sublabel": "authorization \u00b7 spend cap",
+      "tag": "one domain layer, two front doors",
+      "pos": [
+        820,
+        215
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/web/workspace.py",
+          "line": 86,
+          "label": "Workspace"
+        }
+      ]
+    },
+    {
+      "id": "state",
       "type": "database",
-      "label": "Tenant data",
-      "sublabel": "workers \u00b7 policy \u00b7 handbook",
-      "tag": "static JSON \u00b7 per-tenant",
+      "label": "Workspace state",
+      "sublabel": "requests \u00b7 balances \u00b7 paused runs",
+      "tag": "SQLite",
       "pos": [
-        40,
-        590
+        1090,
+        215
       ],
       "size": [
-        170,
+        190,
         64
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/policy.py",
-          "line": 37,
-          "label": "Tenant"
+          "path": "hr_timeoff_agent/web/workspace.py",
+          "line": 86,
+          "label": "Workspace"
         }
       ]
     },
     {
-      "id": "rules",
+      "id": "graph",
       "type": "backend",
-      "label": "Policy rules engine",
-      "sublabel": "5 rules \u2192 Finding[]",
-      "tag": "deterministic \u00b7 no model",
-      "pos": [
-        40,
-        340
-      ],
-      "size": [
-        170,
-        64
-      ],
-      "sources": [
-        {
-          "path": "hr_timeoff_agent/policy.py",
-          "line": 219,
-          "label": "evaluate()"
-        }
-      ]
-    },
-    {
-      "id": "context",
-      "type": "backend",
-      "label": "Context assembly",
-      "sublabel": "request + worker + findings",
-      "tag": "deterministic prompt",
+      "label": "Agent graph",
+      "sublabel": "single agent or multi-agent",
+      "tag": "rules \u00b7 gate \u00b7 recorder",
       "pos": [
         560,
         340
       ],
       "size": [
-        170,
+        190,
         64
       ],
       "sources": [
         {
           "path": "hr_timeoff_agent/graph.py",
-          "line": 61,
-          "label": "build_assess_prompt"
-        }
-      ]
-    },
-    {
-      "id": "assess",
-      "type": "cloud",
-      "label": "Assessment call",
-      "sublabel": "claude-sonnet-5-5 \u00b7 typed output",
-      "tag": "LLM \u00b7 advisory only",
-      "pos": [
-        820,
-        340
-      ],
-      "size": [
-        180,
-        64
-      ],
-      "sources": [
-        {
-          "path": "hr_timeoff_agent/graph.py",
-          "line": 160,
-          "label": "assess node"
-        }
-      ]
-    },
-    {
-      "id": "gate",
-      "type": "security",
-      "label": "Approval gate",
-      "sublabel": "authorizes approver \u00b7 halts",
-      "tag": "human-in-the-loop",
-      "pos": [
-        1090,
-        340
-      ],
-      "size": [
-        180,
-        64
-      ],
-      "sources": [
-        {
-          "path": "hr_timeoff_agent/graph.py",
-          "line": 180,
-          "label": "approval_gate"
+          "line": 284,
+          "label": "build"
         },
         {
-          "path": "hr_timeoff_agent/policy.py",
-          "line": 62,
-          "label": "authorize_approver"
+          "path": "hr_timeoff_agent/agents.py",
+          "line": 112,
+          "label": "make_multi_nodes"
         }
       ]
     },
     {
-      "id": "record",
-      "type": "backend",
-      "label": "Recorder",
-      "sublabel": "re-checks approver + chain",
-      "tag": "fail-closed",
-      "pos": [
-        1105,
-        465
-      ],
-      "size": [
-        150,
-        64
-      ],
-      "sources": [
-        {
-          "path": "hr_timeoff_agent/graph.py",
-          "line": 243,
-          "label": "record node"
-        }
-      ]
-    },
-    {
-      "id": "checkpoint",
-      "type": "database",
-      "label": "Graph state",
-      "sublabel": "InMemory \u00b7 SQLite in the web app",
-      "tag": "makes resume possible",
+      "id": "model",
+      "type": "cloud",
+      "label": "Claude",
+      "sublabel": "claude-sonnet-5-5 \u00b7 typed output",
+      "tag": "advises, never decides",
       "pos": [
         1090,
-        215
+        340
       ],
       "size": [
-        180,
-        64
-      ],
-      "sources": [
-        {
-          "path": "hr_timeoff_agent/graph.py",
-          "line": 298,
-          "label": "compile(checkpointer=\u2026)"
-        }
-      ]
-    },
-    {
-      "id": "fixtures",
-      "type": "database",
-      "label": "Fixture cache",
-      "sublabel": "keyed on a hash of the prompt",
-      "tag": "content-addressed \u00b7 offline",
-      "pos": [
-        820,
-        215
-      ],
-      "size": [
-        180,
+        190,
         64
       ],
       "sources": [
@@ -253,17 +240,66 @@
       ]
     },
     {
+      "id": "data",
+      "type": "database",
+      "label": "Tenant data",
+      "sublabel": "workers \u00b7 policy \u00b7 Qdrant index",
+      "tag": "per tenant",
+      "pos": [
+        40,
+        465
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/retrieval.py",
+          "line": 139,
+          "label": "PolicyIndex"
+        },
+        {
+          "path": "hr_timeoff_agent/policy.py",
+          "line": 37,
+          "label": "Tenant"
+        }
+      ]
+    },
+    {
+      "id": "mcp",
+      "type": "backend",
+      "label": "MCP tool server",
+      "sublabel": "6 read-only tools",
+      "tag": "tenant + audience fixed",
+      "pos": [
+        300,
+        465
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/mcp_server.py",
+          "line": 90,
+          "label": "HRToolServer"
+        }
+      ]
+    },
+    {
       "id": "ledger",
       "type": "database",
       "label": "Evidence ledger",
-      "sublabel": "rule \u00b7 agent \u00b7 human \u00b7 system entries",
-      "tag": "append-only \u00b7 SHA-256 chain",
+      "sublabel": "every step and tool call",
+      "tag": "SHA-256 hash chain",
       "pos": [
-        1070,
-        590
+        820,
+        465
       ],
       "size": [
-        220,
+        190,
         64
       ],
       "sources": [
@@ -273,349 +309,115 @@
           "label": "append / verify"
         }
       ]
-    },
-    {
-      "id": "evals",
-      "type": "backend",
-      "label": "Eval harness",
-      "sublabel": "graded eval + RAGAS",
-      "tag": "2 assertions + 3 judged criteria",
-      "pos": [
-        300,
-        590
-      ],
-      "size": [
-        200,
-        64
-      ],
-      "sources": [
-        {
-          "path": "hr_timeoff_agent/evals.py",
-          "line": 110,
-          "label": "run_all"
-        },
-        {
-          "path": "hr_timeoff_agent/rag_eval.py",
-          "line": 143,
-          "label": "rag_eval.run_all"
-        }
-      ]
-    },
-    {
-      "id": "judge",
-      "type": "cloud",
-      "label": "LLM-as-judge",
-      "sublabel": "separable model \u00b7 fixture-backed",
-      "tag": "LLM \u00b7 grades quality, not agreement",
-      "pos": [
-        570,
-        590
-      ],
-      "size": [
-        220,
-        64
-      ],
-      "sources": [
-        {
-          "path": "hr_timeoff_agent/evals.py",
-          "line": 21,
-          "label": "JUDGE_SYSTEM"
-        }
-      ]
-    },
-    {
-      "id": "retrieve",
-      "type": "backend",
-      "label": "Hybrid retrieval",
-      "sublabel": "dense + BM25 \u00b7 RRF",
-      "pos": [
-        300,
-        340
-      ],
-      "size": [
-        170,
-        64
-      ],
-      "sources": [
-        {
-          "path": "hr_timeoff_agent/graph.py",
-          "line": 136,
-          "label": "retrieve node"
-        },
-        {
-          "path": "hr_timeoff_agent/retrieval.py",
-          "line": 180,
-          "label": "filtered hybrid query"
-        }
-      ]
-    },
-    {
-      "id": "qdrant",
-      "type": "database",
-      "label": "Qdrant vector store",
-      "sublabel": "handbook + precedents",
-      "pos": [
-        300,
-        215
-      ],
-      "size": [
-        170,
-        64
-      ],
-      "sources": [
-        {
-          "path": "hr_timeoff_agent/retrieval.py",
-          "line": 139,
-          "label": "PolicyIndex"
-        }
-      ]
-    },
-    {
-      "id": "web",
-      "type": "frontend",
-      "label": "Web app",
-      "sublabel": "FastAPI \u00b7 signed persona",
-      "tag": "server-rendered \u00b7 thin routes",
-      "pos": [
-        800,
-        90
-      ],
-      "size": [
-        180,
-        64
-      ],
-      "sources": [
-        {
-          "path": "hr_timeoff_agent/web/app.py",
-          "line": 30,
-          "label": "create_app"
-        },
-        {
-          "path": "hr_timeoff_agent/web/identity.py",
-          "line": 32,
-          "label": "PersonaSwitcher"
-        }
-      ]
-    },
-    {
-      "id": "workspace",
-      "type": "backend",
-      "label": "Workspace layer",
-      "sublabel": "who may see, decide, edit",
-      "tag": "authz \u00b7 spend cap \u00b7 SQLite",
-      "pos": [
-        1070,
-        90
-      ],
-      "size": [
-        220,
-        64
-      ],
-      "sources": [
-        {
-          "path": "hr_timeoff_agent/web/workspace.py",
-          "line": 86,
-          "label": "Workspace"
-        }
-      ]
     }
   ],
-  "boundaries": [
-    {
-      "kind": "region",
-      "label": "LangGraph StateGraph",
-      "wraps": [
-        "rules",
-        "retrieve",
-        "context",
-        "assess",
-        "gate",
-        "record"
-      ]
-    },
-    {
-      "kind": "security-group",
-      "label": "human authority required",
-      "wraps": [
-        "gate",
-        "record"
-      ]
-    },
-    {
-      "kind": "region",
-      "label": "Customer web app",
-      "wraps": [
-        "web",
-        "workspace"
-      ]
-    }
-  ],
+  "boundaries": [],
   "connections": [
     {
-      "id": "tenant-load",
-      "from": "tenant",
-      "to": "rules",
-      "label": "worker \u00b7 absences \u00b7 policy",
-      "fromSide": "top",
-      "toSide": "bottom"
-    },
-    {
-      "id": "findings",
-      "from": "retrieve",
-      "to": "context",
-      "label": "passages",
-      "labelDy": 56
-    },
-    {
-      "id": "prompt",
-      "from": "context",
-      "to": "assess",
-      "label": "assembled prompt",
-      "labelDy": 56
-    },
-    {
-      "id": "replay",
-      "from": "fixtures",
-      "to": "assess",
-      "label": "replays when offline",
-      "variant": "dashed",
-      "fromSide": "bottom",
-      "toSide": "top",
-      "labelDy": 50
-    },
-    {
-      "id": "recommendation",
-      "from": "assess",
-      "to": "gate",
-      "label": "Recommendation \u2014 advisory",
-      "variant": "emphasis",
-      "labelDy": 56
-    },
-    {
-      "id": "suspend",
-      "from": "checkpoint",
-      "to": "gate",
-      "label": "suspend \u00b7 resume",
+      "id": "a2a-in",
+      "from": "ext",
+      "to": "a2a",
+      "label": "A2A",
       "fromSide": "bottom",
       "toSide": "top",
       "labelAt": [
-        1180,
-        296
+        395,
+        184
       ]
-    },
-    {
-      "id": "decision",
-      "from": "gate",
-      "to": "record",
-      "label": "human Decision",
-      "variant": "emphasis",
-      "fromSide": "bottom",
-      "toSide": "top",
-      "labelAt": [
-        1250,
-        434
-      ]
-    },
-    {
-      "id": "decision-entry",
-      "from": "gate",
-      "to": "ledger",
-      "label": "decision",
-      "variant": "dashed",
-      "fromSide": "right",
-      "toSide": "right"
-    },
-    {
-      "id": "commit",
-      "from": "record",
-      "to": "ledger",
-      "label": "verify chain, then commit",
-      "variant": "security",
-      "fromSide": "bottom",
-      "toSide": "top",
-      "labelAt": [
-        1180,
-        560
-      ]
-    },
-    {
-      "id": "replay-cases",
-      "from": "evals",
-      "to": "context",
-      "label": "replays cases",
-      "fromSide": "right",
-      "toSide": "bottom"
-    },
-    {
-      "id": "grade",
-      "from": "evals",
-      "to": "judge",
-      "label": "scores the recommendation",
-      "labelDy": 56
-    },
-    {
-      "from": "rules",
-      "to": "retrieve",
-      "label": "issues"
-    },
-    {
-      "from": "retrieve",
-      "to": "qdrant",
-      "label": "tenant + audience filter",
-      "variant": "security",
-      "fromSide": "top",
-      "toSide": "bottom"
-    },
-    {
-      "from": "evals",
-      "to": "retrieve",
-      "label": "RAGAS",
-      "fromSide": "top",
-      "toSide": "bottom"
     },
     {
       "id": "http",
       "from": "web",
       "to": "workspace",
-      "label": "action"
-    },
-    {
-      "id": "resume",
-      "from": "workspace",
-      "to": "checkpoint",
-      "label": "resume a paused run",
-      "variant": "security",
+      "label": "HTTP",
       "fromSide": "bottom",
       "toSide": "top",
-      "labelDy": 50
+      "labelAt": [
+        915,
+        184
+      ]
+    },
+    {
+      "id": "a2a-ws",
+      "from": "a2a",
+      "to": "workspace",
+      "label": "same workspace",
+      "variant": "dashed"
+    },
+    {
+      "id": "peer",
+      "from": "a2a",
+      "to": "payroll",
+      "label": "A2A peer call",
+      "variant": "emphasis"
+    },
+    {
+      "id": "store",
+      "from": "workspace",
+      "to": "state",
+      "label": "SQLite"
+    },
+    {
+      "id": "triage",
+      "from": "workspace",
+      "to": "graph",
+      "label": "triage \u00b7 resume",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tools",
+      "from": "graph",
+      "to": "mcp",
+      "label": "MCP tool calls",
+      "variant": "security"
+    },
+    {
+      "id": "model-calls",
+      "from": "graph",
+      "to": "model",
+      "label": "model calls"
+    },
+    {
+      "id": "reads",
+      "from": "mcp",
+      "to": "data",
+      "label": "reads",
+      "variant": "security"
+    },
+    {
+      "id": "evidence",
+      "from": "graph",
+      "to": "ledger",
+      "label": "evidence",
+      "variant": "dashed"
     }
   ],
   "cards": [
     {
-      "dot": "emerald",
-      "title": "Deterministic, not inferred",
+      "dot": "cyan",
+      "title": "Agent topology",
       "items": [
-        "Policy is evaluated in Python over data/policy.json",
-        "The model receives findings it cannot dispute or re-derive",
-        "A policy change is a data change, not a prompt change"
+        "Default: one assessment call in a fixed workflow",
+        "Opt-in: supervisor with policy and coverage specialists",
+        "Specialists are tool-calling loops over MCP"
       ]
     },
     {
-      "dot": "cyan",
-      "title": "Where a model actually runs",
+      "dot": "emerald",
+      "title": "Protocols",
       "items": [
-        "Two calls in the graph: the assessment and the judge",
-        "Retrieval embeds locally; Qdrant filters by tenant first",
-        "Calls and embeddings are fixture-backed; live ones are capped"
+        "MCP: six read-only tools, tenant and audience fixed",
+        "A2A: the time-off agent and a payroll peer",
+        "Bearer tokens map to workers; the card stays public"
       ]
     },
     {
       "dot": "rose",
-      "title": "Human authority and its record",
+      "title": "Human authority",
       "items": [
-        "Only the employee's manager can approve; never themselves",
-        "Gate suspends the graph; SQLite keeps it across restarts",
-        "The hash chain keeps an override visible: agent said X, human chose Y"
+        "Only the requester's direct manager decides",
+        "Checked at the gate and again at record",
+        "No agent, tool or peer can approve"
       ]
     }
   ]
