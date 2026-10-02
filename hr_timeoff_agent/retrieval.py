@@ -36,7 +36,11 @@ from qdrant_client import QdrantClient, models as qm
 from .models import Finding, Passage
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-EMBED_CACHE = Path(__file__).resolve().parent.parent / "fixtures" / "embeddings.json"
+# Overridable (like the LLM fixtures) so a self-test can record into a scratch copy.
+EMBED_CACHE = Path(
+    os.environ.get("HR_AGENT_EMBEDDINGS")
+    or Path(__file__).resolve().parent.parent / "fixtures" / "embeddings.json"
+)
 
 EMBED_MODEL = os.environ.get("HR_AGENT_EMBED_MODEL", "BAAI/bge-small-en-v1.5")
 EMBED_DIM = 384
@@ -94,6 +98,11 @@ class Embedder:
     def _cached(self, model: str, texts: list[str], kind: str, compute) -> list:
         keys = [self._key(model, kind, t) for t in texts]
         missing = [(k, t) for k, t in zip(keys, texts) if k not in self._cache]
+        if missing and self.cache_path.exists():
+            # Another process (the MCP server Claude Code spawns while recording) may
+            # have embedded these since this one loaded the file.
+            self._cache = {**json.loads(self.cache_path.read_text()), **self._cache}
+            missing = [(k, t) for k, t in missing if k not in self._cache]
         if missing:
             if os.environ.get("HR_AGENT_OFFLINE") == "1":
                 raise EmbeddingCacheMiss(

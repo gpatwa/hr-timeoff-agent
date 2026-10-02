@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 from langgraph.types import Command
@@ -268,11 +269,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     r.add_argument("--note", default="")
     r.add_argument("--record", action="store_true", help="call the live API and cache the result")
+    r.add_argument("--agents", choices=["single", "multi"], help="one assessment call, or tool-calling specialists plus a coordinator (default: HR_AGENT_MODE or single)")
     r.add_argument("--json", action="store_true", help="write out/run-<id>.json")
     r.set_defaults(func=cmd_run, outcome=None)
 
     e = sub.add_parser("eval", help="run the graded eval")
     e.add_argument("--record", action="store_true")
+    e.add_argument("--agents", choices=["single", "multi"], help="which assessment to grade (default: HR_AGENT_MODE or single)")
     e.set_defaults(func=cmd_eval)
 
     g = sub.add_parser("rag-eval", help="RAGAS eval of retrieval")
@@ -298,6 +301,8 @@ def main(argv: list[str] | None = None) -> int:
     x.set_defaults(func=cmd_e2e)
 
     args = p.parse_args(argv)
+    if getattr(args, "agents", None):
+        os.environ["HR_AGENT_MODE"] = args.agents
     return args.func(args)
 
 

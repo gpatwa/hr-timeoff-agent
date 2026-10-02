@@ -44,7 +44,8 @@ def _cases() -> list[dict]:
 
 
 def build_judge_prompt(
-    request: dict, worker: dict, findings: list[Finding], passages: list[Passage], rec: Recommendation
+    request: dict, worker: dict, findings: list[Finding], passages: list[Passage], rec: Recommendation,
+    agent_input: str | None = None,
 ) -> str:
     """The judge sees the agent's own input verbatim, so it can't mark a claim
     unsupported when the agent was in fact given it (the first real run did)."""
@@ -53,7 +54,7 @@ def build_judge_prompt(
         _rubric_text(),
         "",
         "=== WHAT THE AGENT WAS GIVEN (verbatim) ===",
-        graph_mod.build_assess_prompt(request, worker, findings, passages),
+        agent_input or graph_mod.build_assess_prompt(request, worker, findings, passages),
         "=== END OF AGENT INPUT ===",
     ]
     lines += [
@@ -96,9 +97,14 @@ def run_case(tenant: policy.Tenant, case: dict, *, record: bool = False) -> Case
 
     findings = [Finding.model_validate(f) for f in state["findings"]]
     passages = [Passage.model_validate(p) for p in state["passages"]]
+    agent_input = None
+    if state.get("agent_reports"):  # multi-agent: the coordinator's input includes the specialist reports
+        from .agents import coordinator_prompt
+
+        agent_input = coordinator_prompt(state)
     result.scores = structured(
         system=JUDGE_SYSTEM,
-        user=build_judge_prompt(request, state["worker"], findings, passages, rec),
+        user=build_judge_prompt(request, state["worker"], findings, passages, rec, agent_input),
         schema=JudgeScore,
         model=JUDGE_MODEL,
         record=record,
