@@ -234,6 +234,36 @@ def check_web_app(t: policy.Tenant) -> str:
     return "HR refused, manager approved (40h paid + 80h unpaid), peer can't view, trail verified"
 
 
+def check_mcp_tools(t: policy.Tenant) -> str:
+    """The HR tools over MCP, through a real child process speaking the protocol."""
+    try:
+        from .mcp_client import ToolCallError, call_tool, list_tools
+    except ImportError:
+        raise CheckFailed("mcp extra not installed: pip install -e '.[mcp]'")
+
+    tools = list_tools()
+    expect(len(tools) == 6 and all(x["read_only"] for x in tools), f"tools not all read-only: {tools}")
+    expect(not {"tenant", "tenant_id", "reader", "audience"} & {a for x in tools for a in x["arguments"]},
+           "a tool lets the caller choose the tenant or audience")
+    request = t.requests["REQ-2004"]
+    over_mcp = call_tool("evaluate_policy", {
+        "worker_id": request["worker_id"], "plan": request["plan"], "start": request["from"], "end": request["to"],
+        "hours": request["hours"], "submitted_at": request["submitted_at"], "note": request["note"],
+    })["findings"]
+    direct = [f.model_dump() for f in policy.evaluate(t, request, t.workers[request["worker_id"]])]
+    expect(over_mcp == direct, "policy over MCP differs from the rules engine")
+    manager = {p["passage_id"] for p in call_tool("search_handbook", {"query": HR_ONLY_TEXT}, reader="manager")["passages"]}
+    hr = {p["passage_id"] for p in call_tool("search_handbook", {"query": HR_ONLY_TEXT}, reader="hr")["passages"]}
+    expect("HB-7.2" not in manager and "HB-7.2" in hr, f"audience filter: manager {manager}, hr {hr}")
+    try:
+        call_tool("get_worker", {"worker_id": "W-NOPE"})
+    except ToolCallError:
+        pass
+    else:
+        raise CheckFailed("an unknown worker was served")
+    return "6 read-only tools over stdio; policy matches the engine; HR-only guidance withheld from the manager server"
+
+
 OFFLINE: list[tuple[str, Callable[[policy.Tenant], str]]] = [
     ("agent never decides", check_agent_never_decides),
     ("CLI paths and exit codes", check_cli_paths),
@@ -245,6 +275,7 @@ OFFLINE: list[tuple[str, Callable[[policy.Tenant], str]]] = [
     ("graded eval", check_graded_eval),
     ("RAGAS retrieval metrics", check_ragas_retrieval),
     ("web app through HTTP", check_web_app),
+    ("MCP tools over stdio", check_mcp_tools),
 ]
 
 

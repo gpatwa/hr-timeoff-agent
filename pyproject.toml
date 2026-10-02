@@ -23,6 +23,10 @@ web = [
     "langgraph-checkpoint-sqlite>=2.0",
     "httpx>=0.27",
 ]
+# The HR tools as an MCP server, and the client the agents use to reach them.
+mcp = [
+    "mcp>=2.2",
+]
 rag-eval = [
     "ragas>=0.4,<0.5",
     "langchain-community<0.4",
