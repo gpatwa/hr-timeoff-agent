@@ -28,7 +28,7 @@ jobs:
           cache: pip
 
       - name: Install
-        run: pip install -e '.[rag-eval,web,mcp]'
+        run: pip install -e '.[rag-eval,web,mcp,a2a]'
 
       - name: Guarantees (human-only decisions, tamper detection, override)
         run: python tests/test_guarantees.py
@@ -41,6 +41,9 @@ jobs:
 
       - name: Multi-agent path (replayable trajectories, tool allowlist, API loop, graph wiring)
         run: python tests/test_agents.py
+
+      - name: A2A agents (task states, authorization, peer call, over the real protocol)
+        run: python tests/test_a2a.py
 
       - name: Web app through HTTP (permissions, refusals, effects, restart, spend cap)
         run: python tests/test_web.py
@@ -78,7 +81,7 @@ jobs:
           cache: pip
 
       - name: Install
-        run: pip install -e '.[rag-eval,web,mcp]'
+        run: pip install -e '.[rag-eval,web,mcp,a2a]'
 
       - name: End-to-end self-test, including live API checks
         run: python -m hr_timeoff_agent e2e --require-live

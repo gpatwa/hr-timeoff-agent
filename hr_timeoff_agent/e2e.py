@@ -288,6 +288,70 @@ def check_multi_agent(t: policy.Tenant) -> str:
     return f"all {len(counts)} requests paused for a human; tool calls per request {sorted(counts.values())}; every call in the ledger"
 
 
+def check_a2a(t: policy.Tenant) -> str:
+    """The time-off and payroll agents over the A2A protocol, as three different callers."""
+    try:
+        import asyncio
+        import logging
+
+        import httpx
+
+        from .a2a_client import A2AAgent
+        from .a2a_common import BearerTokens
+        from .a2a_payroll import create_payroll_app
+        from .a2a_server import create_timeoff_app
+        from .web.workspace import Workspace
+    except ImportError:
+        raise CheckFailed("a2a extra not installed: pip install -e '.[a2a]'")
+    logging.getLogger("a2a").setLevel(logging.ERROR)
+    saved = (llm.FIXTURES, llm.before_live_call, llm.after_live_call)
+
+    async def flow(home: str) -> str:
+        ws = Workspace(home)
+        tokens = BearerTokens.derive("e2e", [p.worker_id for p in ws.personas()] + ["timeoff-agent"])
+        asgi = lambda app, base: httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=base)
+        pay_app = create_payroll_app(tokens, base_url="http://payroll")
+        payroll = A2AAgent("http://payroll", tokens.for_principal("timeoff-agent"), httpx_client=asgi(pay_app, "http://payroll"))
+        app = create_timeoff_app(ws, tokens, payroll=payroll, base_url="http://timeoff")
+        who = lambda w: A2AAgent("http://timeoff", tokens.for_principal(w), httpx_client=asgi(app, "http://timeoff"))
+        try:
+            expect((await asgi(app, "http://timeoff").post("/a2a/jsonrpc", json={})).status_code == 401, "the endpoint accepted an unauthenticated call")
+            review = {"skill": "review_time_off_request", "request_id": "REQ-2004"}
+            aiko, grace = who("W-100236"), who("W-100003")
+            r = await aiko.send(review)
+            expect(r.state == "input-required" and r.data["advisory_only"], f"manager review ended {r.state}")
+            pay = r.data["payroll_impact"]
+            expect(pay and pay["available"] and pay["unpaid_hours"] == 80.0, f"no payroll impact from the peer: {pay}")
+            expect((await grace.send(review)).state == "completed", "HR's view-only review did not complete")
+            expect(ws.request("REQ-2004")["status"] == "pending", "a review changed the request")
+            try:
+                await grace.send({"outcome": "approved"}, task_id=r.task_id, context_id=r.context_id)
+            except Exception:
+                pass
+            else:
+                raise CheckFailed("HR continued the manager's task")
+            expect(ws.request("REQ-2004")["status"] == "pending", "an attempted takeover changed the request")
+            d = await aiko.send({"outcome": "approved", "note": "40 paid, 80 unpaid"}, task_id=r.task_id, context_id=r.context_id)
+            art = d.artifacts.get("decision", {})
+            expect(d.state == "completed" and art.get("evidence", {}).get("chain_verified"), f"decision ended {d.state}: {art}")
+            expect((art["paid_hours"], art["unpaid_hours"]) == (40.0, 80.0), f"recorded {art}")
+            other = await ws_payroll(payroll)
+            expect(other.state == "rejected", "the payroll agent answered for another tenant")
+            return f"401 without a token; manager task paused with payroll impact {pay['estimated_pay_reduction']:,.2f} from the peer; HR view-only and cannot take over; decision applied, chain verified"
+        finally:
+            ws.close()
+
+    async def ws_payroll(payroll):
+        return await payroll.send({"skill": "assess_unpaid_leave_impact", "tenant_id": "TEN-002", "worker_id": "W-100237",
+                                   "unpaid_hours": 8, "start": "2026-10-19", "end": "2026-10-19"})
+
+    try:
+        with tempfile.TemporaryDirectory() as home:
+            return asyncio.run(flow(home))
+    finally:
+        llm.FIXTURES, llm.before_live_call, llm.after_live_call = saved
+
+
 OFFLINE: list[tuple[str, Callable[[policy.Tenant], str]]] = [
     ("agent never decides", check_agent_never_decides),
     ("CLI paths and exit codes", check_cli_paths),
@@ -301,6 +365,7 @@ OFFLINE: list[tuple[str, Callable[[policy.Tenant], str]]] = [
     ("web app through HTTP", check_web_app),
     ("MCP tools over stdio", check_mcp_tools),
     ("multi-agent assessment (replayed)", check_multi_agent),
+    ("A2A agents over the protocol", check_a2a),
 ]
 
 
