@@ -214,6 +214,33 @@ was handled last year.
 - **Recorded.** The ledger gets a `retrieve` entry with the query, the filter
   and every result's score.
 
+## HR tools over MCP
+
+The HR operations an agent needs are served as a [Model Context Protocol](https://modelcontextprotocol.io)
+server, so there is one auditable boundary between an agent and the data:
+
+```bash
+./.venv/bin/pip install -e '.[mcp]'
+./.venv/bin/python -m hr_timeoff_agent mcp            # stdio, for an MCP host
+./.venv/bin/python -m hr_timeoff_agent mcp --http 8765   # streamable HTTP
+```
+
+| Tool | Returns |
+|---|---|
+| `get_worker`, `get_balance` | directory record; hours in a plan |
+| `team_availability` | the coverage rule's finding for a date range |
+| `evaluate_policy` | one deterministic finding per rule (the same engine the graph runs) |
+| `search_handbook`, `search_precedents` | tenant- and audience-filtered passages |
+| resource `policy://rules` | the active policy |
+
+- **Read-only.** Every tool is annotated read-only; none can approve, decline or change anything.
+- **Tenant and audience are fixed when the server is built**, not tool arguments, so
+  a model calling these tools cannot ask for another tenant's records or HR-only guidance.
+- **Audited.** Each call, including failures, is logged with its arguments and a
+  digest of the result, ready to be folded into the evidence ledger.
+- `tests/test_mcp.py` calls the tools through the real MCP client, in process and
+  over stdio as a subprocess; `e2e` runs the stdio path.
+
 ## Eval
 
 `evals/rubric.md` was written before the prompt was tuned, and deliberately not
@@ -344,6 +371,8 @@ hr_timeoff_agent/
   evals.py      graded eval and the LLM judge
   rag_eval.py   RAGAS eval of the retrieval step
   e2e.py        end-to-end self-test: every guarantee as a pass/fail check
+  mcp_server.py the HR tools as an MCP server (read-only, tenant and audience fixed)
+  mcp_client.py a small synchronous client for it
   web/          the browser app: workspace (state + rules), identity, routes, pages
   report.py     builds docs/report.html from real run output
   cli.py

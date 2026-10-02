@@ -8,6 +8,7 @@
     python -m hr_timeoff_agent report
     python -m hr_timeoff_agent e2e                     # self-test: every claim, pass/fail
     python -m hr_timeoff_agent web                     # the app, at http://127.0.0.1:8000
+    python -m hr_timeoff_agent mcp                     # the HR tools as an MCP server (stdio)
 """
 
 from __future__ import annotations
@@ -228,6 +229,20 @@ def cmd_web(args) -> int:
     return 0
 
 
+def cmd_mcp(args) -> int:
+    try:
+        from .mcp_server import HRToolServer
+    except ImportError:
+        print("The MCP server needs the mcp extra:\n  ./.venv/bin/pip install -e '.[mcp]'")
+        return 2
+    server = HRToolServer(reader=args.reader)
+    if args.http:
+        server.run("streamable-http", host=args.host, port=args.http)
+    else:
+        server.run("stdio")
+    return 0
+
+
 def cmd_report(args) -> int:
     from .report import build
 
@@ -271,6 +286,12 @@ def main(argv: list[str] | None = None) -> int:
     w.add_argument("--host", default="127.0.0.1", help="interface to bind (local only by default)")
     w.add_argument("--port", type=int, default=8000)
     w.set_defaults(func=cmd_web)
+
+    m = sub.add_parser("mcp", help="serve the HR tools over MCP")
+    m.add_argument("--reader", default="manager", choices=["manager", "hr"], help="audience the handbook search is allowed to read")
+    m.add_argument("--http", type=int, metavar="PORT", help="serve streamable HTTP on this port instead of stdio")
+    m.add_argument("--host", default="127.0.0.1")
+    m.set_defaults(func=cmd_mcp)
 
     x = sub.add_parser("e2e", help="end-to-end self-test of every guarantee")
     x.add_argument("--require-live", action="store_true", help="fail if live checks cannot run")
