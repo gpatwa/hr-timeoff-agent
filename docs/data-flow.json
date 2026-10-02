@@ -17,7 +17,7 @@
           "recorder",
           "ledger"
         ],
-        "note": "What moves between steps: Findings, Recommendation, Decision, Evidence."
+        "note": "Numbers are the steps of one request and match the sequence diagram. Step 6 is the pause at the gate."
       },
       {
         "id": "retrieval-data",
@@ -178,7 +178,7 @@
       "id": "f-request",
       "from": "request",
       "to": "rules",
-      "label": "request",
+      "label": "1 \u00b7 request",
       "classification": "input",
       "variant": "emphasis",
       "route": "straight"
@@ -187,7 +187,7 @@
       "id": "f-policy",
       "from": "tenant",
       "to": "rules",
-      "label": "policy.json",
+      "label": "2 \u00b7 policy.json",
       "classification": "data",
       "variant": "default",
       "labelAt": [
@@ -220,7 +220,7 @@
       "id": "f-hits",
       "from": "qdrant",
       "to": "retrieve",
-      "label": "filtered hits",
+      "label": "3 \u00b7 filtered hits",
       "classification": "tenant + audience",
       "variant": "security"
     },
@@ -228,7 +228,7 @@
       "id": "f-findings",
       "from": "rules",
       "to": "assess",
-      "label": "Findings",
+      "label": "2 \u00b7 Findings",
       "classification": "facts",
       "variant": "emphasis"
     },
@@ -236,7 +236,7 @@
       "id": "f-passages",
       "from": "retrieve",
       "to": "assess",
-      "label": "Passages",
+      "label": "3 \u00b7 Passages",
       "classification": "cited by id",
       "variant": "default"
     },
@@ -244,7 +244,7 @@
       "id": "f-replay",
       "from": "fixtures",
       "to": "assess",
-      "label": "replay",
+      "label": "4 \u00b7 replay",
       "classification": "offline",
       "variant": "dashed",
       "route": "straight",
@@ -257,7 +257,7 @@
       "id": "f-rec",
       "from": "assess",
       "to": "gate",
-      "label": "Recommendation",
+      "label": "5 \u00b7 Recommendation",
       "classification": "advisory",
       "variant": "emphasis",
       "route": "straight"
@@ -266,7 +266,7 @@
       "id": "f-decision",
       "from": "manager",
       "to": "gate",
-      "label": "Decision",
+      "label": "7 \u00b7 Decision",
       "classification": "human",
       "variant": "security",
       "route": "straight",
@@ -279,7 +279,7 @@
       "id": "f-authorized",
       "from": "gate",
       "to": "recorder",
-      "label": "authorized Decision",
+      "label": "8 \u00b7 authorized",
       "classification": "actor = human",
       "variant": "security",
       "route": "straight"
@@ -288,7 +288,7 @@
       "id": "f-evidence",
       "from": "recorder",
       "to": "ledger",
-      "label": "evidence",
+      "label": "9 \u00b7 evidence",
       "classification": "chain",
       "variant": "security",
       "route": "straight",
@@ -301,7 +301,7 @@
       "id": "f-apply",
       "from": "recorder",
       "to": "store",
-      "label": "balance",
+      "label": "10 \u00b7 balance",
       "classification": "paid + unpaid hours",
       "variant": "default",
       "route": "straight",

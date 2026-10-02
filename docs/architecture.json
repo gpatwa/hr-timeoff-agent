@@ -32,7 +32,7 @@
           "gate",
           "record"
         ],
-        "note": "The only path to a committed outcome. It passes through a human and cannot be short-circuited."
+        "note": "The only path to a committed outcome; it passes through a human. Step numbers match the sequence diagram."
       },
       {
         "id": "retrieval",
@@ -455,7 +455,7 @@
       "id": "tenant-load",
       "from": "tenant",
       "to": "rules",
-      "label": "worker \u00b7 absences \u00b7 policy",
+      "label": "2 \u00b7 worker \u00b7 absences \u00b7 policy",
       "fromSide": "top",
       "toSide": "bottom"
     },
@@ -463,21 +463,21 @@
       "id": "findings",
       "from": "retrieve",
       "to": "context",
-      "label": "passages",
+      "label": "3 \u00b7 passages",
       "labelDy": 56
     },
     {
       "id": "prompt",
       "from": "context",
       "to": "assess",
-      "label": "assembled prompt",
+      "label": "4 \u00b7 assembled prompt",
       "labelDy": 56
     },
     {
       "id": "replay",
       "from": "fixtures",
       "to": "assess",
-      "label": "replays when offline",
+      "label": "4 \u00b7 replay when offline",
       "variant": "dashed",
       "fromSide": "bottom",
       "toSide": "top",
@@ -487,7 +487,7 @@
       "id": "recommendation",
       "from": "assess",
       "to": "gate",
-      "label": "Recommendation \u2014 advisory",
+      "label": "5 \u00b7 Recommendation \u2014 advisory",
       "variant": "emphasis",
       "labelDy": 56
     },
@@ -495,7 +495,7 @@
       "id": "suspend",
       "from": "checkpoint",
       "to": "gate",
-      "label": "suspend \u00b7 resume",
+      "label": "6 \u00b7 suspend \u00b7 resume",
       "fromSide": "bottom",
       "toSide": "top",
       "labelAt": [
@@ -507,7 +507,7 @@
       "id": "decision",
       "from": "gate",
       "to": "record",
-      "label": "human Decision",
+      "label": "8 \u00b7 human Decision",
       "variant": "emphasis",
       "fromSide": "bottom",
       "toSide": "top",
@@ -520,7 +520,7 @@
       "id": "decision-entry",
       "from": "gate",
       "to": "ledger",
-      "label": "decision",
+      "label": "8 \u00b7 decision",
       "variant": "dashed",
       "fromSide": "right",
       "toSide": "right"
@@ -529,7 +529,7 @@
       "id": "commit",
       "from": "record",
       "to": "ledger",
-      "label": "verify chain, then commit",
+      "label": "9 \u00b7 verify chain, then commit",
       "variant": "security",
       "fromSide": "bottom",
       "toSide": "top",
@@ -556,12 +556,12 @@
     {
       "from": "rules",
       "to": "retrieve",
-      "label": "issues"
+      "label": "3 \u00b7 issues"
     },
     {
       "from": "retrieve",
       "to": "qdrant",
-      "label": "tenant + audience filter",
+      "label": "3 \u00b7 tenant + audience filter",
       "variant": "security",
       "fromSide": "top",
       "toSide": "bottom"
@@ -577,13 +577,13 @@
       "id": "http",
       "from": "web",
       "to": "workspace",
-      "label": "action"
+      "label": "1, 7 \u00b7 action"
     },
     {
       "id": "resume",
       "from": "workspace",
       "to": "checkpoint",
-      "label": "resume a paused run",
+      "label": "8 \u00b7 resume a paused run",
       "variant": "security",
       "fromSide": "bottom",
       "toSide": "top",
