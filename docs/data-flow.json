@@ -1,0 +1,343 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "hr-timeoff-agent \u2014 data flow",
+    "output": "data-flow.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "decision-data",
+        "label": "Decision data",
+        "focus": [
+          "request",
+          "rules",
+          "assess",
+          "gate",
+          "recorder",
+          "ledger"
+        ],
+        "note": "What moves between steps: Findings, Recommendation, Decision, Evidence."
+      },
+      {
+        "id": "retrieval-data",
+        "label": "Retrieval",
+        "focus": [
+          "tenant",
+          "qdrant",
+          "retrieve",
+          "assess"
+        ],
+        "note": "Handbook and precedent passages reach the model only after tenant and audience filtering."
+      },
+      {
+        "id": "model-boundary",
+        "label": "Model boundary",
+        "focus": [
+          "assess",
+          "fixtures",
+          "gate"
+        ],
+        "note": "The model sees findings and passages and returns advice; it never writes a decision."
+      }
+    ],
+    "viewBox": [
+      1080,
+      540
+    ]
+  },
+  "stages": [
+    {
+      "label": "Inputs"
+    },
+    {
+      "label": "Deterministic"
+    },
+    {
+      "label": "Model"
+    },
+    {
+      "label": "Human"
+    },
+    {
+      "label": "Record"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "request",
+      "type": "frontend",
+      "label": "Time-off request",
+      "sublabel": "dates, plan, note",
+      "stage": 0,
+      "row": 0,
+      "tag": "form input"
+    },
+    {
+      "id": "tenant",
+      "type": "database",
+      "label": "Tenant data",
+      "sublabel": "workers, policy, docs",
+      "stage": 0,
+      "row": 1,
+      "tag": "per tenant"
+    },
+    {
+      "id": "qdrant",
+      "type": "database",
+      "label": "Qdrant index",
+      "sublabel": "dense + BM25",
+      "stage": 0,
+      "row": 2,
+      "tag": "tenant-filtered"
+    },
+    {
+      "id": "rules",
+      "type": "backend",
+      "label": "Policy rules",
+      "sublabel": "5 rules, no model",
+      "stage": 1,
+      "row": 0,
+      "tag": "deterministic"
+    },
+    {
+      "id": "retrieve",
+      "type": "backend",
+      "label": "Retrieval",
+      "sublabel": "hybrid, RRF",
+      "stage": 1,
+      "row": 2,
+      "tag": "passages"
+    },
+    {
+      "id": "assess",
+      "type": "cloud",
+      "label": "Assessment",
+      "sublabel": "claude-sonnet-5-5",
+      "stage": 2,
+      "row": 1,
+      "tag": "advisory"
+    },
+    {
+      "id": "fixtures",
+      "type": "database",
+      "label": "Fixture cache",
+      "sublabel": "keyed by prompt hash",
+      "stage": 2,
+      "row": 2,
+      "tag": "offline replay"
+    },
+    {
+      "id": "gate",
+      "type": "security",
+      "label": "Approval gate",
+      "sublabel": "authorizes approver",
+      "stage": 3,
+      "row": 1,
+      "tag": "pauses the run"
+    },
+    {
+      "id": "manager",
+      "type": "frontend",
+      "label": "Direct manager",
+      "sublabel": "a person decides",
+      "stage": 3,
+      "row": 2,
+      "tag": "human"
+    },
+    {
+      "id": "recorder",
+      "type": "backend",
+      "label": "Recorder",
+      "sublabel": "re-checks approver",
+      "stage": 4,
+      "row": 1,
+      "tag": "fail-closed"
+    },
+    {
+      "id": "ledger",
+      "type": "database",
+      "label": "Evidence ledger",
+      "sublabel": "SHA-256 chain",
+      "stage": 4,
+      "row": 0,
+      "tag": "append-only"
+    },
+    {
+      "id": "store",
+      "type": "database",
+      "label": "Workspace store",
+      "sublabel": "balances, absences",
+      "stage": 4,
+      "row": 2,
+      "tag": "SQLite"
+    }
+  ],
+  "flows": [
+    {
+      "id": "f-request",
+      "from": "request",
+      "to": "rules",
+      "label": "request",
+      "classification": "input",
+      "variant": "emphasis",
+      "route": "straight"
+    },
+    {
+      "id": "f-policy",
+      "from": "tenant",
+      "to": "rules",
+      "label": "policy.json",
+      "classification": "data",
+      "variant": "default",
+      "labelAt": [
+        315,
+        240
+      ],
+      "fromSide": "right",
+      "toSide": "bottom",
+      "via": [
+        [
+          315,
+          271
+        ]
+      ]
+    },
+    {
+      "id": "f-index",
+      "from": "tenant",
+      "to": "qdrant",
+      "label": "indexed",
+      "classification": "startup",
+      "variant": "dashed",
+      "route": "straight",
+      "labelAt": [
+        100,
+        328
+      ]
+    },
+    {
+      "id": "f-hits",
+      "from": "qdrant",
+      "to": "retrieve",
+      "label": "filtered hits",
+      "classification": "tenant + audience",
+      "variant": "security"
+    },
+    {
+      "id": "f-findings",
+      "from": "rules",
+      "to": "assess",
+      "label": "Findings",
+      "classification": "facts",
+      "variant": "emphasis"
+    },
+    {
+      "id": "f-passages",
+      "from": "retrieve",
+      "to": "assess",
+      "label": "Passages",
+      "classification": "cited by id",
+      "variant": "default"
+    },
+    {
+      "id": "f-replay",
+      "from": "fixtures",
+      "to": "assess",
+      "label": "replay",
+      "classification": "offline",
+      "variant": "dashed",
+      "route": "straight",
+      "labelAt": [
+        530,
+        328
+      ]
+    },
+    {
+      "id": "f-rec",
+      "from": "assess",
+      "to": "gate",
+      "label": "Recommendation",
+      "classification": "advisory",
+      "variant": "emphasis",
+      "route": "straight"
+    },
+    {
+      "id": "f-decision",
+      "from": "manager",
+      "to": "gate",
+      "label": "Decision",
+      "classification": "human",
+      "variant": "security",
+      "route": "straight",
+      "labelAt": [
+        745,
+        328
+      ]
+    },
+    {
+      "id": "f-authorized",
+      "from": "gate",
+      "to": "recorder",
+      "label": "authorized Decision",
+      "classification": "actor = human",
+      "variant": "security",
+      "route": "straight"
+    },
+    {
+      "id": "f-evidence",
+      "from": "recorder",
+      "to": "ledger",
+      "label": "evidence",
+      "classification": "chain",
+      "variant": "security",
+      "route": "straight",
+      "labelAt": [
+        960,
+        214
+      ]
+    },
+    {
+      "id": "f-apply",
+      "from": "recorder",
+      "to": "store",
+      "label": "balance",
+      "classification": "paid + unpaid hours",
+      "variant": "default",
+      "route": "straight",
+      "labelAt": [
+        960,
+        328
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "What moves",
+      "items": [
+        "Request \u2192 Findings \u2192 Recommendation \u2192 Decision \u2192 Evidence",
+        "Findings are computed in code, never inferred",
+        "Every step also appends a ledger entry"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Model boundary",
+      "items": [
+        "The model gets findings and filtered passages",
+        "It returns advice with citations, nothing else",
+        "Cached responses replay offline"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Human boundary",
+      "items": [
+        "Only the employee's manager can decide",
+        "Checked at the gate and again in the recorder",
+        "A wrong approver is refused; the request stays pending"
+      ]
+    }
+  ]
+}

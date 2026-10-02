@@ -17,6 +17,11 @@ actually is (deterministic rules engine, hybrid retrieval, Qdrant vector store, 
 assembly, LLM call, checkpointer, approval interrupt, evidence ledger, eval harness with RAGAS,
 judge), with source links into this repo.
 
+**[Data-flow diagram →](docs/data-flow.html)** — what moves between steps (request, findings,
+passages, recommendation, decision, evidence), which stores each step touches, and where the model
+and human boundaries sit. **[Sequence diagram →](docs/sequence.html)** — one request end to end
+through the web app: file, triage, pause at the gate, the manager's decision, verify and commit.
+
 ## Run it
 
 No API key required. The repo ships with a fixture cache so a fresh clone works
@@ -349,6 +354,8 @@ tests/          the guarantees, including tamper detection and human override,
                 and retrieval isolation by tenant and audience
 docs/report.html        rendered run report (every figure read from out/*.json)
 docs/architecture.html  interactive component diagram (archify; source-linked)
+docs/data-flow.html     data-flow diagram: payloads, stores, model and human boundaries
+docs/sequence.html      sequence diagram: one request through the web app
 ```
 
 All tenant data is fabricated. No real worker records are involved.
