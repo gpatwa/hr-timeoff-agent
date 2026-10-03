@@ -59,11 +59,13 @@ class A2AAgent:
             await self._client.close()
         await self._http.aclose()
 
-    async def send(self, data: dict | None = None, text: str | None = None, *, task_id: str | None = None, context_id: str | None = None) -> TaskResult:
+    async def send(self, data: dict | None = None, text: str | None = None, *, task_id: str | None = None, context_id: str | None = None, message_id: str | None = None) -> TaskResult:
+        """Send one message. Resend with the same `message_id` to retry safely: the
+        agent treats it as the same request, not a new one."""
         await self.connect()
         parts = ([new_text_part(text)] if text else []) + ([new_data_part(data)] if data is not None else [])
         message = Message(
-            role=Role.ROLE_USER, message_id=str(uuid.uuid4()), parts=parts,
+            role=Role.ROLE_USER, message_id=message_id or str(uuid.uuid4()), parts=parts,
             task_id=task_id or "", context_id=context_id or "",
         )
         final = None

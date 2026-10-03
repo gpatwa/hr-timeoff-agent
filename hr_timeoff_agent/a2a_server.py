@@ -28,6 +28,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+
 
 from a2a.helpers import new_data_part, new_text_part
 from a2a.server.agent_execution import AgentExecutor
@@ -44,12 +46,13 @@ from a2a.helpers import get_data_parts
 from fastapi import FastAPI
 
 from .a2a_client import A2AAgent, TaskResult
-from .a2a_common import BearerContextBuilder, BearerTokens, begin, make_task_store, request_data, require_bearer, text_and_data
+from .a2a_common import BearerContextBuilder, BearerTokens, PeerBreaker, begin, make_task_store, request_data, require_bearer, text_and_data
 from .web.workspace import BudgetExceeded, Forbidden, Invalid, Refused, Workspace
 
 log = logging.getLogger(__name__)
 
 RPC_PATH = "/a2a/jsonrpc"
+PEER_TIMEOUT_S = float(os.environ.get("HR_A2A_PEER_TIMEOUT_S", "10"))
 FILE, REVIEW = "file_time_off_request", "review_time_off_request"
 
 
@@ -57,6 +60,7 @@ class TimeOffExecutor(AgentExecutor):
     def __init__(self, workspace: Workspace, payroll: A2AAgent | None = None):
         self.ws = workspace
         self.payroll = payroll
+        self.payroll_breaker = PeerBreaker()
 
     # ── entry point ──────────────────────────────────────────────────────
 
@@ -71,7 +75,7 @@ class TimeOffExecutor(AgentExecutor):
             if context.current_task and context.current_task.status.state == TaskState.TASK_STATE_INPUT_REQUIRED:
                 await self._decide(updater, persona, self._request_id_of(context.current_task), data)
             elif data.get("skill") == FILE:
-                await self._file(updater, persona, data)
+                await self._file(updater, persona, data, context.message.message_id if context.message else None)
             elif data.get("skill") == REVIEW:
                 await self._review(updater, persona, data)
             else:
@@ -99,11 +103,14 @@ class TimeOffExecutor(AgentExecutor):
 
     # ── file ─────────────────────────────────────────────────────────────
 
-    async def _file(self, updater: TaskUpdater, persona, data: dict) -> None:
+    async def _file(self, updater: TaskUpdater, persona, data: dict, message_id: str | None = None) -> None:
+        # The A2A message id is the idempotency key: a caller that retries the same
+        # message (a timeout, a dropped response) gets the request it already filed.
         rid = await asyncio.to_thread(
             self.ws.submit, persona,
             start=str(data.get("from", "")), end=str(data.get("to", "")),
             hours=str(data.get("hours") or ""), note=str(data.get("note") or ""), plan=str(data.get("plan") or "PTO"),
+            idempotency_key=message_id or None,
         )
         detail = await asyncio.to_thread(self.ws.detail, persona, rid)
         approver = detail["manager"] or {}
@@ -129,12 +136,25 @@ class TimeOffExecutor(AgentExecutor):
             return None
         if self.payroll is None:
             return {"available": False, "reason": "no payroll agent configured"}
+        if self.payroll_breaker.open:
+            return {"available": False, "reason": "payroll agent unreachable (skipping calls briefly after repeated failures)"}
+        message = {
+            "skill": "assess_unpaid_leave_impact", "tenant_id": self.ws.tenant().tenant_id,
+            "worker_id": request["worker_id"], "unpaid_hours": unpaid, "start": request["from"], "end": request["to"],
+        }
         try:
-            r: TaskResult = await self.payroll.send({
-                "skill": "assess_unpaid_leave_impact", "tenant_id": self.ws.tenant().tenant_id,
-                "worker_id": request["worker_id"], "unpaid_hours": unpaid, "start": request["from"], "end": request["to"],
-            })
+            # Bounded: a slow peer costs at most PEER_TIMEOUT_S per attempt, and the
+            # one retry is safe because the question is read-only and deterministic.
+            for attempt in (1, 2):
+                try:
+                    r: TaskResult = await asyncio.wait_for(self.payroll.send(message), PEER_TIMEOUT_S)
+                    break
+                except Exception:  # transport-level only: a refusal comes back as a task state, not an exception
+                    if attempt == 2:
+                        raise
+            self.payroll_breaker.success()
         except Exception as exc:  # advisory: a down peer must not block the review
+            self.payroll_breaker.failure()
             log.warning("payroll agent unavailable: %s", exc)
             return {"available": False, "reason": f"payroll agent unreachable ({type(exc).__name__})"}
         if r.state != "completed":

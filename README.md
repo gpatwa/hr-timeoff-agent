@@ -130,12 +130,29 @@ share one database. Every document change goes through one `mutate` that holds a
 row lock from read to commit, and a new request's id is allocated inside it, so
 two writers cannot lose each other's update or take the same id.
 
-Not solved yet, on purpose, and next: a decision still updates the paused run, the
-balance and the request in separate steps, so a crash between them can leave them
-disagreeing, and nothing makes a repeated decision idempotent. That is the
-resilience work. `tests/test_durable.py` covers restart survival, two processes on
+`tests/test_durable.py` covers restart survival, two processes on
 one database, concurrent ids, A2A task survival and the Qdrant load; CI runs it and
 the web and A2A suites against real Postgres and Qdrant services.
+
+## When things go wrong
+
+Each failure has one defined outcome, and `tests/test_resilience.py` forces each one.
+
+| What fails | What happens |
+|---|---|
+| The model is unreachable, times out, is overloaded or rate-limited (after bounded retries: `HR_AGENT_TIMEOUT_S` 90, `HR_AGENT_MAX_RETRIES` 3) | Triage still completes. The agent escalates with low confidence and says there is no AI assessment. The deterministic findings are all there, the outage is on the evidence trail, and the manager can decide. Multi-agent mode stops after the first timeout instead of paying it three times. |
+| A bad key or malformed request (4xx) | Not treated as an outage. The request stays retryable with the error shown, because that is a bug to fix. |
+| The process dies after the graph recorded a decision but before the balance and status were updated, or inside `record` | Nothing is half-applied. The next `decide` for that request (or the next start, which reconciles) finishes it. One human decision, one record entry, a valid chain. |
+| A decision is sent twice (double click, retried message) | The second is a no-op. A conflicting second decision is refused. |
+| Two people or processes decide at once | A per-request lock (a Postgres advisory lock when shared) makes them take turns. The effect applies once. |
+| Triage is slow | Only that request waits. The old global lock is gone, so other decisions and views are not blocked behind a model call. |
+| A request is submitted twice with the same key | One request. The web form mints a key per page view; an A2A caller's message id is the key. |
+| The payroll peer is slow, down or drops a connection | Each review waits at most `HR_A2A_PEER_TIMEOUT_S` (10), retries once, and then shows "payroll unavailable". After three failed reviews in a row the peer is skipped for 30 s. The review itself never fails because of it. |
+
+The decision's balance, absence and status are committed in one transaction on
+Postgres. On local files they are written one after another (a file store cannot do
+better), and the commit is idempotent, so a crash between them is repaired the same
+way. Local files remain single-process; Postgres is the multi-process mode.
 
 ## The guarantee, and how it is enforced
 

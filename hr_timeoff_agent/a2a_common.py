@@ -61,6 +61,40 @@ def make_task_store(table: str, home: Path | None = None):
     return dts.DatabaseTaskStore(engine, table_name=table)
 
 
+class PeerBreaker:
+    """Stops calling a peer that keeps failing, for a cool-down, then tries again.
+
+    An advisory peer that is down should cost one slow review, not every review.
+    After `threshold` failures in a row calls are skipped for `cooldown` seconds;
+    one success closes it.
+    """
+
+    def __init__(self, threshold: int = 3, cooldown: float = 30.0, clock=None):
+        import time
+
+        self.threshold, self.cooldown = threshold, cooldown
+        self._clock = clock or time.monotonic
+        self._failures = 0
+        self._opened_at: float | None = None
+
+    @property
+    def open(self) -> bool:
+        if self._opened_at is None:
+            return False
+        if self._clock() - self._opened_at >= self.cooldown:
+            self._opened_at, self._failures = None, self.threshold - 1  # half-open: one more failure re-opens
+            return False
+        return True
+
+    def success(self) -> None:
+        self._failures, self._opened_at = 0, None
+
+    def failure(self) -> None:
+        self._failures += 1
+        if self._failures >= self.threshold:
+            self._opened_at = self._clock()
+
+
 class Principal(User):
     def __init__(self, name: str):
         self._name = name

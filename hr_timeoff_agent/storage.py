@@ -20,12 +20,13 @@ two writers cannot lose each other's update.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import shutil
 import sqlite3
 import threading
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 DOCUMENTS = ("workers.json", "absences.json", "policy.json", "requests.json", "handbook.json", "precedents.json")
 
@@ -37,6 +38,8 @@ class Store:
     def seed_documents(self, source: Path) -> None: ...
     def read(self, name: str) -> Any: ...
     def mutate(self, name: str, fn: Callable[[Any], Any]) -> None: ...
+    def mutate_many(self, names: list[str], fn: Callable[[dict[str, Any]], None]) -> None: ...
+    def lock(self, key: str) -> contextlib.AbstractContextManager: ...
     def meta_get(self, key: str) -> str | None: ...
     def meta_set(self, key: str, value: str) -> None: ...
     def spend_add(self, at: str, persona: str | None, model: str, label: str, usd: float, source: str) -> None: ...
@@ -56,6 +59,8 @@ class FileStore(Store):
         self.home = Path(home)
         self.dir = self.home / "tenant"
         self._lock = threading.RLock()
+        self._dblock = threading.RLock()   # one sqlite connection is shared by every thread
+        self._keys: dict[str, threading.RLock] = {}
         self.home.mkdir(parents=True, exist_ok=True)
         ck = sqlite3.connect(self.home / "checkpoints.sqlite", check_same_thread=False)
         self.checkpointer = SqliteSaver(ck)
@@ -89,28 +94,54 @@ class FileStore(Store):
             tmp.write_text(json.dumps(value, indent=2) + "\n")
             tmp.replace(self.dir / name)
 
+    def mutate_many(self, names: list[str], fn: Callable[[dict[str, Any]], None]) -> None:
+        # Files can't be changed together atomically. Each write is atomic and the
+        # callers' updates are idempotent, so a crash between two files is repaired
+        # by running the operation again. (Postgres does this in one transaction.)
+        with self._lock:
+            docs = {n: self.read(n) for n in names}
+            fn(docs)
+            for n in names:
+                tmp = self.dir / f".{n}.tmp"
+                tmp.write_text(json.dumps(docs[n], indent=2) + "\n")
+                tmp.replace(self.dir / n)
+
+    @contextlib.contextmanager
+    def lock(self, key: str) -> Iterator[None]:
+        """One holder at a time per key, within this process (local files are single-process)."""
+        with self._lock:
+            k = self._keys.setdefault(key, threading.RLock())
+        with k:
+            yield
+
     def meta_get(self, key: str) -> str | None:
-        row = self._db.execute("select v from meta where k=?", (key,)).fetchone()
+        with self._dblock:
+            row = self._db.execute("select v from meta where k=?", (key,)).fetchone()
         return row[0] if row else None
 
     def meta_set(self, key: str, value: str) -> None:
-        self._db.execute("insert or replace into meta values (?, ?)", (key, value))
-        self._db.commit()
+        with self._dblock:
+            self._db.execute("insert or replace into meta values (?, ?)", (key, value))
+            self._db.commit()
 
     def spend_add(self, at, persona, model, label, usd, source) -> None:
-        self._db.execute("insert into spend values (?,?,?,?,?,?)", (at, persona, model, label, usd, source))
-        self._db.commit()
+        with self._dblock:
+            self._db.execute("insert into spend values (?,?,?,?,?,?)", (at, persona, model, label, usd, source))
+            self._db.commit()
 
     def spend_count_since(self, persona: str, since: str) -> int:
-        return self._db.execute("select count(*) from spend where persona=? and at>=?", (persona, since)).fetchone()[0]
+        with self._dblock:
+            return self._db.execute("select count(*) from spend where persona=? and at>=?", (persona, since)).fetchone()[0]
 
     def spend_on_day(self, day: str) -> float:
-        return float(self._db.execute("select coalesce(sum(usd),0) from spend where substr(at,1,10)=?", (day,)).fetchone()[0])
+        with self._dblock:
+            return float(self._db.execute("select coalesce(sum(usd),0) from spend where substr(at,1,10)=?", (day,)).fetchone()[0])
 
     def spend_recent(self, n: int) -> list[tuple]:
-        return self._db.execute(
-            "select at, persona, model, label, usd, source from spend order by at desc limit ?", (n,)
-        ).fetchall()
+        with self._dblock:
+            return self._db.execute(
+                "select at, persona, model, label, usd, source from spend order by at desc limit ?", (n,)
+            ).fetchall()
 
     def reset(self) -> None:
         self.close()
@@ -193,6 +224,38 @@ class PostgresStore(Store):
                 "update documents set body=%s::jsonb, version=version+1, updated_at=now() where name=%s",
                 (json.dumps(value), name),
             )
+
+    def mutate_many(self, names: list[str], fn: Callable[[dict[str, Any]], None]) -> None:
+        """Several documents changed in one transaction: all of it, or none of it."""
+        with self.pool.connection() as c:
+            docs = {}
+            for n in sorted(names):  # same order everywhere, so two writers cannot deadlock
+                row = c.execute("select body from documents where name=%s for update", (n,)).fetchone()
+                if row is None:
+                    raise KeyError(n)
+                docs[n] = row["body"]
+            fn(docs)
+            for n in names:
+                c.execute(
+                    "update documents set body=%s::jsonb, version=version+1, updated_at=now() where name=%s",
+                    (json.dumps(docs[n]), n),
+                )
+
+    @contextlib.contextmanager
+    def lock(self, key: str) -> Iterator[None]:
+        """A Postgres advisory lock: one holder at a time per key across every process.
+
+        It has its own connection, so a long holder (a model call) cannot starve
+        the pool, and the lock is released if the process dies.
+        """
+        import psycopg
+
+        with psycopg.connect(self.url, autocommit=True) as c:
+            c.execute("select pg_advisory_lock(hashtextextended(%s, 0))", (f"{self.schema}:{key}",))
+            try:
+                yield
+            finally:
+                c.execute("select pg_advisory_unlock(hashtextextended(%s, 0))", (f"{self.schema}:{key}",))
 
     def meta_get(self, key: str) -> str | None:
         with self.pool.connection() as c:

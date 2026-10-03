@@ -130,12 +130,13 @@ def run_agent(
 
     if llm.before_live_call:
         llm.before_live_call(model, label or schema.__name__)
-    if llm.BACKEND == "claude-cli":
-        output, calls, served_by, usd = _via_claude_cli(model=model, system=system, user=user, schema=schema, tools=tools, reader=server.reader)
-        source = "claude-code-cli"
-    else:
-        output, calls, served_by, usd = _via_api(model=model, system=system, user=user, schema=schema, tools=tools, server=server)
-        source = "anthropic-api"
+    with llm.translate_outages():
+        if llm.BACKEND == "claude-cli":
+            output, calls, served_by, usd = _via_claude_cli(model=model, system=system, user=user, schema=schema, tools=tools, reader=server.reader)
+            source = "claude-code-cli"
+        else:
+            output, calls, served_by, usd = _via_api(model=model, system=system, user=user, schema=schema, tools=tools, server=server)
+            source = "anthropic-api"
     if llm.after_live_call:
         llm.after_live_call(model, label or schema.__name__, usd, source)
     if len(calls) > MAX_TOOL_CALLS:
@@ -161,7 +162,7 @@ def run_agent(
 def _via_api(*, model: str, system: str, user: str, schema: Type[T], tools: list[str], server: HRToolServer):
     import anthropic
 
-    client = anthropic.Anthropic()
+    client = llm.api_client()
     defs = tool_definitions(tools, server)
     output_format = {"type": "json_schema", "schema": anthropic.transform_schema(schema.model_json_schema())}
     messages: list[dict] = [{"role": "user", "content": user}]

@@ -19,8 +19,8 @@ from pydantic import BaseModel, Field
 
 from . import evidence, policy
 from .agentloop import AgentRun, run_agent
-from .graph import ASSESS_SYSTEM, _index, build_assess_prompt
-from .llm import structured
+from .graph import ASSESS_SYSTEM, _index, build_assess_prompt, outage_recommendation
+from .llm import ModelUnavailable, structured
 from .mcp_server import HRToolServer
 from .models import Finding, Passage, Recommendation
 
@@ -144,8 +144,23 @@ def make_multi_nodes(tenant: policy.Tenant, *, record_llm: bool = False):
         )
         return run, ledger
 
+    def unavailable(state: dict, name: str, exc: Exception) -> dict:
+        """A specialist could not run. Say so on the trail and let the rest of the
+        graph degrade; do not fail the triage."""
+        ledger = evidence.append(
+            state["evidence"], actor="system", node=name,
+            summary=f"{name} unavailable: {str(exc)[:120]}",
+            data={"agent": name, "degraded": True, "reason": str(exc)[:300]},
+        )
+        reports = state.get("agent_reports") or {}
+        return {"agent_reports": {**reports, "unavailable": {**reports.get("unavailable", {}), name: str(exc)[:300]}},
+                "evidence": ledger}
+
     def policy_specialist(state: dict) -> dict:
-        run, ledger = investigate(state, "policy_specialist", POLICY_SYSTEM, POLICY_TOOLS)
+        try:
+            run, ledger = investigate(state, "policy_specialist", POLICY_SYSTEM, POLICY_TOOLS)
+        except ModelUnavailable as exc:
+            return unavailable(state, "policy_specialist", exc)
         seen: dict[str, dict] = {}
         for c in run.calls:
             if c.error is None and c.tool.startswith("search_"):
@@ -155,18 +170,29 @@ def make_multi_nodes(tenant: policy.Tenant, *, record_llm: bool = False):
         return {"passages": list(seen.values()), "agent_reports": reports, "evidence": ledger}
 
     def coverage_specialist(state: dict) -> dict:
-        run, ledger = investigate(state, "coverage_specialist", COVERAGE_SYSTEM, COVERAGE_TOOLS)
+        if (state.get("agent_reports") or {}).get("unavailable"):
+            return {}  # the model is down: don't spend another timeout finding that out
+        try:
+            run, ledger = investigate(state, "coverage_specialist", COVERAGE_SYSTEM, COVERAGE_TOOLS)
+        except ModelUnavailable as exc:
+            return unavailable(state, "coverage_specialist", exc)
         reports = {**(state.get("agent_reports") or {}), "coverage": run.output.model_dump()}
         return {"agent_reports": reports, "evidence": ledger}
 
     def assess(state: dict) -> dict:
-        rec = structured(
-            system=ASSESS_SYSTEM + COORDINATOR_ADDENDUM,
-            user=coordinator_prompt(state),
-            schema=Recommendation,
-            record=record_llm,
-            label=f"coordinator:{state['request']['request_id']}",
-        )
+        down = (state.get("agent_reports") or {}).get("unavailable")
+        if down:
+            return outage_recommendation(state, "assess", "; ".join(f"{k}: {v}" for k, v in down.items()))
+        try:
+            rec = structured(
+                system=ASSESS_SYSTEM + COORDINATOR_ADDENDUM,
+                user=coordinator_prompt(state),
+                schema=Recommendation,
+                record=record_llm,
+                label=f"coordinator:{state['request']['request_id']}",
+            )
+        except ModelUnavailable as exc:
+            return outage_recommendation(state, "assess", str(exc))
         ledger = evidence.append(
             state["evidence"],
             actor="agent",
