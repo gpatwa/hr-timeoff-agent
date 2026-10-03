@@ -102,6 +102,41 @@ export ANTHROPIC_API_KEY=sk-ant-...     # optional: without it, seeded requests 
 `tests/test_web.py` drives every flow above through HTTP as different people,
 and `e2e` includes a web check.
 
+## Durable state: Postgres and Qdrant
+
+By default everything is local files and SQLite, so a laptop demo and the offline
+tests need no services. Set two variables and the same code keeps its state in
+real databases instead:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d          # Postgres on 5433, Qdrant on 6334
+./.venv/bin/pip install -e '.[web,mcp,a2a,postgres]'
+export HR_DATABASE_URL=postgresql://hr:hr@localhost:5433/hr
+export HR_QDRANT_URL=http://localhost:6334
+./.venv/bin/python -m hr_timeoff_agent web              # and/or: ... a2a
+```
+
+| State | Local files (default) | With `HR_DATABASE_URL` / `HR_QDRANT_URL` |
+|---|---|---|
+| Requests, balances, absences, policy | JSON under `var/tenant/` | Postgres `documents` table, changed under a row lock |
+| Paused runs (a pending approval) | SQLite checkpoints | Postgres (LangGraph `PostgresSaver`) |
+| Spend cap and rate limit | SQLite | Postgres |
+| A2A tasks, including their owner | in memory | Postgres, one table per agent |
+| Retrieval index | in-process Qdrant | a Qdrant server, loaded idempotently |
+
+What that buys: a restart loses nothing (a manager's pending approval, an A2A
+task the caller is still waiting on), and the web app and both A2A agents can
+share one database. Every document change goes through one `mutate` that holds a
+row lock from read to commit, and a new request's id is allocated inside it, so
+two writers cannot lose each other's update or take the same id.
+
+Not solved yet, on purpose, and next: a decision still updates the paused run, the
+balance and the request in separate steps, so a crash between them can leave them
+disagreeing, and nothing makes a repeated decision idempotent. That is the
+resilience work. `tests/test_durable.py` covers restart survival, two processes on
+one database, concurrent ids, A2A task survival and the Qdrant load; CI runs it and
+the web and A2A suites against real Postgres and Qdrant services.
+
 ## The guarantee, and how it is enforced
 
 "The human is in the loop" is usually a prompt instruction, which is to say a

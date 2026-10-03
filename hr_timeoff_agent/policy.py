@@ -37,12 +37,14 @@ def _overlaps(a_from: date, a_to: date, b_from: date, b_to: date) -> bool:
 class Tenant:
     """Mock Workday tenant: workers, approved absences, and the active policy."""
 
-    def __init__(self, data_dir: Path | None = None):
+    def __init__(self, data_dir: Path | None = None, *, docs: dict | None = None):
+        """Read from `data_dir`, or from already-loaded documents (a store's)."""
         d = data_dir or DATA_DIR
-        self.workers = {w["worker_id"]: w for w in json.loads((d / "workers.json").read_text())}
-        self.absences = json.loads((d / "absences.json").read_text())
-        self.policy = json.loads((d / "policy.json").read_text())
-        self.requests = {r["request_id"]: r for r in json.loads((d / "requests.json").read_text())}
+        get = (lambda n: docs[n]) if docs is not None else (lambda n: json.loads((d / n).read_text()))
+        self.workers = {w["worker_id"]: w for w in get("workers.json")}
+        self.absences = get("absences.json")
+        self.policy = get("policy.json")
+        self.requests = {r["request_id"]: r for r in get("requests.json")}
         self.tenant_id = self.policy["tenant_id"]
 
     def rule(self, rule_id: str) -> dict:

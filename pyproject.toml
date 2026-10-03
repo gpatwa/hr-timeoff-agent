@@ -36,6 +36,13 @@ a2a = [
     "langgraph-checkpoint-sqlite>=2.0",
     "httpx>=0.27",
 ]
+# Durable state: Postgres (workspace, paused runs, A2A tasks) and a Qdrant server.
+# Set HR_DATABASE_URL and HR_QDRANT_URL to use them; without, everything is local files.
+postgres = [
+    "psycopg[binary,pool]>=3.2",
+    "langgraph-checkpoint-postgres>=2.0",
+    "sqlalchemy[asyncio]>=2.0",
+]
 rag-eval = [
     "ragas>=0.4,<0.5",
     "langchain-community<0.4",
