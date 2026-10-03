@@ -29,7 +29,7 @@ from typing import Any, Type, TypeVar
 
 from pydantic import BaseModel
 
-from . import llm
+from . import llm, telemetry
 from .mcp_client import stdio_params, tool_definitions, try_tools
 from .mcp_server import HRToolServer, digest
 
@@ -76,11 +76,14 @@ def agent_key(model: str, system: str, user: str, schema: Type[BaseModel], tools
 
 def _execute(server: HRToolServer, wanted: list[tuple[str, dict]]) -> list[ToolCall]:
     out = []
-    for (tool, arguments), (ok, value) in zip(wanted, try_tools(wanted, server)):
-        out.append(
-            ToolCall(tool, arguments, result=value, result_sha256=digest(value))
-            if ok else ToolCall(tool, arguments, error=str(value))
-        )
+    with telemetry.span("mcp.tools", calls=len(wanted), tools=",".join(t for t, _ in wanted)) as sp:
+        for (tool, arguments), (ok, value) in zip(wanted, try_tools(wanted, server)):
+            out.append(
+                ToolCall(tool, arguments, result=value, result_sha256=digest(value))
+                if ok else ToolCall(tool, arguments, error=str(value))
+            )
+            telemetry.count("hr.tool.calls", tool=tool, outcome="ok" if ok else "error")
+        sp.set("errors", sum(1 for c in out if c.error is not None))
     return out
 
 
@@ -110,6 +113,29 @@ def run_agent(
     label: str = "",
 ) -> AgentRun:
     """Run one tool-calling agent: replay a recorded trajectory, or run it live."""
+    with telemetry.span("agent.run", model=model, label=label or schema.__name__, tools=",".join(tools)) as sp:
+        kind = "agent:" + (label or schema.__name__).split(":")[0]
+        outcome = "error"
+        try:
+            run = _run_agent(system=system, user=user, schema=schema, tools=tools, server=server, model=model, record=record, label=label)
+            outcome = "ok"
+        except llm.ModelUnavailable:
+            outcome = "outage"
+            telemetry.count("hr.llm.calls", model=model, kind=kind, source="live", outcome=outcome)
+            raise
+        except BaseException:
+            telemetry.count("hr.llm.calls", model=model, kind=kind, source="live", outcome=outcome)
+            raise
+        sp.set("replayed", run.replayed)
+        sp.set("tool_calls", len(run.calls))
+        sp.set("usd", run.usd)
+        telemetry.count("hr.llm.calls", model=model, kind=kind, source="cache" if run.replayed else run.source, outcome=outcome)
+        if not run.replayed:
+            telemetry.count("hr.llm.cost.usd", run.usd, model=model, source=run.source)
+        return run
+
+
+def _run_agent(*, system, user, schema, tools, server, model, record, label) -> AgentRun:
     cache = llm._load_cache()
     key = agent_key(model, system, user, schema, tools)
     stale: str | None = None

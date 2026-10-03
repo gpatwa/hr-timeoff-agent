@@ -16,6 +16,7 @@ from a2a.client import A2ACardResolver, ClientConfig, create_client
 from a2a.helpers import get_data_parts, get_message_text, new_data_part, new_text_part
 from a2a.types import Message, Role, SendMessageRequest, TaskState
 
+from . import telemetry
 from .oidc import BearerAuth
 
 
@@ -49,8 +50,14 @@ class A2AAgent:
         self._http = httpx_client or httpx.AsyncClient(timeout=120)
         if token:
             self._http.auth = BearerAuth(token)
+        self._http.event_hooks.setdefault("request", []).append(self._propagate_trace)
         self._client = None
         self.card = None
+
+    @staticmethod
+    async def _propagate_trace(request: httpx.Request) -> None:
+        """Send the current trace along, so the agent's spans join the caller's trace."""
+        telemetry.inject(request.headers)
 
     async def connect(self) -> "A2AAgent":
         if self._client is None:
@@ -66,6 +73,10 @@ class A2AAgent:
     async def send(self, data: dict | None = None, text: str | None = None, *, task_id: str | None = None, context_id: str | None = None, message_id: str | None = None) -> TaskResult:
         """Send one message. Resend with the same `message_id` to retry safely: the
         agent treats it as the same request, not a new one."""
+        with telemetry.span("a2a.client.send", peer=self.base_url, continuing=bool(task_id)):
+            return await self._send(data, text, task_id=task_id, context_id=context_id, message_id=message_id)
+
+    async def _send(self, data, text, *, task_id, context_id, message_id) -> TaskResult:
         await self.connect()
         parts = ([new_text_part(text)] if text else []) + ([new_data_part(data)] if data is not None else [])
         message = Message(

@@ -1,0 +1,61 @@
+# promtool test rules: the alerts fire on the situations they describe, and not otherwise.
+rule_files: [alerts.yml]
+evaluation_interval: 1m
+
+tests:
+  - name: model outage fires, quiet system does not
+    interval: 1m
+    input_series:
+      - series: 'hr_model_degraded_total{node="assess"}'
+        values: '0 0 0 1 2 3 4 5'
+      - series: 'hr_evidence_chain_failures_total'
+        values: '0 0 0 0 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: HRModelDegraded
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: HRModelDegraded
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations: {summary: Triages escalated without an AI recommendation (the model is unreachable or timing out).}
+      - eval_time: 6m
+        alertname: HREvidenceChainBroken
+        exp_alerts: []
+
+  - name: a broken evidence chain is critical immediately
+    interval: 1m
+    input_series:
+      - series: 'hr_evidence_chain_failures_total'
+        values: '0 0 1 1 1'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: HREvidenceChainBroken
+        exp_alerts:
+          - exp_labels: {severity: critical}
+            exp_annotations: {summary: An evidence chain failed verification when read. Treat as tampering until shown otherwise.}
+
+  - name: spend and breaker alerts wait out their grace period
+    interval: 1m
+    input_series:
+      - series: 'hr_spend_utilization'
+        values: '0.5 0.9 0.9 0.9 0.9 0.9 0.9 0.9'
+      - series: 'hr_peer_breaker_open{peer="payroll"}'
+        values: '0 1 1 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: HRSpendNearCap
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: HRSpendNearCap
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations: {summary: Model spend is above 80% of the daily cap; live triage stops at 100%.}
+      - eval_time: 2m
+        alertname: HRPeerBreakerOpen
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: HRPeerBreakerOpen
+        exp_alerts:
+          - exp_labels: {severity: warning, peer: payroll}
+            exp_annotations: {summary: The circuit breaker for a peer agent has been open for two minutes (payroll impact is missing from reviews).}

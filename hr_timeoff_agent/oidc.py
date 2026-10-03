@@ -39,7 +39,12 @@ class InvalidToken(Exception):
 
 
 class Unauthorized(Exception):
-    """The token is genuine, but it does not identify someone this tenant knows."""
+    """The token is genuine, but it does not identify someone this tenant knows.
+    `code` is a short, fixed label for metrics (never the person's details)."""
+
+    def __init__(self, message: str, code: str = "unauthorized"):
+        super().__init__(message)
+        self.code = code
 
 
 @dataclass(frozen=True)
@@ -155,16 +160,16 @@ def caller_from_claims(claims: dict, *, tenant_id: str, directory: Callable[[str
     `directory(email)` returns the one worker id for that email, or None.
     """
     if claims.get("tenant_id") != tenant_id:
-        raise Unauthorized(f"the token is for tenant {claims.get('tenant_id')!r}, not {tenant_id!r}")
+        raise Unauthorized(f"the token is for tenant {claims.get('tenant_id')!r}, not {tenant_id!r}", "wrong_tenant")
     client = claims.get("azp") or claims.get("client_id")
     email = claims.get("email")
     if not email and client in service_clients:
         return Caller("service", client, tenant_id, claims["sub"])
     if not email or claims.get("email_verified") is not True:
-        raise Unauthorized("the token has no verified email to match to a worker")
+        raise Unauthorized("the token has no verified email to match to a worker", "unverified_email")
     worker_id = directory(email)
     if worker_id is None:
-        raise Unauthorized("this account is not a worker in this tenant")
+        raise Unauthorized("this account is not a worker in this tenant", "not_in_directory")
     return Caller("user", worker_id, tenant_id, claims["sub"])
 
 

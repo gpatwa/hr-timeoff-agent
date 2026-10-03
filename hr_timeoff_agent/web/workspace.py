@@ -30,7 +30,7 @@ from pathlib import Path
 
 from langgraph.types import Command
 
-from .. import evidence, graph as graph_mod, llm, policy, retrieval
+from .. import evidence, graph as graph_mod, llm, policy, retrieval, telemetry
 from ..storage import Store, open_store
 from ..models import Finding
 
@@ -105,6 +105,8 @@ class Workspace:
             # A crash between "the graph recorded the decision" and "the request
             # was updated" leaves them disagreeing. Finish those now.
             self.reconciled = self.reconcile()
+        telemetry.gauge("hr.requests.pending", self._status_counts)
+        telemetry.gauge("hr.spend.utilization", lambda: [(self.spent_today() / self.daily_cap_usd if self.daily_cap_usd else 0.0, {})])
 
     # ── setup ────────────────────────────────────────────────────────────
 
@@ -184,6 +186,12 @@ class Workspace:
 
     def persona(self, worker_id: str | None) -> Persona | None:
         return next((p for p in self.personas() if p.worker_id == worker_id), None)
+
+    def _status_counts(self):
+        counts: dict[str, int] = {}
+        for r in self.requests():
+            counts[r["status"]] = counts.get(r["status"], 0) + 1
+        return [(n, {"status": s}) for s, n in counts.items()]
 
     def worker_id_for_email(self, email: str) -> str | None:
         """The one worker with this email, or None (unknown, or ambiguous: both mean no)."""
@@ -278,6 +286,12 @@ class Workspace:
         """File a request and triage it. The same `idempotency_key` from the same
         person returns the request already filed instead of filing another one
         (a double click, a retried A2A message)."""
+        with telemetry.span("workspace.submit", worker_id=persona.worker_id) as sp:
+            rid = self._submit(persona, start=start, end=end, hours=hours, note=note, plan=plan, idempotency_key=idempotency_key)
+            sp.set("request_id", rid)
+            return rid
+
+    def _submit(self, persona: Persona, *, start: str, end: str, hours: str, note: str, plan: str, idempotency_key: str | None) -> str:
         try:
             d_from, d_to = date.fromisoformat(start), date.fromisoformat(end)
         except ValueError:
@@ -328,11 +342,13 @@ class Workspace:
 
     def triage(self, request_id: str, *, actor: str | None) -> None:
         """Run the agent up to the approval gate. Failures leave it retryable."""
-        with self.store.lock(f"request:{request_id}"):
+        with self.store.lock(f"request:{request_id}"), telemetry.span("workspace.triage", request_id=request_id) as sp, \
+                telemetry.timer("hr.triage.duration"):
             r = self.request(request_id)
             if r["status"] not in ("pending", "needs_triage"):
                 return
             attempt = int(r.get("attempts", 0)) + 1
+            sp.set("attempt", attempt)
             thread = r["request_id"] if attempt == 1 else f"{r['request_id']}#{attempt}"
             self._local.actor = actor
             try:
@@ -342,6 +358,8 @@ class Workspace:
             except Exception as exc:  # budget, missing key, API error: keep it retryable
                 self._update_request(request_id, status="needs_triage", attempts=attempt,
                                      thread_id=thread, triage_error=f"{type(exc).__name__}: {exc}"[:500])
+                telemetry.count("hr.triage.total", outcome="needs_triage", error=type(exc).__name__)
+                sp.set("outcome", "needs_triage")
                 if isinstance(exc, BudgetExceeded):
                     raise
                 return
@@ -351,6 +369,8 @@ class Workspace:
                 raise RuntimeError("the graph did not pause for a human decision")
             self._update_request(request_id, status="pending", attempts=attempt,
                                  thread_id=thread, triage_error=None, triaged_at=_now())
+            telemetry.count("hr.triage.total", outcome="pending", error="")
+            sp.set("outcome", "pending")
 
     def retriage(self, persona: Persona, request_id: str) -> None:
         r = self.request(request_id)
@@ -371,7 +391,7 @@ class Workspace:
         """
         if outcome not in OUTCOMES:
             raise Invalid(f"Unknown outcome {outcome!r}.")
-        with self.store.lock(f"request:{request_id}"):
+        with self.store.lock(f"request:{request_id}"), telemetry.span("workspace.decide", request_id=request_id, outcome=outcome, worker_id=persona.worker_id):
             r = self.request(request_id)
             if not self.can_view(persona, r):
                 raise Forbidden("You can't see this request.")
@@ -392,6 +412,7 @@ class Workspace:
                     config=cfg,
                 )
                 if "__interrupt__" in result:
+                    telemetry.count("hr.gate.refusals")
                     raise Refused(result["__interrupt__"][0].value.get("refused", "Approval refused."))
             recorded = self._finish_decided_run(r)
             if recorded["decided_by_id"] != persona.worker_id or recorded["outcome"] != outcome:
@@ -409,10 +430,10 @@ class Workspace:
             graph.invoke(None, config=cfg)
             snap = graph.get_state(cfg)
         decision = snap.values["decision"]
-        self._commit(r["request_id"], decision)
+        self._commit(r["request_id"], decision, (snap.values.get("recommendation") or {}).get("action"))
         return decision
 
-    def _commit(self, request_id: str, decision: dict) -> None:
+    def _commit(self, request_id: str, decision: dict, agent_action: str | None = None) -> None:
         """What `record` committed, made real in the tenant, in one transaction.
 
         Balances can't go negative (HB-2.1), so an approval pays up to the
@@ -422,10 +443,13 @@ class Workspace:
         """
         outcome = decision["outcome"]
 
+        changed: list[bool] = []
+
         def apply(docs):
             r = next(x for x in docs["requests.json"] if x["request_id"] == request_id)
             if r["status"] in OUTCOMES:
                 return
+            changed.append(True)
             absence_id = f"ABS-{request_id}"
             if outcome == "approved" and not any(a["absence_id"] == absence_id for a in docs["absences.json"]):
                 paid = 0.0
@@ -442,6 +466,9 @@ class Workspace:
             r.update(status=outcome, decided_at=decision.get("at") or _now(), decided_by=decision["decided_by_id"])
 
         self.store.mutate_many(["requests.json", "workers.json", "absences.json"], apply)
+        if changed:  # counted once per decision, however many times the commit is retried
+            telemetry.count("hr.decision.total", outcome=outcome,
+                            overrides_agent=(agent_action, outcome) in {("approve", "declined"), ("decline", "approved")})
 
     def reconcile(self) -> list[str]:
         """Finish any request whose decision the graph recorded but the tenant did not."""
@@ -457,6 +484,7 @@ class Workspace:
                 if (self._graph().get_state(cfg).values or {}).get("decision") is None:
                     continue
                 self._finish_decided_run(r)
+                telemetry.count("hr.reconciled")
                 fixed.append(r["request_id"])
         return fixed
 
@@ -472,6 +500,8 @@ class Workspace:
         interrupts = [i.value for task in snap.tasks for i in task.interrupts]
         ledger = values.get("evidence", [])
         ok, reason = evidence.verify(ledger) if ledger else (False, "no trail yet")
+        if ledger and not ok:
+            telemetry.count("hr.evidence.chain_failures")
         manager = t.workers.get(requester.get("manager_id") or "")
 
         # HR sees guidance written for HR only; the agent (reading as a manager)

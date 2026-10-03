@@ -45,6 +45,12 @@ postgres = [
     "langgraph-checkpoint-postgres>=2.0",
     "sqlalchemy[asyncio]>=2.0",
 ]
+# Traces and metrics over OTLP/HTTP. Off unless OTEL_EXPORTER_OTLP_ENDPOINT or HR_OTEL=1 is set.
+otel = [
+    "opentelemetry-api>=1.27",
+    "opentelemetry-sdk>=1.27",
+    "opentelemetry-exporter-otlp-proto-http>=1.27",
+]
 rag-eval = [
     "ragas>=0.4,<0.5",
     "langchain-community<0.4",

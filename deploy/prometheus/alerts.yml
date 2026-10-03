@@ -1,0 +1,44 @@
+# What is worth waking up for, in this system's own terms. Each one maps to a
+# defined failure behaviour: the product degrades safely, and these say it happened.
+groups:
+  - name: hr-timeoff-agent
+    rules:
+      - alert: HRModelDegraded
+        expr: sum(increase(hr_model_degraded_total[10m])) > 0
+        labels: {severity: warning}
+        annotations:
+          summary: Triages escalated without an AI recommendation (the model is unreachable or timing out).
+      - alert: HRTriageFailing
+        expr: sum(increase(hr_triage_total{outcome="needs_triage"}[15m])) > 3
+        labels: {severity: warning}
+        annotations:
+          summary: More than three triages in 15 minutes ended retryable (a configuration or request error, not an outage).
+      - alert: HREvidenceChainBroken
+        expr: sum(increase(hr_evidence_chain_failures_total[5m])) > 0
+        labels: {severity: critical}
+        annotations:
+          summary: An evidence chain failed verification when read. Treat as tampering until shown otherwise.
+      - alert: HRSpendNearCap
+        expr: max(hr_spend_utilization) > 0.8
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: Model spend is above 80% of the daily cap; live triage stops at 100%.
+      - alert: HRPeerBreakerOpen
+        expr: max by (peer) (hr_peer_breaker_open) == 1
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: The circuit breaker for a peer agent has been open for two minutes (payroll impact is missing from reviews).
+      - alert: HRAuthRefusalsHigh
+        expr: sum(rate(hr_auth_attempts_total{outcome="refused"}[5m])) > 1
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: More than one refused authentication per second for five minutes.
+      - alert: HRApprovalsBacklog
+        expr: max(hr_requests_pending{status="pending"}) > 20
+        for: 30m
+        labels: {severity: info}
+        annotations:
+          summary: More than twenty requests have been waiting for a manager for half an hour.

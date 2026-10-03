@@ -27,10 +27,13 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
-from typing import Type, TypeVar
+from typing import Any, Type, TypeVar
 
 from pydantic import BaseModel
+
+from . import telemetry
 
 # Overridable so a self-test can record into a scratch copy, never the committed file.
 FIXTURES = Path(
@@ -161,6 +164,27 @@ def structured(
     label: str = "",
 ) -> T:
     """Return a validated `schema` instance, from cache or from the live API."""
+    kind = (label or schema.__name__).split(":")[0]
+    outcome, source = "error", "cache"
+    start = time.perf_counter()
+    with telemetry.span("llm.call", model=model, kind=kind, label=label or schema.__name__) as sp:
+        try:
+            result, source = _structured(system=system, user=user, schema=schema, model=model, record=record, label=label)
+            outcome = "ok"
+            return result
+        except ModelUnavailable:
+            outcome = "outage"
+            raise
+        finally:
+            sp.set("source", source)
+            sp.set("outcome", outcome)
+            telemetry.count("hr.llm.calls", model=model, kind=kind, source=source, outcome=outcome)
+            if source != "cache":
+                telemetry.observe("hr.llm.duration", time.perf_counter() - start, model=model, kind=kind, outcome=outcome)
+
+
+def _structured(*, system, user, schema, model, record, label) -> tuple[Any, str]:
+    """The call itself. Returns (result, source) where source is cache, anthropic-api or claude-code-cli."""
     cache = _load_cache()
     key = _key(model, system, user, schema)
 
@@ -168,7 +192,7 @@ def structured(
     # mode only calls the model on a miss, so changing one prompt re-records
     # only the calls that changed.
     if key in cache and not record:
-        return schema.model_validate(cache[key]["response"])
+        return schema.model_validate(cache[key]["response"]), "cache"
     if is_offline() and not record:
         raise OfflineCacheMiss(
             f"No cached response for {label or schema.__name__} (key {key}).\n"
@@ -189,6 +213,7 @@ def structured(
             source = "anthropic-api"
     if after_live_call:
         after_live_call(model, label or schema.__name__, usd, source)
+    telemetry.count("hr.llm.cost.usd", usd, model=model, source=source)
 
     cache[key] = {
         "label": label or schema.__name__,
@@ -199,7 +224,7 @@ def structured(
         "response": parsed.model_dump(),
     }
     _save_cache(cache)
-    return parsed
+    return parsed, source
 
 
 def cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:

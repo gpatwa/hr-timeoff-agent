@@ -29,6 +29,7 @@ from a2a.types import (
 from a2a.helpers import new_data_part, new_text_part
 from fastapi import FastAPI
 
+from . import telemetry
 from .a2a_common import BearerContextBuilder, BearerTokens, begin, make_task_store, request_data, require_bearer, text_and_data
 
 DATA = Path(__file__).resolve().parent.parent / "data" / "payroll.json"
@@ -152,4 +153,5 @@ def create_payroll_app(tokens: BearerTokens, *, base_url: str = "http://127.0.0.
         jsonrpc_routes=create_jsonrpc_routes(request_handler=handler, rpc_url=RPC_PATH, context_builder=BearerContextBuilder(tokens)),
     )
     require_bearer(app, tokens, RPC_PATH)
+    telemetry.instrument_app(app, "a2a-payroll")
     return app

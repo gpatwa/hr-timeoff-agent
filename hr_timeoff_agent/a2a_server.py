@@ -45,6 +45,7 @@ from a2a.types import (
 from a2a.helpers import get_data_parts
 from fastapi import FastAPI
 
+from . import telemetry
 from .a2a_client import A2AAgent, TaskResult
 from .a2a_common import BearerContextBuilder, BearerTokens, PeerBreaker, begin, make_task_store, request_data, require_bearer, text_and_data
 from .web.workspace import BudgetExceeded, Forbidden, Invalid, Refused, Workspace
@@ -61,6 +62,7 @@ class TimeOffExecutor(AgentExecutor):
         self.ws = workspace
         self.payroll = payroll
         self.payroll_breaker = PeerBreaker()
+        telemetry.gauge("hr.peer.breaker_open", lambda: [(1 if self.payroll_breaker.is_open() else 0, {"peer": "payroll"})])
 
     # ── entry point ──────────────────────────────────────────────────────
 
@@ -71,6 +73,10 @@ class TimeOffExecutor(AgentExecutor):
             await self._reject(updater, "The bearer token does not belong to a worker in this tenant.")
             return
         data = request_data(context)
+        with telemetry.span("a2a.execute", skill=data.get("skill") or "decision", caller=persona.worker_id):
+            await self._dispatch(context, updater, persona, data)
+
+    async def _dispatch(self, context: RequestContext, updater: TaskUpdater, persona, data: dict) -> None:
         try:
             if context.current_task and context.current_task.status.state == TaskState.TASK_STATE_INPUT_REQUIRED:
                 await self._decide(updater, persona, self._request_id_of(context.current_task), data)
@@ -137,6 +143,7 @@ class TimeOffExecutor(AgentExecutor):
         if self.payroll is None:
             return {"available": False, "reason": "no payroll agent configured"}
         if self.payroll_breaker.open:
+            telemetry.count("hr.peer.calls", peer="payroll", outcome="skipped")
             return {"available": False, "reason": "payroll agent unreachable (skipping calls briefly after repeated failures)"}
         message = {
             "skill": "assess_unpaid_leave_impact", "tenant_id": self.ws.tenant().tenant_id,
@@ -153,8 +160,10 @@ class TimeOffExecutor(AgentExecutor):
                     if attempt == 2:
                         raise
             self.payroll_breaker.success()
+            telemetry.count("hr.peer.calls", peer="payroll", outcome="ok")
         except Exception as exc:  # advisory: a down peer must not block the review
             self.payroll_breaker.failure()
+            telemetry.count("hr.peer.calls", peer="payroll", outcome="unavailable")
             log.warning("payroll agent unavailable: %s", exc)
             return {"available": False, "reason": f"payroll agent unreachable ({type(exc).__name__})"}
         if r.state != "completed":
@@ -273,4 +282,5 @@ def create_timeoff_app(workspace: Workspace, tokens: BearerTokens, *, payroll: A
         jsonrpc_routes=create_jsonrpc_routes(request_handler=handler, rpc_url=RPC_PATH, context_builder=BearerContextBuilder(tokens)),
     )
     require_bearer(app, tokens, RPC_PATH)
+    telemetry.instrument_app(app, "a2a-timeoff")   # added last, so it also sees the 401s
     return app

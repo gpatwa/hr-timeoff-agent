@@ -28,6 +28,24 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
     ports: ["8080:8080"]
     volumes: ["./deploy/keycloak/hr-realm.json:/opt/keycloak/data/import/hr-realm.json:ro"]
+  # Observability: services send OTLP to the collector (4318); Jaeger shows traces,
+  # Prometheus scrapes the collector's metrics and evaluates deploy/prometheus/alerts.yml.
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.116.1
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes: ["./deploy/otel/collector.yaml:/etc/otelcol/config.yaml:ro"]
+    ports: ["4318:4318", "4317:4317"]
+    depends_on: [jaeger]
+  jaeger:
+    image: jaegertracing/all-in-one:1.65.0
+    ports: ["16686:16686"]
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports: ["9090:9090"]
+    depends_on: [otel-collector]
 volumes:
   pgdata:
   qdrantdata:
