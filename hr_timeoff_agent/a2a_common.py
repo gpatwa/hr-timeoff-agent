@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -61,6 +62,9 @@ def make_task_store(table: str, home: Path | None = None):
     return dts.DatabaseTaskStore(engine, table_name=table)
 
 
+log = logging.getLogger(__name__)
+
+
 class PeerBreaker:
     """Stops calling a peer that keeps failing, for a cool-down, then tries again.
 
@@ -95,9 +99,14 @@ class PeerBreaker:
             self._opened_at = self._clock()
 
 
+SERVICE_PRINCIPALS = frozenset({"timeoff-agent"})
+
+
 class Principal(User):
-    def __init__(self, name: str):
-        self._name = name
+    """Who is calling: a worker id (kind "user") or a service name (kind "service")."""
+
+    def __init__(self, name: str, kind: str = "user", tenant_id: str | None = None):
+        self._name, self.kind, self.tenant_id = name, kind, tenant_id
 
     @property
     def is_authenticated(self) -> bool:
@@ -131,11 +140,48 @@ class BearerTokens:
                 found = principal
         return found
 
+    def authenticate(self, authorization: str | None) -> "Principal | None":
+        name = self.principal(authorization)
+        return Principal(name, "service" if name in SERVICE_PRINCIPALS else "user") if name else None
+
     def for_principal(self, principal: str) -> str:
         return next(t for t, p in self._tokens.items() if p == principal)
 
     def principals(self) -> list[str]:
         return list(self._tokens.values())
+
+
+class OIDCBearer:
+    """Bearer authentication with OIDC access tokens, for an agent that serves one tenant.
+
+    The same interface as BearerTokens, so the agents do not know which they
+    have. A token is accepted when it verifies (signature, issuer, audience,
+    expiry), is for this tenant, and names a worker or a configured service.
+    """
+
+    def __init__(self, cfg, tenant_id: str, directory, *, verifier=None):
+        from .oidc import TokenVerifier
+
+        self.cfg, self.tenant_id, self.directory = cfg, tenant_id, directory
+        self.verifier = verifier or TokenVerifier(cfg)
+
+    def authenticate(self, authorization: str | None) -> Principal | None:
+        from .oidc import InvalidToken, Unauthorized, caller_from_claims
+
+        if not authorization or not authorization.lower().startswith("bearer "):
+            return None
+        try:
+            claims = self.verifier.verify(authorization[7:].strip(), audience=self.cfg.audience)
+            caller = caller_from_claims(claims, tenant_id=self.tenant_id, directory=self.directory,
+                                        service_clients=self.cfg.service_clients)
+        except (InvalidToken, Unauthorized) as exc:
+            log.info("bearer token refused: %s", exc)
+            return None
+        return Principal(caller.name, caller.kind, caller.tenant_id)
+
+    def principal(self, authorization: str | None) -> str | None:
+        p = self.authenticate(authorization)
+        return p.user_name if p else None
 
 
 class BearerContextBuilder(DefaultServerCallContextBuilder):
@@ -146,8 +192,7 @@ class BearerContextBuilder(DefaultServerCallContextBuilder):
         self.tokens = tokens
 
     def build_user(self, request: Request) -> User:
-        principal = self.tokens.principal(request.headers.get("authorization"))
-        return Principal(principal) if principal else UnauthenticatedUser()
+        return self.tokens.authenticate(request.headers.get("authorization")) or UnauthenticatedUser()
 
 
 def require_bearer(app, tokens: BearerTokens, protected_path: str) -> None:
@@ -156,7 +201,7 @@ def require_bearer(app, tokens: BearerTokens, protected_path: str) -> None:
 
     @app.middleware("http")
     async def _guard(request: Request, call_next):
-        if request.url.path == protected_path and tokens.principal(request.headers.get("authorization")) is None:
+        if request.url.path == protected_path and tokens.authenticate(request.headers.get("authorization")) is None:
             return JSONResponse({"error": "A valid bearer token is required."}, status_code=401, headers={"WWW-Authenticate": "Bearer"})
         return await call_next(request)
 

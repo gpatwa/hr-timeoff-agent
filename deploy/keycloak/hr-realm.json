@@ -1,0 +1,393 @@
+{
+  "realm": "hr",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": true,
+  "accessTokenLifespan": 300,
+  "clients": [
+    {
+      "clientId": "hr-web",
+      "name": "HR time-off web app",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "hr-web-dev-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:8000/auth/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:8000"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:8000/signin"
+      },
+      "protocolMappers": [
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "email",
+            "claim.name": "email",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "email verified",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "emailVerified",
+            "claim.name": "email_verified",
+            "jsonType.label": "boolean",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "tenant",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "tenant_id",
+            "claim.value": "TEN-001",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "hr-a2a",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "hr-cli",
+      "name": "Scripts and tests (development realm only: password grant)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "email",
+            "claim.name": "email",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "email verified",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "emailVerified",
+            "claim.name": "email_verified",
+            "jsonType.label": "boolean",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "tenant",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "tenant_id",
+            "claim.value": "TEN-001",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "hr-a2a",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "timeoff-agent",
+      "name": "Time-off agent (service)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "timeoff-agent-dev-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "tenant",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "tenant_id",
+            "claim.value": "TEN-001",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "hr-a2a",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "other-tenant-agent",
+      "name": "A service of a different tenant",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "other-tenant-dev-secret",
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "tenant",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "tenant_id",
+            "claim.value": "TEN-002",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "hr-a2a",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "priya.raman@acme.example",
+      "email": "priya.raman@acme.example",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Priya",
+      "lastName": "Raman",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "hr-demo-pass",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "marcus.vogel@acme.example",
+      "email": "marcus.vogel@acme.example",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Marcus",
+      "lastName": "Vogel",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "hr-demo-pass",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "aiko.tanaka@acme.example",
+      "email": "aiko.tanaka@acme.example",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Aiko",
+      "lastName": "Tanaka",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "hr-demo-pass",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "samuel.ortiz@acme.example",
+      "email": "samuel.ortiz@acme.example",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Samuel",
+      "lastName": "Ortiz",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "hr-demo-pass",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "dana.bright@acme.example",
+      "email": "dana.bright@acme.example",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Dana",
+      "lastName": "Bright",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "hr-demo-pass",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "tomas.lindgren@acme.example",
+      "email": "tomas.lindgren@acme.example",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Tomas",
+      "lastName": "Lindgren",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "hr-demo-pass",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "dana.whitfield@acme.example",
+      "email": "dana.whitfield@acme.example",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Dana",
+      "lastName": "Whitfield",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "hr-demo-pass",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "rohan.mehta@acme.example",
+      "email": "rohan.mehta@acme.example",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Rohan",
+      "lastName": "Mehta",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "hr-demo-pass",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "grace.kim@acme.example",
+      "email": "grace.kim@acme.example",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Grace",
+      "lastName": "Kim",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "hr-demo-pass",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "stranger@acme.example",
+      "email": "stranger@acme.example",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Sam",
+      "lastName": "Stranger",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "hr-demo-pass",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "unverified@acme.example",
+      "email": "priya.raman@acme.example",
+      "emailVerified": false,
+      "enabled": true,
+      "firstName": "Un",
+      "lastName": "Verified",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "hr-demo-pass",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

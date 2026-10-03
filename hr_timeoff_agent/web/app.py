@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import uuid
 from pathlib import Path
+from typing import Callable
 from urllib.parse import quote
 
 from fastapi import FastAPI, Form, Request
@@ -18,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .. import llm
-from .identity import IdentityProvider, PersonaSwitcher
+from .identity import IdentityProvider, SignInFailed, identity_from_env
 from .workspace import BudgetExceeded, Forbidden, Invalid, Persona, Refused, Workspace
 
 HERE = Path(__file__).resolve().parent
@@ -31,7 +32,7 @@ class NotSignedIn(Exception):
 def create_app(
     home: Path | None = None,
     *,
-    identity: IdentityProvider | None = None,
+    identity: IdentityProvider | Callable[[Workspace], IdentityProvider] | None = None,
     daily_cap_usd: float | None = None,
     triages_per_hour: int | None = None,
 ) -> FastAPI:
@@ -41,7 +42,9 @@ def create_app(
         daily_cap_usd=daily_cap_usd if daily_cap_usd is not None else float(os.environ.get("HR_WEB_DAILY_CAP_USD", "2.0")),
         triages_per_hour=triages_per_hour if triages_per_hour is not None else int(os.environ.get("HR_WEB_TRIAGES_PER_HOUR", "5")),
     )
-    ident = identity or PersonaSwitcher()
+    # `identity` may be a provider, or a function from the workspace to one (it needs the directory).
+    ident = (identity(ws) if callable(identity) else identity) or identity_from_env(ws)
+    oidc = ident.kind == "oidc"
     templates = Jinja2Templates(directory=str(HERE / "templates"))
 
     app = FastAPI(title="Time-off triage", docs_url=None, redoc_url=None)
@@ -103,19 +106,40 @@ def create_app(
 
     @app.get("/signin")
     def signin_page(request: Request):
-        return render(request, "signin.html", ws.persona(ident.current(request)), personas=ws.personas())
+        return render(request, "signin.html", ws.persona(ident.current(request)),
+                      personas=[] if oidc else ws.personas(), oidc=oidc)
 
-    @app.post("/signin")
-    def signin(worker_id: str = Form(...)):
-        if ws.persona(worker_id) is None:
-            raise Invalid("Unknown person.")
-        response = go("/")
-        ident.sign_in(response, worker_id)
-        return response
+    if oidc:
+        # Real sign-in: the only way in is the identity provider. There is no
+        # persona picker to post to, so no route that accepts a worker id.
+        @app.get("/login")
+        def login():
+            return ident.login()
+
+        @app.get("/auth/callback")
+        def auth_callback(request: Request):
+            try:
+                worker_id = ident.complete(request)
+            except SignInFailed as exc:
+                response = render(request, "error.html", None, 403, title="Sign-in failed", detail=str(exc))
+                response.delete_cookie("hr_login")
+                return response
+            response = go("/")
+            ident.sign_in(response, worker_id)
+            response.delete_cookie("hr_login")
+            return response
+    else:
+        @app.post("/signin")
+        def signin(worker_id: str = Form(...)):
+            if ws.persona(worker_id) is None:
+                raise Invalid("Unknown person.")
+            response = go("/")
+            ident.sign_in(response, worker_id)
+            return response
 
     @app.post("/signout")
     def signout():
-        response = go("/signin")
+        response = RedirectResponse((ident.logout_url() if oidc else None) or "/signin", status_code=303)
         ident.sign_out(response)
         return response
 

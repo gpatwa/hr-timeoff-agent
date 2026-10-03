@@ -185,6 +185,15 @@ class Workspace:
     def persona(self, worker_id: str | None) -> Persona | None:
         return next((p for p in self.personas() if p.worker_id == worker_id), None)
 
+    def worker_id_for_email(self, email: str) -> str | None:
+        """The one worker with this email, or None (unknown, or ambiguous: both mean no)."""
+        wanted = (email or "").strip().lower()
+        found = [w["worker_id"] for w in self.tenant().workers.values() if (w.get("email") or "").lower() == wanted]
+        return found[0] if wanted and len(found) == 1 else None
+
+    def tenant_id(self) -> str:
+        return self.tenant().tenant_id
+
     def worker(self, worker_id: str) -> dict:
         return self.tenant().workers[worker_id]
 

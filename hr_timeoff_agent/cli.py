@@ -239,10 +239,27 @@ def cmd_mcp(args) -> int:
         print("The MCP server needs the mcp extra:\n  ./.venv/bin/pip install -e '.[mcp]'")
         return 2
     server = HRToolServer(reader=args.reader)
-    if args.http:
-        server.run("streamable-http", host=args.host, port=args.http)
-    else:
+    if not args.http:
         server.run("stdio")
+        return 0
+    from .oidc import OIDCConfig
+
+    cfg = OIDCConfig.from_env()
+    if cfg is None:
+        if args.host not in ("127.0.0.1", "localhost", "::1"):
+            print(f"Refusing to serve the HR tools on {args.host} without authentication.\n"
+                  "Set HR_OIDC_ISSUER (callers then need an access token), or bind to 127.0.0.1.")
+            return 2
+        server.run("streamable-http", host=args.host, port=args.http)
+        return 0
+    import uvicorn
+
+    from .a2a_common import OIDCBearer
+    from .oidc import BearerGuard
+
+    by_email = {(w.get("email") or "").lower(): w["worker_id"] for w in server.tenant.workers.values()}
+    auth = OIDCBearer(cfg, server.tenant.tenant_id, lambda email: by_email.get((email or "").lower()))
+    uvicorn.run(BearerGuard(server.server.streamable_http_app(), auth.authenticate), host=args.host, port=args.http, log_level="warning")
     return 0
 
 
@@ -275,19 +292,44 @@ def cmd_a2a(args) -> int:
     home = Path(args.home or os.environ.get("HR_A2A_HOME", "var/a2a"))
     ws, tokens, people = _a2a_setup(home)
     tf_url, pay_url = f"http://{args.host}:{args.port}", f"http://{args.host}:{args.payroll_port}"
-    payroll = A2AAgent(pay_url, tokens.for_principal("timeoff-agent"))
+    from .oidc import OIDCConfig
+
+    oidc = OIDCConfig.from_env()
+    if oidc:
+        # Real identity: callers present OIDC access tokens, and the time-off agent
+        # calls payroll with its own client-credentials token, bound to this tenant.
+        import json as _json
+
+        from .a2a_common import OIDCBearer
+        from .a2a_payroll import DATA as PAYROLL_DATA
+        from .oidc import ServiceTokens
+
+        client = os.environ.get("HR_OIDC_SERVICE_CLIENT_ID", "timeoff-agent")
+        secret = os.environ.get("HR_OIDC_SERVICE_CLIENT_SECRET")
+        if not secret:
+            print("HR_OIDC_SERVICE_CLIENT_SECRET must be set: it is the time-off agent's own credential for the payroll agent.")
+            return 2
+        timeoff_auth = OIDCBearer(oidc, ws.tenant_id(), ws.worker_id_for_email)
+        payroll_auth = OIDCBearer(oidc, _json.loads(PAYROLL_DATA.read_text())["tenant_id"], lambda email: None)
+        payroll = A2AAgent(pay_url, ServiceTokens(oidc, client, secret).get)
+    else:
+        timeoff_auth = payroll_auth = tokens
+        payroll = A2AAgent(pay_url, tokens.for_principal("timeoff-agent"))
     servers = [
-        uvicorn.Server(uvicorn.Config(create_timeoff_app(ws, tokens, payroll=payroll, base_url=tf_url), host=args.host, port=args.port, log_level="warning")),
-        uvicorn.Server(uvicorn.Config(create_payroll_app(tokens, base_url=pay_url, home=home), host=args.host, port=args.payroll_port, log_level="warning")),
+        uvicorn.Server(uvicorn.Config(create_timeoff_app(ws, timeoff_auth, payroll=payroll, base_url=tf_url), host=args.host, port=args.port, log_level="warning")),
+        uvicorn.Server(uvicorn.Config(create_payroll_app(payroll_auth, base_url=pay_url, home=home), host=args.host, port=args.payroll_port, log_level="warning")),
     ]
     print(f"\n  Time-off agent   {tf_url}/.well-known/agent-card.json\n  Payroll agent    {pay_url}/.well-known/agent-card.json", flush=True)
     if os.environ.get("HR_DATABASE_URL"):
         print("  State in Postgres (HR_DATABASE_URL): shared with the web app and any other agent process\n", flush=True)
     else:
         print(f"  State in {home}  (local files: separate from the web app's ./var; don't point both at one home at once)\n", flush=True)
-    print("  Demo bearer tokens (set HR_A2A_SECRET to keep them stable across restarts):", flush=True)
-    for p in people:
-        print(f"    {p.name:<16} {','.join(sorted(p.roles)):<22} {tokens.for_principal(p.worker_id)}", flush=True)
+    if oidc:
+        print(f"  Callers send an access token from {oidc.issuer} (audience {oidc.audience}, tenant_id {ws.tenant_id()}).", flush=True)
+    else:
+        print("  Demo bearer tokens (set HR_A2A_SECRET to keep them stable across restarts):", flush=True)
+        for p in people:
+            print(f"    {p.name:<16} {','.join(sorted(p.roles)):<22} {tokens.for_principal(p.worker_id)}", flush=True)
     print("\n  Ctrl-C to stop.\n", flush=True)
 
     async def serve():

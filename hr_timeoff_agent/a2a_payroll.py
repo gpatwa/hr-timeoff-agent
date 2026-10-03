@@ -94,6 +94,12 @@ class PayrollExecutor(AgentExecutor):
 
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         updater = await begin(context, event_queue)
+        caller = context.call_context.user
+        # Payroll data is for the time-off agent acting as a service, never for a
+        # person's own token, whatever tenant that person is in.
+        if getattr(caller, "kind", "user") != "service":
+            await updater.reject(updater.new_agent_message([new_text_part("Only a service caller may ask the payroll agent.")]))
+            return
         args = request_data(context)
         if args.get("skill") != SKILL:
             await updater.reject(updater.new_agent_message(text_and_data(f"Unknown skill {args.get('skill')!r}; this agent offers {SKILL}.")))

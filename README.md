@@ -154,6 +154,56 @@ Postgres. On local files they are written one after another (a file store cannot
 better), and the commit is idempotent, so a crash between them is repaired the same
 way. Local files remain single-process; Postgres is the multi-process mode.
 
+## Sign-in and identity
+
+By default the web app has a persona picker and the A2A agents use static demo
+tokens, so a clone runs with nothing else. Set `HR_OIDC_ISSUER` and the same app
+uses real sign-in with OpenID Connect, with Keycloak as the development provider:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d keycloak     # realm "hr", nine synthetic people
+export HR_OIDC_ISSUER=http://localhost:8080/realms/hr
+export HR_OIDC_CLIENT_SECRET=hr-web-dev-secret              # the web app's client
+export HR_OIDC_SERVICE_CLIENT_SECRET=timeoff-agent-dev-secret   # the time-off agent's own credential
+export HR_WEB_SECRET=$(openssl rand -hex 32)                # signs the session cookie; required here
+./.venv/bin/python -m hr_timeoff_agent web                  # sign in as priya.raman@acme.example / hr-demo-pass
+```
+
+**The provider says who you are. It never says what you may do.** Roles, manager
+relationships and approval rights stay in the tenant's directory and the graph, so
+the guarantee that only a direct manager decides does not depend on anything the
+provider claims. A token is accepted only when all of these hold:
+
+| Check | Why |
+|---|---|
+| RS256 signature from the provider's JWKS, issuer, audience, expiry (30 s leeway) | `alg: none` and HMAC-with-the-public-key tokens are refused before any key is touched |
+| `tenant_id` claim equals this deployment's tenant | a valid token from another tenant is not a credential here |
+| a **verified** email that names exactly one worker | an account claiming Priya's email without verifying it is refused; so is an account that is not in the directory |
+
+How each caller gets in:
+
+| Caller | Mechanism |
+|---|---|
+| A person in the browser | Authorization-code flow with PKCE (S256), `state` and `nonce`, id token audience = the web client. The session is an HMAC-signed cookie holding only a worker id and an expiry (8 h). With real sign-in on, **no route accepts a worker id** (the persona picker is gone). |
+| A person or agent calling an A2A agent | `Authorization: Bearer <access token>`, audience `hr-a2a`. The agent card stays public. |
+| The time-off agent calling payroll | Its own client-credentials token (a service client bound to the tenant), refreshed before it expires. Payroll maps no people at all: a worker's token is no credential there. |
+| An MCP client over HTTP | The same bearer check in front of the server. `mcp --http` on a non-loopback address refuses to start without it. |
+
+**Tenant binding.** The tenant comes from the client, not the person: in the
+development realm each client carries a hard-coded `tenant_id`, and a service
+client for a different tenant (`other-tenant-agent`) is refused by both agents.
+In production that is one realm (or one set of clients) per tenant, each with its
+own client secrets; the session-signing secret is per deployment. Per-tenant model
+API keys are not implemented.
+
+The development realm (`deploy/keycloak/hr-realm.json`) is for local use only: one
+shared throwaway password, a password-grant client for scripts, plain HTTP. Two
+accounts exist to be refused: `stranger@acme.example` (signs in at Keycloak, not in
+the directory) and `unverified@acme.example` (claims Priya's email without verifying
+it). `tests/test_oidc.py` runs everything against a fake provider (PKCE, state,
+nonce, signature, tenant, directory, session expiry, the MCP guard);
+`tests/test_keycloak.py` runs it against the real one, including the login page.
+
 ## The guarantee, and how it is enforced
 
 "The human is in the loop" is usually a prompt instruction, which is to say a
