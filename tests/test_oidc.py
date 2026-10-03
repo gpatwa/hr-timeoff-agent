@@ -264,8 +264,11 @@ def test_sessions_are_signed_and_expire():
     assert w.sign_in().status_code == 303
     assert w.c.get("/requests?scope=mine", follow_redirects=False).status_code == 200
     real = w.c.cookies.get("hr_session")
-    w.c.cookies.set("hr_session", real[:-3] + "AAA")
+    # clear first: setting a same-named cookie beside the original would send both, and which the server read would be luck
+    w.c.cookies.clear()
+    w.c.cookies.set("hr_session", real[:-3] + ("AAA" if not real.endswith("AAA") else "BBB"))
     assert w.c.get("/requests?scope=mine", follow_redirects=False).status_code == 303, "a tampered cookie is not a session"
+    w.c.cookies.clear()
     w.c.cookies.set("hr_session", real)
     clock[0] += 9 * 3600
     assert w.c.get("/requests?scope=mine", follow_redirects=False).status_code == 303, "and a session ends"
