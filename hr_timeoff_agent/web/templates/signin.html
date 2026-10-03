@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Sign in{% endblock %}
 {% block body %}
+{% if oidc %}
+<h1>Sign in</h1>
+<p class="lede">Sign in with your company account. Your account has to match a worker in this tenant's directory; what you can do follows from your place in it: employees file requests, managers decide their direct reports' requests, HR sees everything and administers policy.</p>
+<p><a class="btn primary" href="/login">Sign in</a></p>
+{% else %}
 <h1>Who are you?</h1>
 <p class="lede">Pick a person from the synthetic directory. Permissions follow the person: employees file requests, managers decide their direct reports' requests, HR sees everything and administers policy.</p>
 <div class="personas">
@@ -18,4 +23,5 @@
   </form>
   {% endfor %}
 </div>
+{% endif %}
 {% endblock %}

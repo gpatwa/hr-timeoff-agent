@@ -1,62 +1,62 @@
 [
   {
-    "worker_id": "W-100234", "legal_name": "Priya Raman",
+    "worker_id": "W-100234", "legal_name": "Priya Raman", "email": "priya.raman@acme.example",
     "position": "Senior Software Engineer", "supervisory_org_id": "SO-PAY-01",
     "supervisory_org": "Payments Platform", "manager_id": "W-100001",
     "hire_date": "2022-03-14", "location": "Pleasanton, CA",
     "time_off_plans": {"PTO": {"balance_hours": 96.0}, "SICK": {"balance_hours": 40.0}}
   },
   {
-    "worker_id": "W-100235", "legal_name": "Marcus Vogel",
+    "worker_id": "W-100235", "legal_name": "Marcus Vogel", "email": "marcus.vogel@acme.example",
     "position": "Staff Software Engineer", "supervisory_org_id": "SO-PAY-01",
     "supervisory_org": "Payments Platform", "manager_id": "W-100001",
     "hire_date": "2019-08-01", "location": "Pleasanton, CA",
     "time_off_plans": {"PTO": {"balance_hours": 152.0}, "SICK": {"balance_hours": 40.0}}
   },
   {
-    "worker_id": "W-100236", "legal_name": "Aiko Tanaka",
+    "worker_id": "W-100236", "legal_name": "Aiko Tanaka", "email": "aiko.tanaka@acme.example",
     "position": "Engineering Manager", "supervisory_org_id": "SO-LED-02",
     "supervisory_org": "Ledger Services", "manager_id": "W-100002",
     "hire_date": "2020-11-09", "location": "San Francisco, CA",
     "time_off_plans": {"PTO": {"balance_hours": 120.0}, "SICK": {"balance_hours": 40.0}}
   },
   {
-    "worker_id": "W-100237", "legal_name": "Samuel Ortiz",
+    "worker_id": "W-100237", "legal_name": "Samuel Ortiz", "email": "samuel.ortiz@acme.example",
     "position": "Software Engineer", "supervisory_org_id": "SO-LED-02",
     "supervisory_org": "Ledger Services", "manager_id": "W-100236",
     "hire_date": "2025-06-02", "location": "Austin, TX",
     "time_off_plans": {"PTO": {"balance_hours": 40.0}, "SICK": {"balance_hours": 24.0}}
   },
   {
-    "worker_id": "W-100238", "legal_name": "Dana Bright",
+    "worker_id": "W-100238", "legal_name": "Dana Bright", "email": "dana.bright@acme.example",
     "position": "Software Engineer", "supervisory_org_id": "SO-PAY-01",
     "supervisory_org": "Payments Platform", "manager_id": "W-100001",
     "hire_date": "2023-01-23", "location": "Pleasanton, CA",
     "time_off_plans": {"PTO": {"balance_hours": 88.0}, "SICK": {"balance_hours": 40.0}}
   },
   {
-    "worker_id": "W-100239", "legal_name": "Tomas Lindgren",
+    "worker_id": "W-100239", "legal_name": "Tomas Lindgren", "email": "tomas.lindgren@acme.example",
     "position": "Senior Software Engineer", "supervisory_org_id": "SO-PAY-01",
     "supervisory_org": "Payments Platform", "manager_id": "W-100001",
     "hire_date": "2021-05-17", "location": "Remote, WA",
     "time_off_plans": {"PTO": {"balance_hours": 64.0}, "SICK": {"balance_hours": 40.0}}
   },
   {
-    "worker_id": "W-100001", "legal_name": "Dana Whitfield",
+    "worker_id": "W-100001", "legal_name": "Dana Whitfield", "email": "dana.whitfield@acme.example",
     "position": "Engineering Manager, Payments Platform", "supervisory_org_id": "SO-ENG-00",
     "supervisory_org": "Engineering Leadership", "manager_id": "W-100002",
     "hire_date": "2018-04-02", "location": "Pleasanton, CA",
     "time_off_plans": {"PTO": {"balance_hours": 128.0}, "SICK": {"balance_hours": 40.0}}
   },
   {
-    "worker_id": "W-100002", "legal_name": "Rohan Mehta",
+    "worker_id": "W-100002", "legal_name": "Rohan Mehta", "email": "rohan.mehta@acme.example",
     "position": "Director of Engineering", "supervisory_org_id": "SO-ENG-00",
     "supervisory_org": "Engineering Leadership", "manager_id": null,
     "hire_date": "2016-09-12", "location": "Pleasanton, CA",
     "time_off_plans": {"PTO": {"balance_hours": 160.0}, "SICK": {"balance_hours": 40.0}}
   },
   {
-    "worker_id": "W-100003", "legal_name": "Grace Kim",
+    "worker_id": "W-100003", "legal_name": "Grace Kim", "email": "grace.kim@acme.example",
     "position": "HR Business Partner", "supervisory_org_id": "SO-HR-01",
     "supervisory_org": "People Team", "manager_id": "W-100002",
     "hire_date": "2019-02-11", "location": "Pleasanton, CA",

@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 import httpx
 from a2a.client import A2ACardResolver, ClientConfig, create_client
 from a2a.helpers import get_data_parts, get_message_text, new_data_part, new_text_part
 from a2a.types import Message, Role, SendMessageRequest, TaskState
+
+from .oidc import BearerAuth
 
 
 class A2AError(RuntimeError):
@@ -40,11 +42,13 @@ def _first_data(parts) -> dict | None:
 
 
 class A2AAgent:
-    def __init__(self, base_url: str, token: str | None = None, *, httpx_client: httpx.AsyncClient | None = None):
+    def __init__(self, base_url: str, token: "str | Callable[[], str] | None" = None, *, httpx_client: httpx.AsyncClient | None = None):
+        """`token` is a bearer token, or a function returning a current one (for
+        access tokens that expire: it is called on every request)."""
         self.base_url = base_url.rstrip("/")
-        headers = {"Authorization": f"Bearer {token}"} if token else {}
         self._http = httpx_client or httpx.AsyncClient(timeout=120)
-        self._http.headers.update(headers)
+        if token:
+            self._http.auth = BearerAuth(token)
         self._client = None
         self.card = None
 

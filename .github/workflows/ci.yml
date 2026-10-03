@@ -48,6 +48,9 @@ jobs:
       - name: Web app through HTTP (permissions, refusals, effects, restart, spend cap)
         run: python tests/test_web.py
 
+      - name: Identity (tokens, directory mapping, browser flow and its attacks, agents, MCP guard; fake IdP)
+        run: python tests/test_oidc.py
+
       - name: Failure behaviour (model outage, crashes mid-decision, repeats, races, slow peer)
         run: python tests/test_resilience.py
 
@@ -112,6 +115,43 @@ jobs:
 
       - name: Failure behaviour with two processes sharing Postgres
         run: python tests/test_resilience.py
+
+  identity:
+    # The same flows against a real Keycloak running the development realm:
+    # the authorization-code flow through its login page, access tokens, client credentials.
+    runs-on: ubuntu-latest
+    env:
+      HR_AGENT_OFFLINE: "1"
+      HR_OIDC_ISSUER: http://localhost:8080/realms/hr
+      HR_OIDC_CLIENT_SECRET: hr-web-dev-secret
+      HR_OIDC_SERVICE_CLIENT_SECRET: timeoff-agent-dev-secret
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e '.[web,mcp,a2a]'
+
+      - name: Start Keycloak with the development realm
+        run: |
+          docker run -d --name keycloak -p 8080:8080 \
+            -e KC_HOSTNAME=http://localhost:8080 -e KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true \
+            -e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD=admin \
+            -v "$PWD/deploy/keycloak/hr-realm.json:/opt/keycloak/data/import/hr-realm.json:ro" \
+            quay.io/keycloak/keycloak:26.2 start-dev --import-realm
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:8080/realms/hr/.well-known/openid-configuration >/dev/null && exit 0
+            sleep 3
+          done
+          docker logs keycloak
+          exit 1
+
+      - name: Sign-in, tokens and agents against Keycloak
+        run: python tests/test_keycloak.py
 
   live:
     # Real model calls, recorded into a scratch cache so nothing in the repo
