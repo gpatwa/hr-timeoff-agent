@@ -102,6 +102,9 @@ class Workspace:
             self._bind()
             if not self.store.meta_get("seeded"):
                 self._seed()
+            # A crash between "the graph recorded the decision" and "the request
+            # was updated" leaves them disagreeing. Finish those now.
+            self.reconciled = self.reconcile()
 
     # ── setup ────────────────────────────────────────────────────────────
 
@@ -261,7 +264,11 @@ class Workspace:
         order = {"pending": 0, "needs_triage": 1}
         return sorted(rows, key=lambda r: (order.get(r["status"], 2), r["from"]))
 
-    def submit(self, persona: Persona, *, start: str, end: str, hours: str, note: str, plan: str = "PTO") -> str:
+    def submit(self, persona: Persona, *, start: str, end: str, hours: str, note: str, plan: str = "PTO",
+               idempotency_key: str | None = None) -> str:
+        """File a request and triage it. The same `idempotency_key` from the same
+        person returns the request already filed instead of filing another one
+        (a double click, a retried A2A message)."""
         try:
             d_from, d_to = date.fromisoformat(start), date.fromisoformat(end)
         except ValueError:
@@ -283,8 +290,14 @@ class Workspace:
         note = (note or "").strip()[:500]
 
         created: list[str] = []
+        existing: list[str] = []
 
         def add(rows):
+            dup = idempotency_key and next(
+                (x for x in rows if x.get("idempotency_key") == idempotency_key and x["worker_id"] == persona.worker_id), None)
+            if dup:
+                existing.append(dup["request_id"])
+                return
             # The id is allocated inside the document's write lock, so two
             # submissions (two processes, even) cannot be given the same one.
             rid = f"REQ-{max([int(r['request_id'].split('-')[1]) for r in rows] + [3000]) + 1}"
@@ -293,17 +306,20 @@ class Workspace:
                 "from": d_from.isoformat(), "to": d_to.isoformat(), "hours": h,
                 "submitted_at": date.today().isoformat(), "note": note,
                 "status": "needs_triage", "submitted_by": persona.worker_id, "thread_id": rid,
+                **({"idempotency_key": idempotency_key} if idempotency_key else {}),
             })
             created.append(rid)
 
         self.store.mutate("requests.json", add)
+        if existing:
+            return existing[0]
         rid = created[0]
         self.triage(rid, actor=persona.worker_id)
         return rid
 
     def triage(self, request_id: str, *, actor: str | None) -> None:
         """Run the agent up to the approval gate. Failures leave it retryable."""
-        with self.lock:
+        with self.store.lock(f"request:{request_id}"):
             r = self.request(request_id)
             if r["status"] not in ("pending", "needs_triage"):
                 return
@@ -336,49 +352,104 @@ class Workspace:
         self.triage(request_id, actor=persona.worker_id)
 
     def decide(self, persona: Persona, request_id: str, outcome: str, note: str) -> None:
+        """Record a manager's decision. Safe to repeat, safe to crash in the middle.
+
+        The graph's recorded decision is the truth; the balance, the absence and
+        the request's status are then committed from it in one transaction, and
+        committing is idempotent. So the same call twice is a no-op, two callers
+        racing take turns on the request's lock, and a crash after the graph
+        recorded the decision is finished by the next call (or at startup).
+        """
         if outcome not in OUTCOMES:
             raise Invalid(f"Unknown outcome {outcome!r}.")
-        with self.lock:
+        with self.store.lock(f"request:{request_id}"):
             r = self.request(request_id)
             if not self.can_view(persona, r):
                 raise Forbidden("You can't see this request.")
+            if r["status"] in OUTCOMES:
+                if r["status"] == outcome and r.get("decided_by") == persona.worker_id:
+                    return  # the same decision again: already done
+                raise Invalid(f"This request is {r['status']}, not pending.")
             if r["status"] != "pending":
                 raise Invalid(f"This request is {r['status']}, not pending.")
             cfg = {"configurable": {"thread_id": r["thread_id"]}}
-            # The approver is the signed-in person, never a form field.
-            result = self._graph().invoke(
-                Command(resume={"outcome": outcome, "decided_by_id": persona.worker_id,
-                                "note": (note or "").strip()[:500]}),
-                config=cfg,
-            )
-            if "__interrupt__" in result:
-                raise Refused(result["__interrupt__"][0].value.get("refused", "Approval refused."))
-            self._apply(r, outcome)
-            self._update_request(request_id, status=outcome, decided_at=_now(), decided_by=persona.worker_id)
+            graph = self._graph()
+            recorded = (graph.get_state(cfg).values or {}).get("decision")
+            if recorded is None:
+                # The approver is the signed-in person, never a form field.
+                result = graph.invoke(
+                    Command(resume={"outcome": outcome, "decided_by_id": persona.worker_id,
+                                    "note": (note or "").strip()[:500]}),
+                    config=cfg,
+                )
+                if "__interrupt__" in result:
+                    raise Refused(result["__interrupt__"][0].value.get("refused", "Approval refused."))
+            recorded = self._finish_decided_run(r)
+            if recorded["decided_by_id"] != persona.worker_id or recorded["outcome"] != outcome:
+                # A decision was already recorded (an earlier attempt that crashed).
+                # It stands; it is committed above, and this caller is told.
+                raise Invalid(f"This request was already decided: {recorded['outcome']} by {recorded['decided_by']}.")
 
-    def _apply(self, r: dict, outcome: str) -> None:
-        """What `record` committed, made real in the tenant: balance and absences.
+    def _finish_decided_run(self, r: dict) -> dict:
+        """The graph has a recorded decision: let `record` finish if it had not,
+        then commit the decision to the tenant. Returns the decision."""
+        cfg = {"configurable": {"thread_id": r["thread_id"]}}
+        graph = self._graph()
+        snap = graph.get_state(cfg)
+        if snap.next:  # decided at the gate, crashed before `record`
+            graph.invoke(None, config=cfg)
+            snap = graph.get_state(cfg)
+        decision = snap.values["decision"]
+        self._commit(r["request_id"], decision)
+        return decision
+
+    def _commit(self, request_id: str, decision: dict) -> None:
+        """What `record` committed, made real in the tenant, in one transaction.
 
         Balances can't go negative (HB-2.1), so an approval pays up to the
         balance and records the rest as unpaid leave (HB-3.1), explicitly.
+        Idempotent: a request already decided, or an absence already written,
+        is left alone.
         """
-        if outcome != "approved":
-            return
-        paid = [0.0]
+        outcome = decision["outcome"]
 
-        def deduct(workers):
-            for w in workers:
-                if w["worker_id"] == r["worker_id"]:
-                    plan = w["time_off_plans"][r["plan"]]
-                    paid[0] = min(float(r["hours"]), plan["balance_hours"])
-                    plan["balance_hours"] = round(plan["balance_hours"] - paid[0], 2)
+        def apply(docs):
+            r = next(x for x in docs["requests.json"] if x["request_id"] == request_id)
+            if r["status"] in OUTCOMES:
+                return
+            absence_id = f"ABS-{request_id}"
+            if outcome == "approved" and not any(a["absence_id"] == absence_id for a in docs["absences.json"]):
+                paid = 0.0
+                for w in docs["workers.json"]:
+                    if w["worker_id"] == r["worker_id"]:
+                        plan = w["time_off_plans"][r["plan"]]
+                        paid = min(float(r["hours"]), plan["balance_hours"])
+                        plan["balance_hours"] = round(plan["balance_hours"] - paid, 2)
+                docs["absences.json"].append({
+                    "absence_id": absence_id, "worker_id": r["worker_id"],
+                    "from": r["from"], "to": r["to"], "status": "approved", "plan": r["plan"],
+                    "paid_hours": round(paid, 2), "unpaid_hours": round(float(r["hours"]) - paid, 2),
+                })
+            r.update(status=outcome, decided_at=decision.get("at") or _now(), decided_by=decision["decided_by_id"])
 
-        self.store.mutate("workers.json", deduct)
-        self.store.mutate("absences.json", lambda absences: absences.append({
-            "absence_id": f"ABS-{r['request_id']}", "worker_id": r["worker_id"],
-            "from": r["from"], "to": r["to"], "status": "approved", "plan": r["plan"],
-            "paid_hours": round(paid[0], 2), "unpaid_hours": round(float(r["hours"]) - paid[0], 2),
-        }))
+        self.store.mutate_many(["requests.json", "workers.json", "absences.json"], apply)
+
+    def reconcile(self) -> list[str]:
+        """Finish any request whose decision the graph recorded but the tenant did not."""
+        fixed = []
+        for r in self.requests():
+            if r["status"] != "pending":
+                continue
+            with self.store.lock(f"request:{r['request_id']}"):
+                r = self.request(r["request_id"])
+                if r["status"] != "pending":
+                    continue
+                cfg = {"configurable": {"thread_id": r["thread_id"]}}
+                if (self._graph().get_state(cfg).values or {}).get("decision") is None:
+                    continue
+                self._finish_decided_run(r)
+                fixed.append(r["request_id"])
+        return fixed
 
     def detail(self, persona: Persona, request_id: str) -> dict:
         r = self.request(request_id)

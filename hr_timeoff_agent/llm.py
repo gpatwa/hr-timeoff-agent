@@ -75,6 +75,55 @@ class OfflineCacheMiss(RuntimeError):
     pass
 
 
+class ModelUnavailable(RuntimeError):
+    """The model (or a tool it needed) could not be reached or timed out, after retries.
+
+    Different from a bad request or a bad key, which are bugs to fix: this one is
+    an outage to ride out, and the graph answers it by escalating to the human
+    without a recommendation instead of failing the triage.
+    """
+
+
+# Bounded, explicit: a request waits at most TIMEOUT_S per attempt and
+# MAX_RETRIES retries (the SDK backs off and honours retry-after) before the
+# outage path takes over.
+TIMEOUT_S = float(os.environ.get("HR_AGENT_TIMEOUT_S", "90"))
+MAX_RETRIES = int(os.environ.get("HR_AGENT_MAX_RETRIES", "3"))
+
+
+def api_client():
+    import anthropic
+
+    return anthropic.Anthropic(timeout=anthropic.Timeout(TIMEOUT_S, connect=10.0), max_retries=MAX_RETRIES)
+
+
+class translate_outages:
+    """Context manager: turn "the service is down or slow" into ModelUnavailable.
+
+    Connection failures, timeouts, 429 and 5xx (including 529 overloaded) are
+    outages. 4xx such as a bad key or a malformed request are not: they stay as
+    they are so they are fixed, not papered over.
+    """
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        if exc is None:
+            return False
+        try:
+            import anthropic
+        except ImportError:  # pragma: no cover
+            return False
+        if isinstance(exc, (anthropic.APIConnectionError, anthropic.APITimeoutError, anthropic.RateLimitError, anthropic.InternalServerError)):
+            raise ModelUnavailable(f"{type(exc).__name__}: {str(exc)[:200]}") from exc
+        if isinstance(exc, anthropic.APIStatusError) and exc.status_code >= 500:
+            raise ModelUnavailable(f"HTTP {exc.status_code}: {str(exc)[:200]}") from exc
+        if isinstance(exc, subprocess.TimeoutExpired):
+            raise ModelUnavailable(f"claude -p timed out after {exc.timeout}s") from exc
+        return False
+
+
 def is_offline() -> bool:
     if os.environ.get("HR_AGENT_OFFLINE") == "1":
         return True
@@ -131,12 +180,13 @@ def structured(
 
     if before_live_call:
         before_live_call(model, label or schema.__name__)
-    if BACKEND == "claude-cli":
-        parsed, served_by, usd = _via_claude_cli(model=model, system=system, user=user, schema=schema)
-        source = "claude-code-cli"
-    else:
-        parsed, served_by, usd = _via_api(model=model, system=system, user=user, schema=schema)
-        source = "anthropic-api"
+    with translate_outages():
+        if BACKEND == "claude-cli":
+            parsed, served_by, usd = _via_claude_cli(model=model, system=system, user=user, schema=schema)
+            source = "claude-code-cli"
+        else:
+            parsed, served_by, usd = _via_api(model=model, system=system, user=user, schema=schema)
+            source = "anthropic-api"
     if after_live_call:
         after_live_call(model, label or schema.__name__, usd, source)
 
@@ -160,9 +210,7 @@ def cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
 
 
 def _via_api(*, model: str, system: str, user: str, schema: Type[T]) -> tuple[T, list[str], float]:
-    import anthropic
-
-    client = anthropic.Anthropic()
+    client = api_client()
     response = client.messages.parse(
         model=model,
         # Thinking counts toward max_tokens, so leave room beyond the reply itself.

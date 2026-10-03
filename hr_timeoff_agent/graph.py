@@ -18,7 +18,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
 from . import evidence, policy, retrieval
-from .llm import structured
+from .llm import ModelUnavailable, structured
 from .models import Decision, Finding, Passage, Recommendation
 
 ASSESS_SYSTEM = """You review time off requests for an HR system and produce a \
@@ -98,6 +98,32 @@ def build_assess_prompt(
     return "\n".join(lines)
 
 
+def outage_recommendation(state: dict, node: str, reason: str) -> dict:
+    """What `assess` returns when the model cannot be reached.
+
+    The deterministic findings are already computed and recorded, so the manager
+    can still decide from them. The agent says so plainly: escalate, low
+    confidence, no claim about what to do, and the outage on the evidence trail.
+    Nothing here can approve or decline.
+    """
+    concerns = [f["rule_id"] for f in state["findings"] if f["status"] != "pass"]
+    rec = Recommendation(
+        action="escalate",
+        rationale=(
+            "The assistant could not be reached, so there is no AI assessment of this request. "
+            "The policy findings were computed by the rules engine and are complete; "
+            "please decide from them."
+        ),
+        cited_rule_ids=concerns, confidence="low",
+    )
+    ledger = evidence.append(
+        state["evidence"], actor="system", node=node,
+        summary="Model unavailable: escalated to the approver without an AI recommendation.",
+        data={**rec.model_dump(), "advisory_only": True, "degraded": True, "reason": reason[:300]},
+    )
+    return {"recommendation": rec.model_dump(), "evidence": ledger}
+
+
 def _index(tenant: policy.Tenant) -> retrieval.PolicyIndex:
     # Built once per tenant object; embedding the corpus is the slow part.
     if not hasattr(tenant, "_policy_index"):
@@ -163,13 +189,16 @@ def make_nodes(tenant: policy.Tenant, *, record_llm: bool = False):
         findings = [Finding.model_validate(f) for f in state["findings"]]
         passages = [Passage.model_validate(p) for p in state["passages"]]
         prompt = build_assess_prompt(state["request"], state["worker"], findings, passages)
-        rec = structured(
-            system=ASSESS_SYSTEM,
-            user=prompt,
-            schema=Recommendation,
-            record=record_llm,
-            label=f"assess:{state['request']['request_id']}",
-        )
+        try:
+            rec = structured(
+                system=ASSESS_SYSTEM,
+                user=prompt,
+                schema=Recommendation,
+                record=record_llm,
+                label=f"assess:{state['request']['request_id']}",
+            )
+        except ModelUnavailable as exc:
+            return outage_recommendation(state, "assess", str(exc))
         ledger = evidence.append(
             state["evidence"],
             actor="agent",

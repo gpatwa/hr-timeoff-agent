@@ -8,6 +8,7 @@ same rules hold for the CLI, the tests and the browser.
 from __future__ import annotations
 
 import os
+import uuid
 from pathlib import Path
 from urllib.parse import quote
 
@@ -130,13 +131,14 @@ def create_app(
     @app.get("/requests/new")
     def new_page(request: Request):
         persona = me(request)
-        return render(request, "new.html", persona, worker=ws.worker(persona.worker_id))
+        return render(request, "new.html", persona, worker=ws.worker(persona.worker_id), key=uuid.uuid4().hex)
 
     @app.post("/requests")
     def submit(request: Request, start: str = Form(...), end: str = Form(...),
-               hours: str = Form(""), note: str = Form(""), plan: str = Form("PTO")):
+               hours: str = Form(""), note: str = Form(""), plan: str = Form("PTO"), key: str = Form("")):
         persona = me(request)
-        rid = ws.submit(persona, start=start, end=end, hours=hours, note=note, plan=plan)
+        # `key` is minted when the form is shown, so a double click files one request.
+        rid = ws.submit(persona, start=start, end=end, hours=hours, note=note, plan=plan, idempotency_key=key or None)
         status = ws.request(rid)["status"]
         msg = "Submitted. The agent has triaged it." if status == "pending" else "Submitted, but triage failed; see below."
         return go(f"/requests/{rid}", msg)

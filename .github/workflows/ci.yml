@@ -48,6 +48,9 @@ jobs:
       - name: Web app through HTTP (permissions, refusals, effects, restart, spend cap)
         run: python tests/test_web.py
 
+      - name: Failure behaviour (model outage, crashes mid-decision, repeats, races, slow peer)
+        run: python tests/test_resilience.py
+
       - name: Recording backend (claude-cli, with the subprocess faked)
         run: python tests/test_llm.py
 
@@ -106,6 +109,9 @@ jobs:
 
       - name: A2A agents with Postgres task stores
         run: python tests/test_a2a.py
+
+      - name: Failure behaviour with two processes sharing Postgres
+        run: python tests/test_resilience.py
 
   live:
     # Real model calls, recorded into a scratch cache so nothing in the repo
