@@ -35,7 +35,6 @@ from a2a.server.agent_execution.context import RequestContext
 from a2a.server.events.event_queue import EventQueue
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.routes import add_a2a_routes_to_fastapi, create_agent_card_routes, create_jsonrpc_routes
-from a2a.server.tasks.inmemory_task_store import InMemoryTaskStore
 from a2a.server.tasks.task_updater import TaskUpdater
 from a2a.types import (
     AgentCapabilities, AgentCard, AgentInterface, AgentProvider, AgentSkill, HTTPAuthSecurityScheme,
@@ -45,7 +44,7 @@ from a2a.helpers import get_data_parts
 from fastapi import FastAPI
 
 from .a2a_client import A2AAgent, TaskResult
-from .a2a_common import BearerContextBuilder, BearerTokens, begin, request_data, require_bearer, text_and_data
+from .a2a_common import BearerContextBuilder, BearerTokens, begin, make_task_store, request_data, require_bearer, text_and_data
 from .web.workspace import BudgetExceeded, Forbidden, Invalid, Refused, Workspace
 
 log = logging.getLogger(__name__)
@@ -246,7 +245,7 @@ def agent_card(base_url: str) -> AgentCard:
 
 def create_timeoff_app(workspace: Workspace, tokens: BearerTokens, *, payroll: A2AAgent | None = None, base_url: str = "http://127.0.0.1:8100") -> FastAPI:
     card = agent_card(base_url)
-    handler = DefaultRequestHandler(agent_executor=TimeOffExecutor(workspace, payroll), task_store=InMemoryTaskStore(), agent_card=card)
+    handler = DefaultRequestHandler(agent_executor=TimeOffExecutor(workspace, payroll), task_store=make_task_store("timeoff_tasks", workspace.home), agent_card=card)
     app = FastAPI(title="Time-off triage agent")
     add_a2a_routes_to_fastapi(
         app,

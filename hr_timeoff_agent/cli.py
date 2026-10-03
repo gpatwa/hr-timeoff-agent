@@ -278,10 +278,13 @@ def cmd_a2a(args) -> int:
     payroll = A2AAgent(pay_url, tokens.for_principal("timeoff-agent"))
     servers = [
         uvicorn.Server(uvicorn.Config(create_timeoff_app(ws, tokens, payroll=payroll, base_url=tf_url), host=args.host, port=args.port, log_level="warning")),
-        uvicorn.Server(uvicorn.Config(create_payroll_app(tokens, base_url=pay_url), host=args.host, port=args.payroll_port, log_level="warning")),
+        uvicorn.Server(uvicorn.Config(create_payroll_app(tokens, base_url=pay_url, home=home), host=args.host, port=args.payroll_port, log_level="warning")),
     ]
     print(f"\n  Time-off agent   {tf_url}/.well-known/agent-card.json\n  Payroll agent    {pay_url}/.well-known/agent-card.json", flush=True)
-    print(f"  State in {home}  (separate from the web app's ./var; don't point both at one home at once)\n", flush=True)
+    if os.environ.get("HR_DATABASE_URL"):
+        print("  State in Postgres (HR_DATABASE_URL): shared with the web app and any other agent process\n", flush=True)
+    else:
+        print(f"  State in {home}  (local files: separate from the web app's ./var; don't point both at one home at once)\n", flush=True)
     print("  Demo bearer tokens (set HR_A2A_SECRET to keep them stable across restarts):", flush=True)
     for p in people:
         print(f"    {p.name:<16} {','.join(sorted(p.roles)):<22} {tokens.for_principal(p.worker_id)}", flush=True)

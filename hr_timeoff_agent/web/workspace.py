@@ -1,12 +1,15 @@
 """The web app's domain layer: one tenant's live state, and every operation on it.
 
-All state lives under one home directory, separate from the repo:
+State lives in a `Store` (see storage.py): by default under one home
+directory, separate from the repo,
 
   tenant/             working copy of data/*.json (requests, absences, balances, policy)
-  llm_cache.json      working copy of the recorded model responses
-  embeddings.json     working copy of the embedding cache
   checkpoints.sqlite  paused graph runs, so a pending approval survives a restart
   app.sqlite          spend ledger for the daily cap and the per-person rate limit
+
+or, with HR_DATABASE_URL, in Postgres, shared by every process that points at
+it. Two caches stay as files in the home directory either way, because they
+are only caches: llm_cache.json (recorded model responses) and embeddings.json.
 
 Reset copies the committed data and fixtures back and re-triages the seeded
 requests from the recordings, at no cost. The committed files are never written.
@@ -18,17 +21,17 @@ the graph itself decides who may decide one.
 from __future__ import annotations
 
 import json
+import os
 import shutil
-import sqlite3
 import threading
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
 
 from .. import evidence, graph as graph_mod, llm, policy, retrieval
+from ..storage import Store, open_store
 from ..models import Finding
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -84,60 +87,49 @@ def _working_days(start: date, end: date) -> int:
 
 
 class Workspace:
-    def __init__(self, home: Path, *, daily_cap_usd: float = 2.0, triages_per_hour: int = 5):
+    def __init__(self, home: Path, *, daily_cap_usd: float = 2.0, triages_per_hour: int = 5,
+                 store: Store | None = None):
         self.home = Path(home)
         self.daily_cap_usd = daily_cap_usd
         self.triages_per_hour = triages_per_hour
         self.lock = threading.RLock()
         self._local = threading.local()
-        self._conns: list[sqlite3.Connection] = []
+        self.store = store or open_store(self.home)
         with self.lock:
-            if not (self.home / "tenant" / "policy.json").exists():
-                self._fresh_copy()
+            self._ensure_caches()
+            if not self.store.has_documents():
+                self._seed_documents()
             self._bind()
-            if not self._db.execute("select 1 from meta where k='seeded'").fetchone():
+            if not self.store.meta_get("seeded"):
                 self._seed()
 
     # ── setup ────────────────────────────────────────────────────────────
 
-    @property
-    def tenant_dir(self) -> Path:
-        return self.home / "tenant"
-
-    def _fresh_copy(self) -> None:
+    def _ensure_caches(self, *, overwrite: bool = False) -> None:
         self.home.mkdir(parents=True, exist_ok=True)
-        for name in ("tenant", "llm_cache.json", "embeddings.json", "checkpoints.sqlite", "app.sqlite"):
-            target = self.home / name
-            if target.is_dir():
-                shutil.rmtree(target)
-            elif target.exists():
-                target.unlink()
-        shutil.copytree(DATA, self.tenant_dir)
-        shutil.copy(FIXTURES / "llm_cache.json", self.home / "llm_cache.json")
-        shutil.copy(FIXTURES / "embeddings.json", self.home / "embeddings.json")
-        requests = self._read("requests.json")
-        for r in requests:
-            r.setdefault("status", "pending")
-            r.setdefault("submitted_by", r["worker_id"])
-            r.setdefault("thread_id", r["request_id"])
-        self._write("requests.json", requests)
+        for name in ("llm_cache.json", "embeddings.json"):
+            if overwrite or not (self.home / name).exists():
+                shutil.copy(FIXTURES / name, self.home / name)
+
+    def _seed_documents(self) -> None:
+        self.store.seed_documents(DATA)
+
+        def normalise(requests):
+            for r in requests:
+                r.setdefault("status", "pending")
+                r.setdefault("submitted_by", r["worker_id"])
+                r.setdefault("thread_id", r["request_id"])
+
+        self.store.mutate("requests.json", normalise)
 
     def _bind(self) -> None:
         llm.FIXTURES = self.home / "llm_cache.json"
         self.embedder = retrieval.Embedder(cache_path=self.home / "embeddings.json")
-        self.index = retrieval.PolicyIndex(data_dir=self.tenant_dir, embedder=self.embedder)
-
-        ck = sqlite3.connect(self.home / "checkpoints.sqlite", check_same_thread=False)
-        self.checkpointer = SqliteSaver(ck)
-        self._db = sqlite3.connect(self.home / "app.sqlite", check_same_thread=False)
-        self._db.executescript(
-            """
-            create table if not exists meta (k text primary key, v text);
-            create table if not exists spend (
-                at text, persona text, model text, label text, usd real, source text);
-            """
+        self.index = retrieval.PolicyIndex(
+            docs={n: self.store.read(n) for n in ("handbook.json", "precedents.json")},
+            embedder=self.embedder, qdrant_url=os.environ.get("HR_QDRANT_URL") or None,
         )
-        self._conns = [ck, self._db]
+        self.checkpointer = self.store.checkpointer
         llm.before_live_call = self._before_live_call
         llm.after_live_call = self._after_live_call
 
@@ -146,35 +138,28 @@ class Workspace:
         for r in self._read("requests.json"):
             if r["status"] == "pending":
                 self.triage(r["request_id"], actor=None)
-        self._db.execute("insert or replace into meta values ('seeded', ?)", (_now(),))
-        self._db.commit()
+        self.store.meta_set("seeded", _now())
 
     def reset(self) -> None:
         with self.lock:
-            for c in self._conns:
-                c.close()
-            self._fresh_copy()
+            self.store.reset()
+            self._ensure_caches(overwrite=True)
+            self._seed_documents()
             self._bind()
             self._seed()
 
     def close(self) -> None:
-        for c in self._conns:
-            c.close()
+        self.store.close()
         if llm.before_live_call == self._before_live_call:
             llm.before_live_call = llm.after_live_call = None
 
     # ── json files ───────────────────────────────────────────────────────
 
     def _read(self, name: str):
-        return json.loads((self.tenant_dir / name).read_text())
-
-    def _write(self, name: str, value) -> None:
-        tmp = self.tenant_dir / f".{name}.tmp"
-        tmp.write_text(json.dumps(value, indent=2) + "\n")
-        tmp.replace(self.tenant_dir / name)
+        return self.store.read(name)
 
     def tenant(self) -> policy.Tenant:
-        t = policy.Tenant(self.tenant_dir)
+        t = policy.Tenant(docs={n: self.store.read(n) for n in ("workers.json", "absences.json", "policy.json", "requests.json")})
         t._policy_index = self.index  # shared; the handbook is not edited at runtime
         return t
 
@@ -212,9 +197,7 @@ class Workspace:
             )
         if actor:
             since = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(timespec="seconds")
-            n = self._db.execute(
-                "select count(*) from spend where persona=? and at>=?", (actor, since)
-            ).fetchone()[0]
+            n = self.store.spend_count_since(actor, since)
             if n >= self.triages_per_hour:
                 raise BudgetExceeded(
                     f"Limit of {self.triages_per_hour} live triages per person per hour reached. Try again later."
@@ -222,21 +205,14 @@ class Workspace:
 
     def _after_live_call(self, model: str, label: str, usd: float, source: str) -> None:
         actor = getattr(self._local, "actor", None)
-        self._db.execute(
-            "insert into spend values (?,?,?,?,?,?)", (_now(), actor, model, label, usd, source)
-        )
-        self._db.commit()
+        self.store.spend_add(_now(), actor, model, label, usd, source)
 
     def spent_today(self) -> float:
         today = datetime.now(timezone.utc).date().isoformat()
-        return float(self._db.execute(
-            "select coalesce(sum(usd),0) from spend where substr(at,1,10)=?", (today,)
-        ).fetchone()[0])
+        return self.store.spend_on_day(today)
 
     def spend_summary(self) -> dict:
-        rows = self._db.execute(
-            "select at, persona, model, label, usd, source from spend order by at desc limit 20"
-        ).fetchall()
+        rows = self.store.spend_recent(20)
         return {
             "today": round(self.spent_today(), 4),
             "cap": self.daily_cap_usd,
@@ -256,11 +232,12 @@ class Workspace:
         return r
 
     def _update_request(self, request_id: str, **changes) -> None:
-        rows = self.requests()
-        for r in rows:
-            if r["request_id"] == request_id:
-                r.update(changes)
-        self._write("requests.json", rows)
+        def apply(rows):
+            for r in rows:
+                if r["request_id"] == request_id:
+                    r.update(changes)
+
+        self.store.mutate("requests.json", apply)
 
     def can_view(self, persona: Persona, request: dict) -> bool:
         requester = self.worker(request["worker_id"])
@@ -305,17 +282,22 @@ class Workspace:
             raise Invalid(f"No {plan} plan for {persona.name}.")
         note = (note or "").strip()[:500]
 
-        with self.lock:
-            rows = self.requests()
-            n = max([int(r["request_id"].split("-")[1]) for r in rows] + [3000]) + 1
-            rid = f"REQ-{n}"
+        created: list[str] = []
+
+        def add(rows):
+            # The id is allocated inside the document's write lock, so two
+            # submissions (two processes, even) cannot be given the same one.
+            rid = f"REQ-{max([int(r['request_id'].split('-')[1]) for r in rows] + [3000]) + 1}"
             rows.append({
                 "request_id": rid, "worker_id": persona.worker_id, "plan": plan,
                 "from": d_from.isoformat(), "to": d_to.isoformat(), "hours": h,
                 "submitted_at": date.today().isoformat(), "note": note,
                 "status": "needs_triage", "submitted_by": persona.worker_id, "thread_id": rid,
             })
-            self._write("requests.json", rows)
+            created.append(rid)
+
+        self.store.mutate("requests.json", add)
+        rid = created[0]
         self.triage(rid, actor=persona.worker_id)
         return rid
 
@@ -382,21 +364,21 @@ class Workspace:
         """
         if outcome != "approved":
             return
-        workers = self._read("workers.json")
-        paid = 0.0
-        for w in workers:
-            if w["worker_id"] == r["worker_id"]:
-                plan = w["time_off_plans"][r["plan"]]
-                paid = min(float(r["hours"]), plan["balance_hours"])
-                plan["balance_hours"] = round(plan["balance_hours"] - paid, 2)
-        self._write("workers.json", workers)
-        absences = self._read("absences.json")
-        absences.append({
+        paid = [0.0]
+
+        def deduct(workers):
+            for w in workers:
+                if w["worker_id"] == r["worker_id"]:
+                    plan = w["time_off_plans"][r["plan"]]
+                    paid[0] = min(float(r["hours"]), plan["balance_hours"])
+                    plan["balance_hours"] = round(plan["balance_hours"] - paid[0], 2)
+
+        self.store.mutate("workers.json", deduct)
+        self.store.mutate("absences.json", lambda absences: absences.append({
             "absence_id": f"ABS-{r['request_id']}", "worker_id": r["worker_id"],
             "from": r["from"], "to": r["to"], "status": "approved", "plan": r["plan"],
-            "paid_hours": round(paid, 2), "unpaid_hours": round(float(r["hours"]) - paid, 2),
-        })
-        self._write("absences.json", absences)
+            "paid_hours": round(paid[0], 2), "unpaid_hours": round(float(r["hours"]) - paid[0], 2),
+        }))
 
     def detail(self, persona: Persona, request_id: str) -> dict:
         r = self.request(request_id)
@@ -477,8 +459,7 @@ class Workspace:
             except ValueError:
                 raise Invalid(f"Bad date in blackout {name!r}.")
             windows.append({"name": name, "from": a, "to": b})
-        with self.lock:
-            pol = self.policy()
+        def revise(pol):
             rules = {r["id"]: r for r in pol["rules"]}
             rules["NOT-01"]["min_notice_days"] = notice
             rules["COV-01"]["min_available_pct"] = cover
@@ -486,4 +467,5 @@ class Workspace:
             rules["BLK-01"]["blackout_windows"] = windows
             pol["revision"] = int(pol.get("revision", 0)) + 1
             pol["revised_at"], pol["revised_by"] = _now(), persona.worker_id
-            self._write("policy.json", pol)
+
+        self.store.mutate("policy.json", revise)

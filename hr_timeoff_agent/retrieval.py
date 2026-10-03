@@ -152,12 +152,14 @@ class PolicyIndex:
     the tenant filter applied inside every query.
     """
 
-    def __init__(self, data_dir: Path | None = None, embedder: Embedder | None = None):
+    def __init__(self, data_dir: Path | None = None, embedder: Embedder | None = None, *,
+                 docs: dict | None = None, qdrant_url: str | None = None):
+        """In-process by default; with `qdrant_url`, a Qdrant server that keeps the index."""
         d = data_dir or DATA_DIR
-        self.handbook = json.loads((d / "handbook.json").read_text())
-        self.precedents = json.loads((d / "precedents.json").read_text())
+        self.handbook = docs["handbook.json"] if docs else json.loads((d / "handbook.json").read_text())
+        self.precedents = docs["precedents.json"] if docs else json.loads((d / "precedents.json").read_text())
         self.embedder = embedder or Embedder()
-        self.client = QdrantClient(":memory:")
+        self.client = QdrantClient(url=qdrant_url) if qdrant_url else QdrantClient(":memory:")
         self._load()
 
     def _load(self) -> None:
@@ -165,11 +167,14 @@ class PolicyIndex:
             ("handbook", self.handbook, "passage_id"),
             ("precedents", self.precedents, "precedent_id"),
         ):
-            self.client.create_collection(
-                name,
-                vectors_config={"dense": qm.VectorParams(size=EMBED_DIM, distance=qm.Distance.COSINE)},
-                sparse_vectors_config={"bm25": qm.SparseVectorParams(modifier=qm.Modifier.IDF)},
-            )
+            # Idempotent: a server that already holds the collection keeps it, and
+            # the upsert below rewrites the same deterministic point ids.
+            if not self.client.collection_exists(name):
+                self.client.create_collection(
+                    name,
+                    vectors_config={"dense": qm.VectorParams(size=EMBED_DIM, distance=qm.Distance.COSINE)},
+                    sparse_vectors_config={"bm25": qm.SparseVectorParams(modifier=qm.Modifier.IDF)},
+                )
             texts = [f"{doc['title']}. {doc['text']}" if "title" in doc else doc["text"] for doc in docs]
             dense = self.embedder.embed(texts, kind="passage")
             sparse = self.embedder.embed_sparse(texts, kind="passage")

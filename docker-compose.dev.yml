@@ -1,0 +1,22 @@
+# Backing services only, for developing against the durable stack from the host.
+# The full stack (web app + both A2A agents) is docker-compose.yml.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: hr
+      POSTGRES_PASSWORD: hr
+      POSTGRES_DB: hr
+    ports: ["5433:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hr -d hr"]
+      interval: 3s
+      retries: 20
+  qdrant:
+    image: qdrant/qdrant:v1.19.0
+    ports: ["6334:6333"]
+    volumes: [qdrantdata:/qdrant/storage]
+volumes:
+  pgdata:
+  qdrantdata:

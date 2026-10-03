@@ -63,6 +63,50 @@ jobs:
       - name: End-to-end self-test (every guarantee, pass/fail)
         run: python -m hr_timeoff_agent e2e
 
+  durable:
+    # The same web and A2A suites, plus the restart/sharing tests, against a real
+    # Postgres and Qdrant server instead of local files. Still offline for models.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: {POSTGRES_USER: hr, POSTGRES_PASSWORD: hr, POSTGRES_DB: hr}
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U hr -d hr" --health-interval 3s --health-retries 20
+      qdrant:
+        image: qdrant/qdrant:v1.19.0
+        ports: ["6333:6333"]
+    env:
+      HR_AGENT_OFFLINE: "1"
+      HR_DATABASE_URL: postgresql://hr:hr@localhost:5432/hr
+      HR_DATABASE_SCHEMA: auto
+      HR_QDRANT_URL: http://localhost:6333
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e '.[web,mcp,a2a,postgres]'
+
+      - name: Wait for Qdrant
+        run: |
+          for i in $(seq 1 30); do curl -sf http://localhost:6333/readyz && exit 0; sleep 2; done
+          echo "qdrant did not become ready"; exit 1
+
+      - name: Durable state (restarts, two processes, concurrent ids, A2A tasks, Qdrant)
+        run: python tests/test_durable.py
+
+      - name: Web app on Postgres and Qdrant
+        run: python tests/test_web.py
+
+      - name: A2A agents with Postgres task stores
+        run: python tests/test_a2a.py
+
   live:
     # Real model calls, recorded into a scratch cache so nothing in the repo
     # changes. Needs the ANTHROPIC_API_KEY repository secret; run it from the

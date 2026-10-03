@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+from pathlib import Path
 from typing import Any
 
 from a2a.auth.user import UnauthenticatedUser, User
@@ -23,6 +24,41 @@ from a2a.server.tasks.task_updater import TaskUpdater
 from a2a.types import Task, TaskState, TaskStatus
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+
+
+def make_task_store(table: str, home: Path | None = None):
+    """Where an agent keeps its A2A tasks: Postgres when configured, else memory.
+
+    In memory, a restart forgets every task a caller was waiting on. In Postgres
+    the task (and so the owner that scopes it) survives, and either agent
+    process can be restarted or scaled without dropping a pending approval.
+    """
+    from .storage import database_settings, ensure_schema
+
+    settings = database_settings(home or Path("."))
+    if settings is None:
+        from a2a.server.tasks.inmemory_task_store import InMemoryTaskStore
+
+        return InMemoryTaskStore()
+    import functools
+
+    from a2a.server.tasks import database_task_store as dts
+    from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlalchemy.pool import NullPool
+
+    url, schema = settings
+    ensure_schema(url, schema)
+    # One connection per operation: tasks are written a handful of times each,
+    # and a pooled async connection cannot move between event loops.
+    engine = create_async_engine(
+        url.replace("postgresql://", "postgresql+psycopg://", 1),
+        poolclass=NullPool, connect_args={"options": f"-csearch_path={schema}"},
+    )
+    # The SDK defines a new ORM table every time it is asked for a named one,
+    # and SQLAlchemy refuses a second definition. Build each table's model once.
+    if not getattr(dts.create_task_model, "cache_info", None):
+        dts.create_task_model = functools.cache(dts.create_task_model)
+    return dts.DatabaseTaskStore(engine, table_name=table)
 
 
 class Principal(User):

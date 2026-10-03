@@ -22,7 +22,6 @@ from a2a.server.agent_execution.context import RequestContext
 from a2a.server.events.event_queue import EventQueue
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.routes import add_a2a_routes_to_fastapi, create_agent_card_routes, create_jsonrpc_routes
-from a2a.server.tasks.inmemory_task_store import InMemoryTaskStore
 from a2a.types import (
     AgentCapabilities, AgentCard, AgentInterface, AgentProvider, AgentSkill, HTTPAuthSecurityScheme,
     SecurityRequirement, SecurityScheme, StringList,
@@ -30,7 +29,7 @@ from a2a.types import (
 from a2a.helpers import new_data_part, new_text_part
 from fastapi import FastAPI
 
-from .a2a_common import BearerContextBuilder, BearerTokens, begin, request_data, require_bearer, text_and_data
+from .a2a_common import BearerContextBuilder, BearerTokens, begin, make_task_store, request_data, require_bearer, text_and_data
 
 DATA = Path(__file__).resolve().parent.parent / "data" / "payroll.json"
 RPC_PATH = "/a2a/jsonrpc"
@@ -136,10 +135,10 @@ def agent_card(base_url: str) -> AgentCard:
     )
 
 
-def create_payroll_app(tokens: BearerTokens, *, base_url: str = "http://127.0.0.1:8101", data_path: Path = DATA) -> FastAPI:
+def create_payroll_app(tokens: BearerTokens, *, base_url: str = "http://127.0.0.1:8101", data_path: Path = DATA, home: Path | None = None) -> FastAPI:
     data = json.loads(Path(data_path).read_text())
     card = agent_card(base_url)
-    handler = DefaultRequestHandler(agent_executor=PayrollExecutor(data), task_store=InMemoryTaskStore(), agent_card=card)
+    handler = DefaultRequestHandler(agent_executor=PayrollExecutor(data), task_store=make_task_store("payroll_tasks", home), agent_card=card)
     app = FastAPI(title="Payroll impact agent")
     add_a2a_routes_to_fastapi(
         app,
