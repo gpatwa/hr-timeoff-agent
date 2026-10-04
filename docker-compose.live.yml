@@ -1,0 +1,16 @@
+# Adds the model: new requests are triaged by Claude through the Anthropic API.
+#
+#   echo -n "$YOUR_KEY" > secrets/anthropic_api_key        # you create this; nothing generates or reads it for you
+#   docker compose -f docker-compose.yml -f docker-compose.live.yml up -d --build --wait
+#
+# Without it the stack still runs: the seeded requests replay from recorded fixtures and a new
+# request is kept and retried once a key is present.
+services:
+  web:
+    environment: {ANTHROPIC_API_KEY_FILE: /run/secrets/anthropic_api_key}
+    secrets: [database_url, web_secret, oidc_web_client_secret, oidc_service_client_secret, anthropic_api_key]
+  a2a:
+    environment: {ANTHROPIC_API_KEY_FILE: /run/secrets/anthropic_api_key}
+    secrets: [database_url, web_secret, oidc_web_client_secret, oidc_service_client_secret, anthropic_api_key]
+secrets:
+  anthropic_api_key: {file: ./secrets/anthropic_api_key}

@@ -1,0 +1,160 @@
+# The whole stack on one machine: web app, A2A agents, MCP server, Postgres, Qdrant, Keycloak and
+# the observability pipeline.
+#
+#   python scripts/make_secrets.py          # once: random secrets into ./secrets (gitignored)
+#   docker compose up -d --build --wait
+#   open http://localhost:8000              # sign in as aiko.tanaka@acme.example (password: secrets/demo_password)
+#
+# Backing services only, for developing against them from the host, is docker-compose.dev.yml.
+# Do not run both at once: they publish the same ports.
+name: hr-stack
+
+x-app: &app
+  image: hr-timeoff-agent:stack
+  build: .
+  restart: unless-stopped
+  depends_on:
+    init: {condition: service_completed_successfully}
+    keycloak: {condition: service_healthy}
+  environment: &app-env
+    # Secrets are files (NAME_FILE); the app reads them once at startup.
+    HR_DATABASE_URL_FILE: /run/secrets/database_url
+    HR_WEB_SECRET_FILE: /run/secrets/web_secret
+    HR_OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_web_client_secret
+    HR_OIDC_SERVICE_CLIENT_SECRET_FILE: /run/secrets/oidc_service_client_secret
+    HR_QDRANT_URL: http://qdrant:6333
+    # Tokens say http://localhost:8080 (that is what a browser sees); the services reach Keycloak by name.
+    HR_OIDC_ISSUER: http://localhost:8080/realms/hr
+    HR_OIDC_INTERNAL_URL: http://keycloak:8080/realms/hr
+    HR_PUBLIC_URL: http://localhost:8000
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+  secrets: [database_url, web_secret, oidc_web_client_secret, oidc_service_client_secret]
+
+x-ready: &ready
+  interval: 5s
+  timeout: 4s
+  retries: 24
+  start_period: 20s
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hr
+      POSTGRES_DB: hr
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hr -d hr"]
+      interval: 3s
+      retries: 20
+
+  qdrant:
+    image: qdrant/qdrant:v1.19.0
+    restart: unless-stopped
+    volumes: [qdrantdata:/qdrant/storage]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333'"]
+      interval: 3s
+      retries: 20
+
+  keycloak:
+    # Development identity provider with a realm of synthetic people (one tenant). The realm is
+    # rendered by scripts/make_secrets.py with generated client secrets and demo password.
+    image: quay.io/keycloak/keycloak:26.2
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c", "export KC_BOOTSTRAP_ADMIN_PASSWORD=$$(cat /run/secrets/keycloak_admin_password) && exec /opt/keycloak/bin/kc.sh start-dev --import-realm"]
+    environment:
+      KC_HOSTNAME: http://localhost:8080
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+    secrets: [keycloak_admin_password]
+    ports: ["8080:8080"]
+    volumes: ["./secrets/hr-realm.json:/opt/keycloak/data/import/hr-realm.json:ro"]
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /realms/hr HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q 200"]
+      interval: 5s
+      timeout: 4s
+      retries: 40
+      start_period: 30s
+
+  # One-shot: migrate the schema and seed the tenant, so the services below start into a finished database.
+  init:
+    <<: *app
+    depends_on:
+      postgres: {condition: service_healthy}
+      qdrant: {condition: service_healthy}
+    restart: "no"
+    command: ["init"]
+
+  web:
+    <<: *app
+    command: ["web", "--host", "0.0.0.0"]
+    ports: ["8000:8000"]
+    volumes: [webhome:/var/lib/hr]
+    healthcheck:
+      <<: *ready
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/readyz', timeout=3)"]
+
+  a2a:
+    # One process serves both agents: the time-off agent (8100) and the payroll agent (8101).
+    <<: *app
+    command: ["a2a", "--host", "0.0.0.0"]
+    environment:
+      <<: *app-env
+      HR_A2A_TIMEOFF_URL: http://localhost:8100
+      HR_A2A_PAYROLL_URL: http://localhost:8101
+    ports: ["8100:8100", "8101:8101"]
+    volumes: [a2ahome:/var/lib/hr]
+    healthcheck:
+      <<: *ready
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8100/readyz', timeout=3); u.urlopen('http://127.0.0.1:8101/healthz', timeout=3)"]
+
+  mcp:
+    <<: *app
+    command: ["mcp", "--http", "8200", "--host", "0.0.0.0"]
+    environment:
+      <<: *app-env
+      HR_MCP_ALLOWED_HOSTS: mcp:8200,localhost:8200,127.0.0.1:8200
+    ports: ["8200:8200"]
+    healthcheck:
+      <<: *ready
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8200/healthz', timeout=3)"]
+
+  # Services send OTLP to the collector; Jaeger shows traces, Prometheus scrapes the collector's
+  # metrics and evaluates deploy/prometheus/alerts.yml.
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.116.1
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes: ["./deploy/otel/collector.yaml:/etc/otelcol/config.yaml:ro"]
+    ports: ["4318:4318"]
+    depends_on: [jaeger]
+  jaeger:
+    image: jaegertracing/all-in-one:1.65.0
+    restart: unless-stopped
+    ports: ["16686:16686"]
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    restart: unless-stopped
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports: ["9090:9090"]
+    depends_on: [otel-collector]
+
+secrets:
+  postgres_password: {file: ./secrets/postgres_password}
+  database_url: {file: ./secrets/database_url}
+  web_secret: {file: ./secrets/web_secret}
+  keycloak_admin_password: {file: ./secrets/keycloak_admin_password}
+  oidc_web_client_secret: {file: ./secrets/oidc_web_client_secret}
+  oidc_service_client_secret: {file: ./secrets/oidc_service_client_secret}
+
+volumes:
+  pgdata:
+  qdrantdata:
+  webhome:
+  a2ahome:

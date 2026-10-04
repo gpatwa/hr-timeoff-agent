@@ -54,6 +54,9 @@ jobs:
       - name: Failure behaviour (model outage, crashes mid-decision, repeats, races, slow peer)
         run: python tests/test_resilience.py
 
+      - name: Deployment pieces (file secrets, readiness, MCP host allowlist, embedding cache)
+        run: python tests/test_deploy.py
+
       - name: Recording backend (claude-cli, with the subprocess faked)
         run: python tests/test_llm.py
 
@@ -115,6 +118,9 @@ jobs:
 
       - name: Failure behaviour with two processes sharing Postgres
         run: python tests/test_resilience.py
+
+      - name: Migrations, locks (no deadlock with LangGraph's index build), two services starting at once
+        run: python tests/test_deploy.py
 
   identity:
     # The same flows against a real Keycloak running the development realm:
@@ -194,6 +200,45 @@ jobs:
           HR_JAEGER_URL: http://localhost:16686
           HR_PROMETHEUS_URL: http://localhost:9090
         run: python tests/test_observability_stack.py
+
+  stack:
+    # The whole thing, as containers: build the image (embedding models baked in), start Postgres,
+    # Qdrant, Keycloak, the observability pipeline, the web app, both A2A agents and the MCP
+    # server with file-based secrets, then drive it from outside over real HTTP.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install the test client side
+        run: pip install -e '.[web,mcp,a2a]'
+
+      - name: Generate secrets
+        run: python scripts/make_secrets.py
+
+      - name: Build and start the stack
+        run: docker compose up -d --build --wait --wait-timeout 600
+
+      - name: Smoke test through the whole stack
+        run: python tests/test_stack.py
+
+      - name: Services keep working across a restart
+        run: |
+          docker compose restart web a2a mcp
+          docker compose up -d --wait --wait-timeout 300
+          curl -sf http://localhost:8000/readyz && curl -sf http://localhost:8100/readyz && curl -sf http://localhost:8200/healthz
+
+      - name: Logs, if anything failed
+        if: failure()
+        run: docker compose logs --no-color --tail 200
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
 
   live:
     # Real model calls, recorded into a scratch cache so nothing in the repo

@@ -179,10 +179,14 @@ class BearerGuard:
     `authenticate(authorization_header)` returns something truthy for an accepted caller.
     """
 
-    def __init__(self, app, authenticate: Callable[[str | None], object]):
-        self.app, self.authenticate = app, authenticate
+    def __init__(self, app, authenticate: Callable[[str | None], object], public_paths: tuple[str, ...] = ()):
+        self.app, self.authenticate, self.public_paths = app, authenticate, public_paths
 
     async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["path"] == "/healthz" and "/healthz" in self.public_paths:
+            await send({"type": "http.response.start", "status": 200, "headers": [(b"content-type", b"application/json")]})
+            await send({"type": "http.response.body", "body": b'{"ok":true}'})
+            return
         if scope["type"] == "http":
             headers = {k.decode().lower(): v.decode() for k, v in scope["headers"]}
             if not self.authenticate(headers.get("authorization")):

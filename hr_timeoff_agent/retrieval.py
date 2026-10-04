@@ -67,6 +67,24 @@ class EmbeddingCacheMiss(RuntimeError):
     pass
 
 
+def _model_source() -> dict:
+    """fastembed asks Hugging Face for a model's revision even when the files are on disk, and
+    fails with no network. HR_EMBED_LOCAL_ONLY=1 (set in the container image, where the models are
+    baked in) makes it use the files it already has and never go out."""
+    return {"local_files_only": True} if os.environ.get("HR_EMBED_LOCAL_ONLY") == "1" else {}
+
+
+def _sparse_source() -> dict:
+    """The BM25 model is a folder of stop-word lists that fastembed's own cache check does not
+    recognise as complete, so it goes back to the network even with local_files_only. In local-only
+    mode, point it at the baked-in snapshot directly."""
+    if os.environ.get("HR_EMBED_LOCAL_ONLY") != "1":
+        return {}
+    root = Path(os.environ.get("FASTEMBED_CACHE_PATH", "/tmp/fastembed_cache")) / "models--Qdrant--bm25" / "snapshots"
+    snapshots = sorted(root.glob("*")) if root.exists() else []
+    return {"specific_model_path": str(snapshots[0]), "local_files_only": True} if snapshots else _model_source()
+
+
 class Embedder:
     """fastembed (dense + BM25) behind a content-addressed cache.
 
@@ -88,13 +106,13 @@ class Embedder:
     def _dense(self):
         from fastembed import TextEmbedding  # loaded only on a cache miss
 
-        return TextEmbedding(self.model_name)
+        return TextEmbedding(self.model_name, **_model_source())
 
     @cached_property
     def _sparse(self):
         from fastembed import SparseTextEmbedding
 
-        return SparseTextEmbedding(SPARSE_MODEL)
+        return SparseTextEmbedding(SPARSE_MODEL, **_sparse_source())
 
     def _cached(self, model: str, texts: list[str], kind: str, compute) -> list:
         keys = [self._key(model, kind, t) for t in texts]
@@ -137,8 +155,13 @@ class Embedder:
 
     def save(self) -> None:
         if self._dirty:
-            self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-            self.cache_path.write_text(json.dumps(self._cache, sort_keys=True) + "\n")
+            try:
+                self.cache_path.parent.mkdir(parents=True, exist_ok=True)
+                self.cache_path.write_text(json.dumps(self._cache, sort_keys=True) + "\n")
+            except OSError:
+                # A read-only cache (the committed fixtures inside a container) is fine: queries
+                # are embedded again next time instead of being remembered.
+                pass
             self._dirty = False
 
 
