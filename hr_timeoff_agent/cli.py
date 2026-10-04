@@ -489,7 +489,8 @@ def cmd_gate(args) -> int:
             return 2
     try:
         report = gate.run_gate(modes=modes, repeats=args.repeats, thresholds_path=Path(args.thresholds), replay=args.replay,
-                               a2a=not args.no_a2a and not args.replay, budget_usd=args.budget)
+                               a2a=not args.no_a2a and not args.replay, budget_usd=args.budget,
+                               workers=args.workers, quick=args.quick)
     except RuntimeError as exc:
         print(f"\n  {exc}\n")
         return 2
@@ -579,6 +580,8 @@ def main(argv: list[str] | None = None) -> int:
     gt.add_argument("--replay", action="store_true", help="offline: replay the recorded fixtures to check the plumbing; no model is called")
     gt.add_argument("--no-a2a", action="store_true", help="skip the multi-agent run through the A2A agents")
     gt.add_argument("--budget", type=float, help="stop the run when it has spent this many dollars (default: from thresholds.json)")
+    gt.add_argument("--workers", type=int, default=1, help="cases to run at once (the full suite is about an hour one at a time)")
+    gt.add_argument("--quick", action="store_true", help="a 12-case spread of every category, for routine checks")
     gt.add_argument("--out", help="write the full report as JSON")
     gt.add_argument("--summary", help="write the markdown summary here (for GITHUB_STEP_SUMMARY)")
     gt.set_defaults(func=cmd_gate)

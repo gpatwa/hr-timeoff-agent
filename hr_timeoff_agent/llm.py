@@ -27,6 +27,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Any, Type, TypeVar
@@ -151,7 +152,20 @@ def _load_cache() -> dict:
 
 def _save_cache(cache: dict) -> None:
     FIXTURES.parent.mkdir(parents=True, exist_ok=True)
-    FIXTURES.write_text(json.dumps(cache, indent=2, sort_keys=True) + "\n")
+    tmp = FIXTURES.with_name(FIXTURES.name + f".{os.getpid()}.{threading.get_ident()}.tmp")
+    tmp.write_text(json.dumps(cache, indent=2, sort_keys=True) + "\n")
+    tmp.replace(FIXTURES)
+
+
+_cache_lock = threading.Lock()
+
+
+def store(key: str, entry: dict) -> None:
+    """Add one recorded call. Reads the file again under a lock so concurrent cases don't lose each other's entries."""
+    with _cache_lock:
+        cache = _load_cache()
+        cache[key] = entry
+        _save_cache(cache)
 
 
 def structured(
@@ -215,15 +229,14 @@ def _structured(*, system, user, schema, model, record, label) -> tuple[Any, str
         after_live_call(model, label or schema.__name__, usd, source)
     telemetry.count("hr.llm.cost.usd", usd, model=model, source=source)
 
-    cache[key] = {
+    store(key, {
         "label": label or schema.__name__,
         "model": model,
         "schema": schema.__name__,
         "source": source,
         "served_by": served_by,
         "response": parsed.model_dump(),
-    }
-    _save_cache(cache)
+    })
     return parsed, source
 
 

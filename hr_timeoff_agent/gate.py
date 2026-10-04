@@ -20,7 +20,9 @@ import os
 import shutil
 import statistics
 import tempfile
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -29,6 +31,8 @@ from . import evals, llm, policy, retrieval
 ROOT = Path(__file__).resolve().parent.parent
 THRESHOLDS = ROOT / "evals" / "thresholds.json"
 JUDGE_PREFIX = "judge:"
+# A spread for routine checks: every category, four injections, one poisoned handbook.
+QUICK_CASES = ["EV-01", "EV-03", "EV-06", "EV-10", "EV-19", "EV-22", "EV-23", "EV-26", "EV-29", "EV-32", "EV-35", "EV-40"]
 
 
 class OverBudget(RuntimeError):
@@ -37,43 +41,55 @@ class OverBudget(RuntimeError):
 
 # ── measuring ───────────────────────────────────────────────────────────────
 
-@dataclass
 class Meter:
     """Sees every live model call: adds up what it cost, when the agent's calls started and
-    ended, and refuses the next call once the whole run has spent its budget."""
+    ended, and refuses the next call once the whole run has spent its budget.
 
-    budget_usd: float
-    spent: float = 0.0
-    agent_usd: float = 0.0
-    judge_usd: float = 0.0
-    first_start: float | None = None
-    last_end: float | None = None
-    tool_calls: int = 0
-    calls: int = 0
+    Cases run in parallel threads, so the run's total is shared (under a lock) while each case's
+    own cost, timing and tool calls are kept per thread."""
+
+    def __init__(self, budget_usd: float):
+        self.budget_usd = budget_usd
+        self.spent = 0.0
+        self._lock = threading.Lock()
+        self._case = threading.local()
+        self.reset_case()
 
     def reset_case(self) -> None:
-        self.agent_usd = self.judge_usd = 0.0
-        self.first_start = self.last_end = None
-        self.tool_calls = self.calls = 0
+        c = self._case
+        c.agent_usd = c.judge_usd = 0.0
+        c.first_start = c.last_end = None
+        c.tool_calls = c.calls = 0
+
+    agent_usd = property(lambda self: self._case.agent_usd)
+    judge_usd = property(lambda self: self._case.judge_usd)
+    calls = property(lambda self: self._case.calls)
+    tool_calls = property(lambda self: self._case.tool_calls)
+
+    def count_tool_calls(self, n: int) -> None:
+        self._case.tool_calls += n
 
     def before(self, model: str, label: str) -> None:
         if self.spent >= self.budget_usd:
             raise OverBudget(f"the run's budget of ${self.budget_usd:.2f} is spent (${self.spent:.2f}); stopping before {label}")
-        if not label.startswith(JUDGE_PREFIX) and self.first_start is None:
-            self.first_start = time.monotonic()
+        if not label.startswith(JUDGE_PREFIX) and self._case.first_start is None:
+            self._case.first_start = time.monotonic()
 
     def after(self, model: str, label: str, usd: float, source: str) -> None:
-        self.spent += usd
-        self.calls += 1
+        with self._lock:
+            self.spent += usd
+        c = self._case
+        c.calls += 1
         if label.startswith(JUDGE_PREFIX):
-            self.judge_usd += usd
+            c.judge_usd += usd
         else:
-            self.agent_usd += usd
-            self.last_end = time.monotonic()
+            c.agent_usd += usd
+            c.last_end = time.monotonic()
 
     @property
     def triage_seconds(self) -> float:
-        return round(self.last_end - self.first_start, 2) if self.first_start and self.last_end else 0.0
+        c = self._case
+        return round(c.last_end - c.first_start, 2) if c.first_start and c.last_end else 0.0
 
 
 @dataclass
@@ -106,34 +122,48 @@ def _count_tool_calls(meter: Meter):
 
     def counting(**kw):
         run = real(**kw)
-        meter.tool_calls += len(run.calls)
+        meter.count_tool_calls(len(run.calls))
         return run
 
     agents.run_agent = counting
     return lambda: setattr(agents, "run_agent", real)
 
 
-def run_eval(tenant: policy.Tenant, modes: list[str], repeats: int, *, live: bool, meter: Meter) -> list[CaseMetrics]:
+def _one_case(tenant: policy.Tenant, case: dict, mode: str, live: bool, meter: Meter) -> CaseMetrics:
+    meter.reset_case()
+    r = evals.run_case(tenant, case, record=live)
+    return CaseMetrics(
+        mode=mode, case_id=r.case_id, expected=r.expected_action, actual=r.actual_action,
+        action_match=r.action_match, never_self_approved=r.never_self_approved,
+        scores=r.scores.model_dump() if r.scores else None, error=r.error,
+        agent_usd=round(meter.agent_usd, 5), judge_usd=round(meter.judge_usd, 5),
+        triage_seconds=meter.triage_seconds, tool_calls=meter.tool_calls,
+        category=r.category, attack=r.attack, injection_resisted=r.injection_resisted,
+        no_approve_on_blocking=r.no_approve_on_blocking, cites_failures=r.cites_failures,
+        out_of_scope=list(r.out_of_scope),
+    )
+
+
+def run_eval(tenant: policy.Tenant, modes: list[str], repeats: int, *, live: bool, meter: Meter,
+             workers: int = 1, only: list[str] | None = None) -> list[CaseMetrics]:
+    """Run the suite. `workers` cases run at once. The cases that plant a hostile handbook change an
+    environment variable that tool servers read, so they run alone, after the rest."""
     out: list[CaseMetrics] = []
     undo = _count_tool_calls(meter)
     saved_mode = os.environ.get("HR_AGENT_MODE")
+    cases = [c for c in evals._cases() if only is None or c["case_id"] in only]
+    jobs = [c for c in cases for _ in range(repeats)]
+    shared = [c for c in jobs if not c.get("corpus")]
+    alone = [c for c in jobs if c.get("corpus")]
     try:
         for mode in modes:
             os.environ["HR_AGENT_MODE"] = mode
-            for case in evals._cases():
-                for _ in range(repeats):
-                    meter.reset_case()
-                    r = evals.run_case(tenant, case, record=live)
-                    out.append(CaseMetrics(
-                        mode=mode, case_id=r.case_id, expected=r.expected_action, actual=r.actual_action,
-                        action_match=r.action_match, never_self_approved=r.never_self_approved,
-                        scores=r.scores.model_dump() if r.scores else None, error=r.error,
-                        agent_usd=round(meter.agent_usd, 5), judge_usd=round(meter.judge_usd, 5),
-                        triage_seconds=meter.triage_seconds, tool_calls=meter.tool_calls,
-                        category=r.category, attack=r.attack, injection_resisted=r.injection_resisted,
-                        no_approve_on_blocking=r.no_approve_on_blocking, cites_failures=r.cites_failures,
-                        out_of_scope=list(r.out_of_scope),
-                    ))
+            if workers > 1 and len(shared) > 1:
+                with ThreadPoolExecutor(max_workers=workers) as pool:
+                    out += list(pool.map(lambda c: _one_case(tenant, c, mode, live, meter), shared))
+            else:
+                out += [_one_case(tenant, c, mode, live, meter) for c in shared]
+            out += [_one_case(tenant, c, mode, live, meter) for c in alone]
     finally:
         undo()
         if saved_mode is None:
@@ -329,7 +359,7 @@ def render_markdown(report: dict) -> str:
 
 
 def run_gate(*, modes: list[str], repeats: int, thresholds_path: Path = THRESHOLDS, replay: bool = False,
-             a2a: bool = True, budget_usd: float | None = None) -> dict:
+             a2a: bool = True, budget_usd: float | None = None, workers: int = 1, quick: bool = False) -> dict:
     thresholds = json.loads(Path(thresholds_path).read_text())
     live = not replay
     if live and not can_call_a_model():
@@ -357,7 +387,8 @@ def run_gate(*, modes: list[str], repeats: int, thresholds_path: Path = THRESHOL
             tenant = policy.Tenant()
             tenant._policy_index = retrieval.PolicyIndex(embedder=retrieval.Embedder(cache_path=emb))
             try:
-                metrics = run_eval(tenant, modes, repeats, live=live, meter=meter)
+                metrics = run_eval(tenant, modes, repeats, live=live, meter=meter, workers=workers,
+                                   only=QUICK_CASES if quick else None)
                 halted = None
             except OverBudget as exc:
                 metrics, halted = [], str(exc)
@@ -374,6 +405,8 @@ def run_gate(*, modes: list[str], repeats: int, thresholds_path: Path = THRESHOL
             report = {
                 "passed": not violations,
                 "live": live,
+                "quick": quick,
+                "workers": workers,
                 "backend": llm.BACKEND if live else "replay",
                 "agent_model": llm.AGENT_MODEL,
                 "judge_model": llm.JUDGE_MODEL,
