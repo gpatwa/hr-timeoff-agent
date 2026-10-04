@@ -694,6 +694,8 @@ recorded. It cannot notice that the model, a prompt or a tool has drifted. The g
 ```bash
 python -m hr_timeoff_agent gate            # live: needs ANTHROPIC_API_KEY (or HR_AGENT_BACKEND=claude-cli)
 python -m hr_timeoff_agent gate --replay   # offline: checks the plumbing against the fixtures, no model, no cost
+python -m hr_timeoff_agent gate --workers 6          # live, six cases at once: about 10-15 minutes instead of an hour
+python -m hr_timeoff_agent gate --workers 6 --quick  # a 12-case spread of every category, for routine checks
 ```
 
 - **What it measures**, for single-agent and multi-agent mode over all 40 cases: how often the action

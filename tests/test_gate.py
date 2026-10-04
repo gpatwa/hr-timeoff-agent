@@ -213,6 +213,46 @@ def test_the_a2a_multi_agent_check_catches_a_specialist_that_never_used_its_tool
     assert not r["passed"] and "not both specialists" in r["detail"], r
 
 
+def test_parallel_cases_give_the_same_results_and_quick_mode_runs_the_spread():
+    serial = gate.run_gate(modes=["single"], repeats=1, replay=True)
+    par = gate.run_gate(modes=["single"], repeats=1, replay=True, workers=6)
+    key = lambda r: sorted((c["case_id"], c["actual"], c["injection_resisted"]) for c in r["cases"])  # noqa: E731
+    assert par["passed"] and key(par) == key(serial) and par["workers"] == 6
+    quick = gate.run_gate(modes=["single"], repeats=1, replay=True, workers=4, quick=True)
+    assert quick["quick"] and sorted(c["case_id"] for c in quick["cases"]) == sorted(gate.QUICK_CASES)
+
+
+def test_the_meter_keeps_each_threads_case_apart_but_one_shared_total():
+    from concurrent.futures import ThreadPoolExecutor
+
+    m = gate.Meter(budget_usd=100)
+
+    def case(n):
+        m.reset_case()
+        for _ in range(50):
+            m.before("m", "agent")
+            m.after("m", "agent", 0.01 * n, "x")
+        return round(m.agent_usd, 2), m.calls
+
+    with ThreadPoolExecutor(4) as pool:
+        got = list(pool.map(case, [1, 2, 3, 4]))
+    assert got == [(0.5, 50), (1.0, 50), (1.5, 50), (2.0, 50)] and round(m.spent, 2) == 5.0
+
+
+def test_concurrent_recordings_do_not_lose_each_others_fixtures():
+    from concurrent.futures import ThreadPoolExecutor
+
+    saved = llm.FIXTURES
+    with tempfile.TemporaryDirectory() as d:
+        llm.FIXTURES = Path(d) / "c.json"
+        try:
+            with ThreadPoolExecutor(8) as pool:
+                list(pool.map(lambda i: llm.store(f"k{i}", {"n": i}), range(60)))
+            assert len(json.loads(llm.FIXTURES.read_text())) == 60
+        finally:
+            llm.FIXTURES = saved
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

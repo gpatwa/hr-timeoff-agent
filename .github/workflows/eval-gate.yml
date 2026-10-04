@@ -56,7 +56,7 @@ jobs:
       - name: "Run the gate: live, single and multi-agent, and multi-agent over A2A"
         run: |
           mkdir -p out
-          python -m hr_timeoff_agent gate --repeats "$REPEATS" ${BUDGET:+--budget "$BUDGET"} --out out/gate.json --summary out/gate.md
+          python -m hr_timeoff_agent gate --workers 6 --repeats "$REPEATS" ${BUDGET:+--budget "$BUDGET"} --out out/gate.json --summary out/gate.md
 
       - name: Summary
         if: always()

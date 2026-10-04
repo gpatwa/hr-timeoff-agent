@@ -168,7 +168,7 @@ def _run_agent(*, system, user, schema, tools, server, model, record, label) -> 
     if len(calls) > MAX_TOOL_CALLS:
         raise RuntimeError(f"{label or schema.__name__} made {len(calls)} tool calls; the limit is {MAX_TOOL_CALLS}")
 
-    cache[key] = {
+    llm.store(key, {
         "kind": "agent",
         "label": label or schema.__name__,
         "model": model,
@@ -178,8 +178,7 @@ def _run_agent(*, system, user, schema, tools, server, model, record, label) -> 
         "served_by": served_by,
         "trace": [c.trace() for c in calls],
         "response": output.model_dump(),
-    }
-    llm._save_cache(cache)
+    })
     return AgentRun(output, calls, served_by, usd, source, False)
 
 
