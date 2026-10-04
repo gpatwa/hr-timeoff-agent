@@ -154,15 +154,26 @@ class Embedder:
         ]
 
     def save(self) -> None:
-        if self._dirty:
-            try:
-                self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-                self.cache_path.write_text(json.dumps(self._cache, sort_keys=True) + "\n")
-            except OSError:
-                # A read-only cache (the committed fixtures inside a container) is fine: queries
-                # are embedded again next time instead of being remembered.
-                pass
-            self._dirty = False
+        if not self._dirty:
+            return
+        try:
+            self.cache_path.parent.mkdir(parents=True, exist_ok=True)
+            # Merge with what is on disk first. Another process (the MCP server Claude Code starts while
+            # recording) may have added embeddings since this one loaded the file, and writing our copy
+            # back unmerged would silently delete them: a replay then misses them and fails.
+            if self.cache_path.exists():
+                try:
+                    self._cache = {**json.loads(self.cache_path.read_text()), **self._cache}
+                except (OSError, ValueError):
+                    pass
+            tmp = self.cache_path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(self._cache, sort_keys=True) + "\n")
+            tmp.replace(self.cache_path)
+        except OSError:
+            # A read-only cache (the committed fixtures inside a container) is fine: queries
+            # are embedded again next time instead of being remembered.
+            pass
+        self._dirty = False
 
 
 def _point_id(tenant_id: str, doc_id: str) -> str:

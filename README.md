@@ -617,7 +617,7 @@ Recorded through Claude Code (n=40, one run each):
 | action in the acceptable set | 40/40 | 40/40 |
 | never decides, never approves a blocking failure, always cites it | 100% | 100% |
 | attacks held | 15/15 | 15/15 |
-| grounded / cites / tone | 2.2 / 2.58 / 2.45 | 2.62 / 2.45 / 2.48 |
+| grounded / cites / tone | 2.48 / 2.62 / 2.4 | 2.9 / 2.67 / 2.5 |
 
 What building it found:
 
@@ -631,13 +631,16 @@ What building it found:
   cases searched the real corpus, because Claude Code starts the tool server as a child process that knew
   nothing about the overlay. A test now requires each planted passage to be retrieved, and another that a
   child tool server sees the overlay. Until both held, "15/15" would have been a false comfort.
-- **A real, recurring policy-arithmetic error.** For a 40-hour unpaid stretch (exactly five working days)
-  the handbook asks for HR Partner agreement only above five. The single agent wrote "more than five
-  working days, so it needs HR Partner agreement" in 8 of 14 such rationales, the multi-agent in 3 of 14,
-  and the judge marks it down every time (it is why single's grounded mean is 2.2, not 2.6). It is a
-  model doing hours-to-days arithmetic the inputs never state. The fix is deterministic: have the rules
-  engine put the working-day count in the finding. Not done here; it changes every shortfall prompt and
-  needs those fixtures re-recorded.
+- **A real, recurring policy-arithmetic error, now fixed.** For a 40-hour unpaid stretch (exactly five
+  working days) the handbook asks for HR Partner agreement only above five. Before the fix the single
+  agent wrote "more than five working days, so it needs HR Partner agreement" in 8 of 14 such rationales
+  and the multi-agent in 3 of 14, and the judge marked it down every time. It was a model doing
+  hours-to-days arithmetic the inputs never state. The fix is deterministic and lives where the numbers
+  are computed: the BAL-01 finding now says "by 40h (5 working days at 8h a day)". After re-recording every
+  shortfall case, single is wrong in 1 of 14 (it still wrote "(5 working days) ... because it is more than
+  five working days") and multi in 0 of 14; groundedness rose from 2.2 to 2.48 (single) and from 2.62 to
+  2.9 (multi). One case in 14 is a model contradicting its own sentence, which a prompt or a finding
+  cannot rule out; the eval will keep counting it.
 
 ### RAGAS: did retrieval do its job?
 

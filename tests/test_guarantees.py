@@ -199,6 +199,21 @@ def test_evidence_chain_detects_tampering():
     assert "entry 1" in reason
 
 
+def test_a_shortfall_states_its_size_in_working_days_so_no_model_has_to_convert():
+    t = policy.Tenant()
+    worker = t.workers["W-100237"]   # PTO balance 40h
+    base = {"request_id": "X", "worker_id": "W-100237", "plan": "PTO", "from": "2026-10-26", "to": "2026-11-06",
+            "submitted_at": "2026-09-21", "note": ""}
+    f = policy.check_balance(t, {**base, "hours": 80.0}, worker)
+    assert f.status == "fail" and f.detail.endswith("by 40h (5 working days at 8h a day).")
+    assert (f.evidence["shortfall_hours"], f.evidence["shortfall_working_days"]) == (40.0, 5.0)
+    assert "4 working days" in policy.check_balance(t, {**base, "hours": 72.0}, worker).detail
+    assert "0.5 working days" in policy.check_balance(t, {**base, "hours": 44.0}, worker).detail
+    ok = policy.check_balance(t, {**base, "hours": 40.0}, worker)
+    assert ok.status == "pass" and ok.detail == "Requested 40h against a PTO balance of 40h."
+    assert ok.evidence["shortfall_hours"] == 0.0
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

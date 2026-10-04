@@ -98,6 +98,11 @@ def check_balance(tenant: Tenant, request: dict, worker: dict) -> Finding:
     balance = worker["time_off_plans"].get(plan, {}).get("balance_hours", 0.0)
     requested = request["hours"]
     ok = requested <= balance
+    shortfall = max(0.0, requested - balance)
+    days = shortfall / HOURS_PER_DAY
+    # The handbook talks about unpaid *days* (HB-3.1: HR Partner agreement above five working days),
+    # the request is in hours. The conversion is stated here, in code, so that no model has to do it:
+    # in the first 40-case eval, models that did it themselves got "40h" wrong in 8 of 14 rationales.
     return _finding(
         rule,
         "pass" if ok else "fail",
@@ -105,9 +110,10 @@ def check_balance(tenant: Tenant, request: dict, worker: dict) -> Finding:
             f"Requested {requested:g}h against a {plan} balance of {balance:g}h."
             if ok
             else f"Requested {requested:g}h exceeds the {plan} balance of {balance:g}h "
-            f"by {requested - balance:g}h."
+            f"by {shortfall:g}h ({days:g} working days at {HOURS_PER_DAY:g}h a day)."
         ),
-        {"plan": plan, "requested_hours": requested, "balance_hours": balance},
+        {"plan": plan, "requested_hours": requested, "balance_hours": balance,
+         "shortfall_hours": shortfall, "shortfall_working_days": days},
     )
 
 
