@@ -11,6 +11,7 @@
     python -m hr_timeoff_agent mcp                     # the HR tools as an MCP server (stdio)
     python -m hr_timeoff_agent a2a                     # the time-off agent and a payroll agent, over A2A
     python -m hr_timeoff_agent a2a-demo                # a walkthrough of the A2A conversation
+    python -m hr_timeoff_agent gate                    # live eval gate: quality, cost and latency on the real model
 """
 
 from __future__ import annotations
@@ -469,6 +470,35 @@ def cmd_a2a_demo(args) -> int:
     return 0
 
 
+def cmd_gate(args) -> int:
+    from . import gate
+
+    modes = [m.strip() for m in args.modes.split(",") if m.strip()]
+    if not set(modes) <= {"single", "multi"}:
+        print("--modes takes single, multi or both (single,multi).")
+        return 2
+    if "multi" in modes:
+        try:
+            import mcp  # noqa: F401
+        except ImportError:
+            print("Multi-agent mode needs the mcp extra:\n  ./.venv/bin/pip install -e '.[mcp]'")
+            return 2
+    try:
+        report = gate.run_gate(modes=modes, repeats=args.repeats, thresholds_path=Path(args.thresholds), replay=args.replay,
+                               a2a=not args.no_a2a and not args.replay, budget_usd=args.budget)
+    except RuntimeError as exc:
+        print(f"\n  {exc}\n")
+        return 2
+    text = gate.render_markdown(report)
+    print("\n" + text)
+    if args.out:
+        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out).write_text(json.dumps(report, indent=2) + "\n")
+    if args.summary:
+        Path(args.summary).write_text(text)
+    return 0 if report["passed"] else 1
+
+
 def cmd_report(args) -> int:
     from .report import build
 
@@ -537,6 +567,17 @@ def main(argv: list[str] | None = None) -> int:
     ini = sub.add_parser("init", help="migrate the database and seed the tenant, then exit (run once before the services)")
     ini.add_argument("--home", help="state directory (default: HR_WEB_HOME or var)")
     ini.set_defaults(func=cmd_init)
+
+    gt = sub.add_parser("gate", help="the live eval gate: quality, cost and latency thresholds on the real model")
+    gt.add_argument("--modes", default="single,multi", help="single, multi or both")
+    gt.add_argument("--repeats", type=int, default=1, help="runs per case (the model is not deterministic)")
+    gt.add_argument("--thresholds", default=str(Path(__file__).resolve().parent.parent / "evals" / "thresholds.json"))
+    gt.add_argument("--replay", action="store_true", help="offline: replay the recorded fixtures to check the plumbing; no model is called")
+    gt.add_argument("--no-a2a", action="store_true", help="skip the multi-agent run through the A2A agents")
+    gt.add_argument("--budget", type=float, help="stop the run when it has spent this many dollars (default: from thresholds.json)")
+    gt.add_argument("--out", help="write the full report as JSON")
+    gt.add_argument("--summary", help="write the markdown summary here (for GITHUB_STEP_SUMMARY)")
+    gt.set_defaults(func=cmd_gate)
 
     x = sub.add_parser("e2e", help="end-to-end self-test of every guarantee")
     x.add_argument("--require-live", action="store_true", help="fail if live checks cannot run")
