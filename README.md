@@ -631,6 +631,38 @@ The judge is never told which action was expected, so it grades quality rather
 than agreement. Set `HR_AGENT_JUDGE_MODEL` to a different model than
 `HR_AGENT_MODEL` if you want a hard guarantee that nothing marks its own work.
 
+## The eval gate
+
+The offline eval replays recorded fixtures, so it proves the code still handles what was once
+recorded. It cannot notice that the model, a prompt or a tool has drifted. The gate runs the graded eval
+**live**, on the real model, and fails when a number crosses a threshold:
+
+```bash
+python -m hr_timeoff_agent gate            # live: needs ANTHROPIC_API_KEY (or HR_AGENT_BACKEND=claude-cli)
+python -m hr_timeoff_agent gate --replay   # offline: checks the plumbing against the fixtures, no model, no cost
+```
+
+- **What it measures**, for single-agent and multi-agent mode over all five cases: how often the action
+  matches, that nothing ever decides on its own, the judged scores (grounded, cites, tone), what each
+  triage costs (agent only, the judge is counted separately), the slowest triage, and tool calls per triage.
+- **Multi-agent over A2A, with the real model.** An employee's agent files a request over A2A (so triage
+  runs live, in multi-agent mode), the manager's agent reviews it (the task pauses with the recommendation
+  and the payroll agent's price), then decides on the same task. It checks that both specialists used their
+  tools and are named in the evidence, the payroll agent was consulted, citations are only passages a tool
+  returned, the chain verifies, and the decision still needs the manager.
+- **Thresholds** live in `evals/thresholds.json`, with the reasoning. The first values come from the Claude
+  Code backend with wide margin, because the API path has not been measured over all five cases yet: tighten
+  them after the first scheduled runs. With n=5, one case moves a mean by 0.6, so a floor is not set above
+  what one bad case would still clear.
+- **It refuses to pass untested.** Without a model it exits 2 instead of reporting green. It spends no more
+  than `total_budget_usd` (it stops itself), records into scratch copies and never edits the fixtures.
+- **In CI** (`.github/workflows/eval-gate.yml`): every Monday and on demand (Actions, Eval gate, Run
+  workflow), never on a pull request. It needs the `ANTHROPIC_API_KEY` secret, writes the table to the run
+  summary and keeps the full JSON report as an artifact. The pull-request job runs `tests/test_gate.py` and
+  `gate --replay`, so the machinery stays honest without spending anything.
+
+Exit codes: 0 passed, 1 a threshold was crossed, 2 it could not run.
+
 ## Offline mode
 
 Model calls are content-addressed against `fixtures/llm_cache.json`, keyed on a

@@ -216,10 +216,21 @@ def test_08_the_trace_is_in_jaeger_and_the_numbers_are_in_prometheus():
         return httpx.get(f"{PROM}/api/v1/query", params={"query": q}, timeout=10).json()["data"]["result"] or None
 
     poll(lambda: query("sum(hr_http_requests_total)"), "hr_http_requests_total in Prometheus")
-    decided = poll(lambda: query("sum(hr_decision_total)"), "hr_decision_total in Prometheus")
-    assert float(decided[0]["value"][1]) >= 2
-    groups = httpx.get(f"{PROM}/api/v1/rules", timeout=10).json()["data"]["groups"]
-    assert {"HRModelDegraded", "HREvidenceChainBroken"} <= {r["name"] for g in groups for r in g["rules"]}
+
+    # The two decisions are exported on a timer, so the first can be there before the second:
+    # wait for both rather than asserting on whatever has arrived.
+    def two_decisions():
+        r = query("sum(hr_decision_total)")
+        return r if r and float(r[0]["value"][1]) >= 2 else None
+
+    poll(two_decisions, "both decisions counted in Prometheus (hr_decision_total >= 2)")
+
+    def alert_rules():
+        groups = httpx.get(f"{PROM}/api/v1/rules", timeout=10).json()["data"]["groups"]
+        names = {r["name"] for g in groups for r in g["rules"]}
+        return names if {"HRModelDegraded", "HREvidenceChainBroken"} <= names else None
+
+    poll(alert_rules, "the alert rules loaded in Prometheus")
 
 
 if __name__ == "__main__":
