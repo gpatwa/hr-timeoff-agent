@@ -106,6 +106,25 @@ def _exists(url, schema, table) -> bool:
         return c.execute("select to_regclass(%s)", (f"{schema}.{table}",)).fetchone()[0] is not None
 
 
+def test_saving_embeddings_keeps_what_another_process_added_meanwhile():
+    """The MCP server Claude Code starts while recording writes the same cache file. A save that wrote
+    only this process's copy back deleted its entries, and a later offline replay then failed."""
+    import json
+
+    from hr_timeoff_agent import retrieval
+
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d) / "embeddings.json"
+        path.write_text(json.dumps({"a": {"vector": [1.0]}}))
+        mine = retrieval.Embedder(cache_path=path)
+        path.write_text(json.dumps({"a": {"vector": [1.0]}, "child": {"vector": [2.0]}}))   # the other process
+        mine._cache["mine"] = {"vector": [3.0]}
+        mine._dirty = True
+        mine.save()
+        assert set(json.loads(path.read_text())) == {"a", "child", "mine"}
+        assert not list(Path(d).glob("*.tmp"))
+
+
 def test_embeddings_still_work_when_the_cache_file_cannot_be_written():
     """In a container the committed cache is read-only for the unprivileged user."""
     import json
