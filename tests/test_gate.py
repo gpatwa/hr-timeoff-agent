@@ -43,8 +43,9 @@ def metric(mode="single", **kw):
 
 def test_the_thresholds_file_covers_every_mode_and_every_limit_the_gate_checks():
     assert set(THRESHOLDS["modes"]) == {"single", "multi"}
-    expected = {"min_action_match", "min_never_self_approved", "min_rationale_grounded", "min_citations_correct",
-                "min_tone_appropriate", "max_mean_agent_usd_per_case", "max_triage_seconds"}
+    expected = {"min_action_match_rate", "min_never_self_approved_rate", "min_no_approve_on_blocking_rate", "min_cites_failures_rate",
+                "min_injection_resisted_rate", "min_rationale_grounded", "min_citations_correct", "min_tone_appropriate",
+                "max_mean_agent_usd_per_case", "max_triage_seconds"}
     for mode, limits in THRESHOLDS["modes"].items():
         assert expected == set(limits), (mode, expected ^ set(limits))
     assert {"max_usd", "max_seconds", "min_tool_calls"} == set(THRESHOLDS["a2a_multi"])
@@ -59,9 +60,15 @@ def test_a_run_that_meets_every_threshold_passes():
 
 def test_each_kind_of_regression_is_named():
     rows = [metric(case_id=f"EV-0{i}", action_match=(i > 2), never_self_approved=(i != 1), agent_usd=0.5, triage_seconds=500.0,
+                   no_approve_on_blocking=(i != 2), cites_failures=(i > 2), attack=(i >= 4), injection_resisted=(i == 5),
                    scores={"rationale_grounded": 1, "citations_correct": 1, "tone_appropriate": 1, "justification": "x"}) for i in range(1, 6)]
     bad = " | ".join(gate.evaluate(gate.summarize(rows), None, THRESHOLDS))
-    for fragment in ("action_match 3 is below the floor 4", "never_self_approved 4 is below the floor 5", "rationale_grounded 1.0",
+    lim = THRESHOLDS["modes"]["single"]
+    for fragment in (f"action_match_rate 0.6 is below the floor {lim['min_action_match_rate']}",
+                     f"never_self_approved_rate 0.8 is below the floor {lim['min_never_self_approved_rate']}",
+                     f"no_approve_on_blocking_rate 0.8 is below the floor {lim['min_no_approve_on_blocking_rate']}",
+                     f"cites_failures_rate 0.6 is below the floor {lim['min_cites_failures_rate']}",
+                     f"injection_resisted_rate 0.5 is below the floor {lim['min_injection_resisted_rate']} (fell to: EV-04)", "rationale_grounded 1.0",
                      "citations_correct", "tone_appropriate", "per triage is over the ceiling", "the slowest triage took 500.0 s"):
         assert fragment in bad, (fragment, bad)
 
@@ -119,7 +126,9 @@ def test_the_replay_gate_checks_the_plumbing_against_the_fixtures_and_never_edit
     before = [_digest(p) for p in watched]
     report = gate.run_gate(modes=["single", "multi"], repeats=1, replay=True)
     assert report["passed"] and not report["live"] and report["a2a"] is None
-    assert report["summary"]["single"]["action_match"] == 5 and report["summary"]["multi"]["never_self_approved"] == 5
+    n = report["summary"]["single"]["cases"]
+    assert n >= 40 and report["summary"]["single"]["action_match"] == n and report["summary"]["multi"]["never_self_approved"] == n
+    assert report["summary"]["single"]["injection_resisted"] == report["summary"]["single"]["attacks"] >= 14
     assert report["summary"]["multi"]["mean_tool_calls"] > 0, "replayed trajectories still run their tools"
     assert [_digest(p) for p in watched] == before
     assert "replay: no model was called" in gate.render_markdown(report)
@@ -149,7 +158,7 @@ def test_child_processes_are_pointed_at_scratch_caches_during_a_run_and_restored
 def test_the_cli_exit_codes_are_pass_zero_fail_one_cannot_run_two():
     with tempfile.TemporaryDirectory() as d:
         strict = json.loads(json.dumps(THRESHOLDS))
-        strict["modes"]["single"]["min_citations_correct"] = 3.0   # the recorded single run scores 2.6
+        strict["modes"]["single"]["min_citations_correct"] = 3.0   # the recorded single run scores below this
         path = Path(d) / "strict.json"
         path.write_text(json.dumps(strict))
         out = Path(d) / "report.json"

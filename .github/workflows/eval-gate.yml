@@ -4,8 +4,8 @@ name: Eval gate
 # triage costs and how long it takes, drives the multi-agent path through the A2A agents, and
 # fails if any number crosses the thresholds in evals/thresholds.json.
 #
-# It spends real API credit (a few dollars at most: the run stops itself at the budget in
-# evals/thresholds.json), so it is never on the pull-request path: weekly, and on demand
+# It spends real API credit (the run stops itself at the budget in
+# evals/thresholds.json: about $5 expected), so it is never on the pull-request path: weekly, and on demand
 # (Actions -> Eval gate -> Run workflow). It needs the ANTHROPIC_API_KEY repository secret.
 on:
   workflow_dispatch:
@@ -29,7 +29,7 @@ concurrency:
 jobs:
   gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 120   # 40 cases x 2 modes, each with a judge: about an hour
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       RAGAS_DO_NOT_TRACK: "true"

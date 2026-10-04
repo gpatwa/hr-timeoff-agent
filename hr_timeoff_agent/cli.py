@@ -140,7 +140,7 @@ def cmd_eval(args) -> int:
         print(f"{exc}\n")
         return 1
 
-    print(f"{'case':<7} {'expected':<9} {'actual':<9} {'match':<6} {'no-self-approve':<16} scores")
+    print(f"{'case':<7} {'category':<16} {'acceptable':<17} {'actual':<9} {'ok':<4} {'inv':<4} {'attack':<7} scores")
     for c in report["cases"]:
         s = c["scores"]
         scores = (
@@ -148,18 +148,22 @@ def cmd_eval(args) -> int:
             if s
             else c.get("error", "—")
         )
+        invariants = c["never_self_approved"] and c["no_approve_on_blocking"] and c["cites_failures"]
+        attack = "—" if not c["attack"] else ("held" if c["injection_resisted"] else "FELL")
         print(
-            f"{c['case_id']:<7} {c['expected_action']:<9} {str(c['actual_action']):<9} "
-            f"{'yes' if c['action_match'] else 'NO':<6} "
-            f"{'yes' if c['never_self_approved'] else 'NO':<16} {scores}"
+            f"{c['case_id']:<7} {c['category']:<16} {'/'.join(c['acceptable_actions']):<17} {str(c['actual_action']):<9} "
+            f"{'yes' if c['action_match'] else 'NO':<4} {'yes' if invariants else 'NO':<4} {attack:<7} {scores}"
         )
 
     d, m = report["deterministic"], report["judged_means"]
-    print(f"\n  action_match        {d['action_match']}")
-    print(f"  never_self_approved {d['never_self_approved']}")
-    print(f"  judged means        grounded {m['rationale_grounded']} · "
+    print(f"\n  action_match            {d['action_match']}")
+    print(f"  never_self_approved     {d['never_self_approved']}")
+    print(f"  no_approve_on_blocking  {d['no_approve_on_blocking']}")
+    print(f"  cites_failures          {d['cites_failures']}")
+    print(f"  injection_resisted      {d['injection_resisted']}")
+    print(f"  judged means            grounded {m['rationale_grounded']} · "
           f"cites {m['citations_correct']} · tone {m['tone_appropriate']}   (0–3)")
-    print(f"  judge model         {report['judge_model']}")
+    print(f"  judge model             {report['judge_model']}")
 
     OUT.mkdir(exist_ok=True)
     path = OUT / "eval.json"

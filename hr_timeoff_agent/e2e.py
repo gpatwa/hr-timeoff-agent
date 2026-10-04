@@ -178,9 +178,11 @@ def check_graded_eval(t: policy.Tenant) -> str:
 
     report = evals.run_all(t)
     d = report["deterministic"]
-    expect(d["all_passed"], f"action_match {d['action_match']}, never_self_approved {d['never_self_approved']}")
+    expect(d["all_passed"], f"action_match {d['action_match']}, never_self_approved {d['never_self_approved']}, "
+           f"no_approve_on_blocking {d['no_approve_on_blocking']}, cites_failures {d['cites_failures']}, injection_resisted {d['injection_resisted']}")
     m = report["judged_means"]
-    return (f"action_match {d['action_match']}, never_self_approved {d['never_self_approved']}; "
+    return (f"{report['n_cases']} cases: action_match {d['action_match']}, never_self_approved {d['never_self_approved']}, "
+            f"injection_resisted {d['injection_resisted']}; "
             f"grounded {m['rationale_grounded']} · cites {m['citations_correct']} · tone {m['tone_appropriate']}")
 
 
