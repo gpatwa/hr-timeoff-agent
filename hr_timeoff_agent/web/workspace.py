@@ -97,11 +97,14 @@ class Workspace:
         self.store = store or open_store(self.home)
         with self.lock:
             self._ensure_caches()
-            if not self.store.has_documents():
-                self._seed_documents()
-            self._bind()
-            if not self.store.meta_get("seeded"):
-                self._seed()
+            # Several processes can start against one database at once (the web app and the
+            # agents). The first seeds it while the others wait, then they find it done.
+            with self.store.lock("workspace-init"):
+                if not self.store.has_documents():
+                    self._seed_documents()
+                self._bind()
+                if not self.store.meta_get("seeded"):
+                    self._seed()
             # A crash between "the graph recorded the decision" and "the request
             # was updated" leaves them disagreeing. Finish those now.
             self.reconciled = self.reconcile()
@@ -114,7 +117,11 @@ class Workspace:
         self.home.mkdir(parents=True, exist_ok=True)
         for name in ("llm_cache.json", "embeddings.json"):
             if overwrite or not (self.home / name).exists():
-                shutil.copy(FIXTURES / name, self.home / name)
+                # Copy beside, then rename into place: a process starting at the same moment
+                # sees the whole file or none of it, never half of one.
+                tmp = self.home / f".{name}.{os.getpid()}.{threading.get_ident()}.tmp"
+                shutil.copy(FIXTURES / name, tmp)
+                os.replace(tmp, self.home / name)
 
     def _seed_documents(self) -> None:
         self.store.seed_documents(DATA)
@@ -186,6 +193,18 @@ class Workspace:
 
     def persona(self, worker_id: str | None) -> Persona | None:
         return next((p for p in self.personas() if p.worker_id == worker_id), None)
+
+    def ready(self) -> dict[str, str | None]:
+        """Each dependency this workspace needs: None if it answers, else why not."""
+        out: dict[str, str | None] = {}
+        for name, check in (("store", self.store.ping),
+                            ("qdrant", lambda: self.index.client.get_collections() if os.environ.get("HR_QDRANT_URL") else None)):
+            try:
+                check()
+                out[name] = None
+            except Exception as exc:  # noqa: BLE001
+                out[name] = f"{type(exc).__name__}"
+        return out
 
     def _status_counts(self):
         counts: dict[str, int] = {}

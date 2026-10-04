@@ -252,6 +252,49 @@ samples traces (default 1.0).
 runs a filing, an A2A review that calls payroll and a decision against the real collector, then finds the
 single trace in Jaeger and the numbers and the loaded alert rules in Prometheus. Both run in the `observability` CI job.
 
+## The whole stack in containers
+
+One image runs every service; compose wires them to Postgres, Qdrant, Keycloak and the
+observability pipeline, with secrets as files:
+
+```bash
+python scripts/make_secrets.py                 # once: random secrets into ./secrets (gitignored)
+docker compose up -d --build --wait            # web, A2A agents, MCP, Postgres, Qdrant, Keycloak, OTel, Jaeger, Prometheus
+python tests/test_stack.py                     # a smoke test through all of it, over real HTTP
+```
+
+| What | Where |
+|---|---|
+| Web app (sign in through Keycloak as `aiko.tanaka@acme.example`; the password is in `secrets/demo_password`) | http://localhost:8000 |
+| Time-off agent and payroll agent (A2A, bearer tokens from Keycloak) | http://localhost:8100, :8101 |
+| MCP tool server (streamable HTTP, bearer token) | http://localhost:8200/mcp |
+| Keycloak, Jaeger, Prometheus | :8080, :16686, :9090 |
+
+- **One image** (`Dockerfile`): Python 3.12, a non-root user, and the embedding models baked in at build
+  time, so a container never reaches Hugging Face when it starts (`HR_EMBED_LOCAL_ONLY=1`; it runs fine
+  with no outbound network). The app writes only under `/var/lib/hr`.
+- **Start order is enforced**: Postgres, Qdrant and Keycloak report healthy, a one-shot `init` runs the
+  migrations and seeds the tenant, and only then do the services start. Each exposes `/readyz` (store,
+  Qdrant and the identity provider) and `/healthz`, and compose waits on them.
+- **Secrets are files** (`NAME_FILE=/run/secrets/x`, read once at startup; a missing or empty file is
+  an error, not an empty secret). `make_secrets.py` generates every one and renders the Keycloak realm with
+  the generated client secrets and demo password, so the stack uses no guessable credential. They are
+  world-readable because the containers run as an unprivileged user: this is a single-machine stack,
+  and a real deployment injects the same names from its secret manager.
+- **The model is opt-in.** Without a key the seeded requests replay from recorded fixtures and a new
+  request is kept and retried. To triage new requests with Claude, create `secrets/anthropic_api_key`
+  yourself and add `-f docker-compose.live.yml`.
+- **The smoke test** signs in through the real Keycloak pages, decides a request in the web app, reviews
+  and decides another over A2A (the payroll agent prices the unpaid hours), checks the web app sees what
+  the agent decided (one shared database), calls the MCP server with a service token, and finds the
+  trace in Jaeger and the numbers in Prometheus. It decides the seeded requests, so run it once per
+  fresh stack (`docker compose down -v` to start over). CI's `stack` job does exactly this.
+- `docker-compose.dev.yml` is the backing services only, for developing against them from the host.
+  The two files publish the same ports: run one at a time.
+
+Not covered: TLS termination, a reverse proxy, backups and retention, running more than one replica
+of a service (the state is shared, so it should work; it is not tested), and anything outside one machine.
+
 ## The guarantee, and how it is enforced
 
 "The human is in the loop" is usually a prompt instruction, which is to say a
