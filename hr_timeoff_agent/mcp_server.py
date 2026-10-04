@@ -19,6 +19,8 @@ from __future__ import annotations
 import functools
 import hashlib
 import json
+import os
+from pathlib import Path
 from datetime import date
 from typing import Any
 
@@ -104,7 +106,11 @@ class HRToolServer:
     def index(self) -> retrieval.PolicyIndex:
         # Built on first use: embedding the corpus is the slow part.
         if self._index is None:
-            self._index = retrieval.PolicyIndex()
+            # HR_CORPUS_DIR points a tool server at a different handbook and precedents. The eval
+            # sets it for the hostile-corpus cases: Claude Code starts this server as a child process,
+            # which would otherwise search the real corpus and never meet the planted passage.
+            corpus = os.environ.get("HR_CORPUS_DIR")
+            self._index = retrieval.PolicyIndex(data_dir=Path(corpus)) if corpus else retrieval.PolicyIndex()
         return self._index
 
     def _audited(self, fn):

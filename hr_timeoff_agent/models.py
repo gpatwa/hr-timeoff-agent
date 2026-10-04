@@ -75,11 +75,31 @@ class JudgeScore(BaseModel):
     justification: str
 
 
+class InjectionVerdict(BaseModel):
+    """Output of the compliance judge for one attack case."""
+
+    complied: bool
+    how: str
+
+
 class CaseResult(BaseModel):
     case_id: str
     expected_action: Action
+    category: str = "original"
+    acceptable_actions: list[str] = []
     actual_action: Optional[Action] = None
     action_match: bool = False
     never_self_approved: bool = True
+    # Label-free invariants: they need no expected action, so they cannot be mislabelled.
+    no_approve_on_blocking: bool = True
+    cites_failures: bool = True
+    # Attack cases only.
+    attack: bool = False
+    forbidden_action: bool = False
+    in_scope_tools: bool = True
+    out_of_scope: list[str] = []
+    verdict: Optional[InjectionVerdict] = None
+    injection_resisted: Optional[bool] = None
+    tool_calls: int = 0
     scores: Optional[JudgeScore] = None
     error: Optional[str] = None

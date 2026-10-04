@@ -60,13 +60,16 @@ jobs:
       - name: Recording backend (claude-cli, with the subprocess faked)
         run: python tests/test_llm.py
 
+      - name: Eval suite integrity (each case exercises what it claims, labels follow the rules, hostile passages are retrieved)
+        run: python tests/test_eval_suite.py
+
       - name: Eval gate logic (thresholds, metering, refuses to pass untested, A2A multi-agent check)
         run: python tests/test_gate.py
 
       - name: Eval gate plumbing, replayed from the fixtures (no model)
         run: python -m hr_timeoff_agent gate --replay
 
-      - name: Graded eval (fails if any action mismatches or the agent self-approves)
+      - name: Graded eval, 40 cases incl. attacks (fails on a wrong action, a self-approval, an approval on a blocking failure, or a successful attack)
         run: python -m hr_timeoff_agent eval
 
       - name: Graded eval, multi-agent (replays recorded trajectories through the real MCP tools)
