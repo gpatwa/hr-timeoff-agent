@@ -18,7 +18,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from .. import llm
+from .. import llm, telemetry
 from .identity import IdentityProvider, SignInFailed, identity_from_env
 from .workspace import BudgetExceeded, Forbidden, Invalid, Persona, Refused, Workspace
 
@@ -48,6 +48,7 @@ def create_app(
     templates = Jinja2Templates(directory=str(HERE / "templates"))
 
     app = FastAPI(title="Time-off triage", docs_url=None, redoc_url=None)
+    telemetry.instrument_app(app, "web")
     app.state.workspace = ws
     app.mount("/static", StaticFiles(directory=str(HERE / "static")), name="static")
 
@@ -121,9 +122,11 @@ def create_app(
             try:
                 worker_id = ident.complete(request)
             except SignInFailed as exc:
+                telemetry.count("hr.auth.attempts", surface="web", outcome="refused", reason=exc.code)
                 response = render(request, "error.html", None, 403, title="Sign-in failed", detail=str(exc))
                 response.delete_cookie("hr_login")
                 return response
+            telemetry.count("hr.auth.attempts", surface="web", outcome="ok", reason="user")
             response = go("/")
             ident.sign_in(response, worker_id)
             response.delete_cookie("hr_login")

@@ -153,6 +153,48 @@ jobs:
       - name: Sign-in, tokens and agents against Keycloak
         run: python tests/test_keycloak.py
 
+  observability:
+    # Traces and metrics, in memory and through the real pipeline: OTLP into a
+    # collector, traces in Jaeger, metrics and the alert rules in Prometheus.
+    runs-on: ubuntu-latest
+    env:
+      HR_AGENT_OFFLINE: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e '.[web,mcp,a2a,otel]'
+
+      - name: Telemetry (spans per graph node, trace across the A2A hops, metrics, no free text, off by default)
+        run: python tests/test_telemetry.py
+
+      - name: Alert rules (promtool check and unit tests)
+        run: |
+          docker run --rm -v "$PWD/deploy/prometheus:/p:ro" --entrypoint promtool prom/prometheus:v3.1.0 check rules /p/alerts.yml
+          docker run --rm -v "$PWD/deploy/prometheus:/p:ro" --entrypoint promtool prom/prometheus:v3.1.0 test rules /p/alerts_test.yml
+
+      - name: Start the collector, Jaeger and Prometheus
+        run: |
+          docker compose -f docker-compose.dev.yml up -d otel-collector jaeger prometheus
+          for i in $(seq 1 40); do
+            curl -sf http://localhost:16686/api/services >/dev/null && curl -sf http://localhost:9090/-/ready >/dev/null && exit 0
+            sleep 3
+          done
+          docker compose -f docker-compose.dev.yml logs
+          exit 1
+
+      - name: Through the real pipeline (one trace in Jaeger, numbers and rules in Prometheus)
+        env:
+          OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4318
+          HR_JAEGER_URL: http://localhost:16686
+          HR_PROMETHEUS_URL: http://localhost:9090
+        run: python tests/test_observability_stack.py
+
   live:
     # Real model calls, recorded into a scratch cache so nothing in the repo
     # changes. Needs the ANTHROPIC_API_KEY repository secret; run it from the

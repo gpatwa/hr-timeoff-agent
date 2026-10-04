@@ -167,11 +167,11 @@ class OIDCIdentity:
         tx = self._unseal(request.cookies.get(LOGIN_TX), "login")
         q = request.query_params
         if q.get("error"):
-            raise SignInFailed(f"The identity provider refused the sign-in ({q['error']}).")
+            raise SignInFailed(f"The identity provider refused the sign-in ({q['error']}).", "provider_refused")
         if not tx or not q.get("state") or not hmac.compare_digest(str(tx["s"]), q["state"]):
-            raise SignInFailed("This sign-in attempt is not valid or has expired. Start again.")
+            raise SignInFailed("This sign-in attempt is not valid or has expired. Start again.", "invalid_attempt")
         if not q.get("code"):
-            raise SignInFailed("The identity provider returned no code.")
+            raise SignInFailed("The identity provider returned no code.", "invalid_attempt")
         data = {
             "grant_type": "authorization_code", "code": q["code"], "redirect_uri": f"{self.cfg.public_url}/auth/callback",
             "client_id": self.cfg.client_id, "code_verifier": tx["v"],
@@ -184,20 +184,24 @@ class OIDCIdentity:
             id_token = r.json()["id_token"]
             claims = self.verifier.verify(id_token, audience=self.cfg.client_id)
         except (httpx.HTTPError, KeyError, ValueError, InvalidToken):
-            raise SignInFailed("The sign-in could not be completed.")
+            raise SignInFailed("The sign-in could not be completed.", "token_exchange")
         if not hmac.compare_digest(str(claims.get("nonce", "")), str(tx["n"])):
-            raise SignInFailed("This sign-in attempt is not valid. Start again.")
+            raise SignInFailed("This sign-in attempt is not valid. Start again.", "invalid_attempt")
         try:
             caller = caller_from_claims(claims, tenant_id=self.ws.tenant_id(), directory=self.ws.worker_id_for_email)
         except Unauthorized as exc:
-            raise SignInFailed(f"Signed in, but not allowed here: {exc}.")
+            raise SignInFailed(f"Signed in, but not allowed here: {exc}.", exc.code)
         if caller.kind != "user":
-            raise SignInFailed("A service account cannot sign in to the web app.")
+            raise SignInFailed("A service account cannot sign in to the web app.", "service_account")
         return caller.name
 
 
 class SignInFailed(Exception):
-    """Safe to show to the person signing in."""
+    """Safe to show to the person signing in. `code` is a fixed label for metrics."""
+
+    def __init__(self, message: str, code: str = "failed"):
+        super().__init__(message)
+        self.code = code
 
 
 def identity_from_env(workspace) -> IdentityProvider:

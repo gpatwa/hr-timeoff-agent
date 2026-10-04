@@ -9,6 +9,7 @@ from a human who is the requester's direct manager.
 
 from __future__ import annotations
 
+import functools
 import os
 from datetime import datetime, timezone
 from typing import Any, Optional, TypedDict
@@ -17,7 +18,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
-from . import evidence, policy, retrieval
+from . import evidence, policy, retrieval, telemetry
 from .llm import ModelUnavailable, structured
 from .models import Decision, Finding, Passage, Recommendation
 
@@ -98,6 +99,16 @@ def build_assess_prompt(
     return "\n".join(lines)
 
 
+def traced_node(name: str, fn):
+    """One span per graph node, tagged with the request id. A pause for a human is not an error."""
+    @functools.wraps(fn)
+    def run(state):
+        with telemetry.span(f"graph.{name}", request_id=state["request"]["request_id"]):
+            return fn(state)
+
+    return run
+
+
 def outage_recommendation(state: dict, node: str, reason: str) -> dict:
     """What `assess` returns when the model cannot be reached.
 
@@ -106,6 +117,7 @@ def outage_recommendation(state: dict, node: str, reason: str) -> dict:
     confidence, no claim about what to do, and the outage on the evidence trail.
     Nothing here can approve or decline.
     """
+    telemetry.count("hr.model.degraded", node=node)
     concerns = [f["rule_id"] for f in state["findings"] if f["status"] != "pass"]
     rec = Recommendation(
         action="escalate",
@@ -321,15 +333,15 @@ def build(tenant: policy.Tenant, *, record_llm: bool = False, checkpointer=None,
         tenant, record_llm=record_llm
     )
     g = StateGraph(AgentState)
-    g.add_node("load_context", load_context)
-    g.add_node("check_policy", check_policy)
-    g.add_node("approval_gate", approval_gate)
-    g.add_node("record", record)
+    g.add_node("load_context", traced_node("load_context", load_context))
+    g.add_node("check_policy", traced_node("check_policy", check_policy))
+    g.add_node("approval_gate", traced_node("approval_gate", approval_gate))
+    g.add_node("record", traced_node("record", record))
     g.add_edge(START, "load_context")
     g.add_edge("load_context", "check_policy")
     if mode == "single":
-        g.add_node("retrieve", retrieve)
-        g.add_node("assess", assess)
+        g.add_node("retrieve", traced_node("retrieve", retrieve))
+        g.add_node("assess", traced_node("assess", assess))
         g.add_edge("check_policy", "retrieve")
         g.add_edge("retrieve", "assess")
         g.add_edge("assess", "approval_gate")
@@ -337,9 +349,9 @@ def build(tenant: policy.Tenant, *, record_llm: bool = False, checkpointer=None,
         from .agents import make_multi_nodes  # needs the mcp extra
 
         policy_specialist, coverage_specialist, coordinate = make_multi_nodes(tenant, record_llm=record_llm)
-        g.add_node("policy_specialist", policy_specialist)
-        g.add_node("coverage_specialist", coverage_specialist)
-        g.add_node("assess", coordinate)
+        g.add_node("policy_specialist", traced_node("policy_specialist", policy_specialist))
+        g.add_node("coverage_specialist", traced_node("coverage_specialist", coverage_specialist))
+        g.add_node("assess", traced_node("assess", coordinate))
         g.add_edge("check_policy", "policy_specialist")
         g.add_edge("policy_specialist", "coverage_specialist")
         g.add_edge("coverage_specialist", "assess")

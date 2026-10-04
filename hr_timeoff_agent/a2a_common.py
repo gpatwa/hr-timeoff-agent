@@ -26,6 +26,8 @@ from a2a.types import Task, TaskState, TaskStatus
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from . import telemetry
+
 
 def make_task_store(table: str, home: Path | None = None):
     """Where an agent keeps its A2A tasks: Postgres when configured, else memory.
@@ -89,6 +91,10 @@ class PeerBreaker:
             self._opened_at, self._failures = None, self.threshold - 1  # half-open: one more failure re-opens
             return False
         return True
+
+    def is_open(self) -> bool:
+        """Whether calls are being skipped right now. Unlike `open`, reading it changes nothing."""
+        return self._opened_at is not None and self._clock() - self._opened_at < self.cooldown
 
     def success(self) -> None:
         self._failures, self._opened_at = 0, None
@@ -159,10 +165,10 @@ class OIDCBearer:
     expiry), is for this tenant, and names a worker or a configured service.
     """
 
-    def __init__(self, cfg, tenant_id: str, directory, *, verifier=None):
+    def __init__(self, cfg, tenant_id: str, directory, *, verifier=None, surface: str = "a2a"):
         from .oidc import TokenVerifier
 
-        self.cfg, self.tenant_id, self.directory = cfg, tenant_id, directory
+        self.cfg, self.tenant_id, self.directory, self.surface = cfg, tenant_id, directory, surface
         self.verifier = verifier or TokenVerifier(cfg)
 
     def authenticate(self, authorization: str | None) -> Principal | None:
@@ -176,7 +182,9 @@ class OIDCBearer:
                                         service_clients=self.cfg.service_clients)
         except (InvalidToken, Unauthorized) as exc:
             log.info("bearer token refused: %s", exc)
+            telemetry.count("hr.auth.attempts", surface=self.surface, outcome="refused", reason=getattr(exc, "code", "invalid_token"))
             return None
+        telemetry.count("hr.auth.attempts", surface=self.surface, outcome="ok", reason=caller.kind)
         return Principal(caller.name, caller.kind, caller.tenant_id)
 
     def principal(self, authorization: str | None) -> str | None:

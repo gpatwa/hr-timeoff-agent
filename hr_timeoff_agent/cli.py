@@ -227,8 +227,16 @@ def cmd_web(args) -> int:
     except ImportError:
         print("The web app needs the web extra:\n  ./.venv/bin/pip install -e '.[web]'")
         return 2
-    print(f"\n  Time-off triage · http://{args.host}:{args.port}  (Ctrl-C to stop)\n")
-    uvicorn.run(create_app(), host=args.host, port=args.port, log_level="warning")
+    from . import telemetry
+
+    telemetry.init("hr-web")
+    telemetry.setup_logging()
+    print(f"\n  Time-off triage · http://{args.host}:{args.port}  (Ctrl-C to stop)\n"
+          + ("  Telemetry: exporting to " + os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "OTLP default") + "\n" if telemetry.enabled() else ""))
+    try:
+        uvicorn.run(create_app(), host=args.host, port=args.port, log_level="warning")
+    finally:
+        telemetry.flush()
     return 0
 
 
@@ -254,11 +262,15 @@ def cmd_mcp(args) -> int:
         return 0
     import uvicorn
 
+    from . import telemetry
     from .a2a_common import OIDCBearer
     from .oidc import BearerGuard
 
+    telemetry.init("hr-mcp")
+    telemetry.setup_logging()
+
     by_email = {(w.get("email") or "").lower(): w["worker_id"] for w in server.tenant.workers.values()}
-    auth = OIDCBearer(cfg, server.tenant.tenant_id, lambda email: by_email.get((email or "").lower()))
+    auth = OIDCBearer(cfg, server.tenant.tenant_id, lambda email: by_email.get((email or "").lower()), surface="mcp")
     uvicorn.run(BearerGuard(server.server.streamable_http_app(), auth.authenticate), host=args.host, port=args.http, log_level="warning")
     return 0
 
@@ -289,6 +301,10 @@ def cmd_a2a(args) -> int:
     except ImportError:
         print("The A2A agents need the a2a extra:\n  ./.venv/bin/pip install -e '.[a2a]'")
         return 2
+    from . import telemetry
+
+    telemetry.init("hr-a2a")
+    telemetry.setup_logging()
     home = Path(args.home or os.environ.get("HR_A2A_HOME", "var/a2a"))
     ws, tokens, people = _a2a_setup(home)
     tf_url, pay_url = f"http://{args.host}:{args.port}", f"http://{args.host}:{args.payroll_port}"
@@ -339,6 +355,8 @@ def cmd_a2a(args) -> int:
         asyncio.run(serve())
     except KeyboardInterrupt:
         pass
+    finally:
+        telemetry.flush()
     return 0
 
 

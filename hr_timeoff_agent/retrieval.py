@@ -33,6 +33,7 @@ from pathlib import Path
 
 from qdrant_client import QdrantClient, models as qm
 
+from . import telemetry
 from .models import Finding, Passage
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
@@ -192,6 +193,13 @@ class PolicyIndex:
         self.embedder.save()
 
     def _query(self, collection: str, query: str, flt: qm.Filter, k: int, id_field: str) -> list[qm.ScoredPoint]:
+        # The query text is the worker's own note: it stays out of telemetry.
+        with telemetry.span("retrieval.search", collection=collection, k=k) as sp:
+            points = self._search(collection, query, flt, k, id_field)
+            sp.set("hits", len(points))
+            return points
+
+    def _search(self, collection: str, query: str, flt: qm.Filter, k: int, id_field: str) -> list[qm.ScoredPoint]:
         [dense] = self.embedder.embed([query], kind="query")
         [sparse] = self.embedder.embed_sparse([query], kind="query")
         self.embedder.save()

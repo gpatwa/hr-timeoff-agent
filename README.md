@@ -204,6 +204,54 @@ it). `tests/test_oidc.py` runs everything against a fake provider (PKCE, state,
 nonce, signature, tenant, directory, session expiry, the MCP guard);
 `tests/test_keycloak.py` runs it against the real one, including the login page.
 
+## Observability
+
+Off by default, and free when off: with no endpoint set (or without the OpenTelemetry SDK) every
+call in the code is a no-op. Turn it on and the services export traces and metrics over OTLP:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d otel-collector jaeger prometheus
+./.venv/bin/pip install -e '.[web,mcp,a2a,otel]'
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+./.venv/bin/python -m hr_timeoff_agent web        # and/or: ... a2a, ... mcp --http 8200
+# traces: http://localhost:16686 (Jaeger)    metrics and alerts: http://localhost:9090 (Prometheus)
+```
+
+**Traces.** One trace follows a request across every hop: the HTTP request, `workspace.triage`, a span
+per graph node (`graph.load_context` ... `graph.approval_gate`, which is marked paused, not failed),
+`retrieval.search`, `llm.call` (model, source: cache, API or CLI, outcome), `agent.run` and `mcp.tools`
+in multi-agent mode, and, across the A2A boundary, `a2a.client.send` to `a2a-timeoff POST` to
+`a2a.execute` and on to `a2a-payroll POST`, joined by W3C `traceparent`. Log lines carry
+`trace=<id> span=<id>` when it is on, so a log line leads to its trace.
+
+**Metrics** (Prometheus names), all low-cardinality:
+
+| Metric | Labels | What it answers |
+|---|---|---|
+| `hr_llm_calls_total`, `hr_llm_duration`, `hr_llm_cost_usd_total` | model, kind, source, outcome | How much model work, how slow, how much it cost, how often it was an outage |
+| `hr_triage_total`, `hr_triage_duration` | outcome | Did triage finish or end retryable |
+| `hr_model_degraded_total` | node | How often a triage escalated without a recommendation |
+| `hr_decision_total` | outcome, overrides_agent | Decisions, and how often a human overrides the agent (once per decision, however often the commit is retried) |
+| `hr_gate_refusals_total`, `hr_reconciled_total`, `hr_evidence_chain_failures_total` | | Wrong-approver attempts, crash recoveries, tamper detections |
+| `hr_peer_calls_total`, `hr_peer_breaker_open` | peer, outcome | Is the payroll peer answering, is the breaker open |
+| `hr_auth_attempts_total` | surface, outcome, reason | Sign-ins and bearer checks, and why they were refused |
+| `hr_http_requests_total`, `hr_http_duration` | surface, route, status | Traffic by route and status class |
+| `hr_requests_pending`, `hr_spend_utilization` | status | The approval backlog; today's spend as a fraction of the cap |
+
+`deploy/prometheus/alerts.yml` turns the failure behaviours from the section above into seven alerts (model degraded,
+triage failing, evidence chain broken, spend near the cap, peer breaker open, auth refusals high, approvals backlog),
+with rule unit tests in `alerts_test.yml` (`promtool test rules`).
+
+**What stays out.** Spans and metrics carry ids, outcomes, counts, model names and costs. A request's
+free-text note, prompts, retrieval queries and the model's rationale never do; a test runs a full
+filing, triage and decision and fails if any of that text appears in a span, event or metric label.
+Per-request ids (a request id) are span attributes only, never metric labels. `HR_OTEL_SAMPLE_RATIO`
+samples traces (default 1.0).
+
+`tests/test_telemetry.py` checks all of that with in-memory exporters. `tests/test_observability_stack.py`
+runs a filing, an A2A review that calls payroll and a decision against the real collector, then finds the
+single trace in Jaeger and the numbers and the loaded alert rules in Prometheus. Both run in the `observability` CI job.
+
 ## The guarantee, and how it is enforced
 
 "The human is in the loop" is usually a prompt instruction, which is to say a
