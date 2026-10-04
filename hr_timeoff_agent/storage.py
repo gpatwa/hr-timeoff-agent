@@ -22,9 +22,11 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 import shutil
 import sqlite3
 import threading
+import time
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
@@ -34,6 +36,7 @@ DOCUMENTS = ("workers.json", "absences.json", "policy.json", "requests.json", "h
 class Store:
     """Interface both stores implement (documented here, not enforced)."""
 
+    def ping(self) -> None: ...
     def has_documents(self) -> bool: ...
     def seed_documents(self, source: Path) -> None: ...
     def read(self, name: str) -> Any: ...
@@ -73,6 +76,10 @@ class FileStore(Store):
             """
         )
         self._conns = [ck, self._db]
+
+    def ping(self) -> None:
+        with self._dblock:
+            self._db.execute("select 1")
 
     def has_documents(self) -> bool:
         return (self.dir / "policy.json").exists()
@@ -161,33 +168,28 @@ class FileStore(Store):
 class PostgresStore(Store):
     """The same state in Postgres. Safe to share between processes."""
 
-    SCHEMA = """
-    create table if not exists documents (
-        name text primary key, body jsonb not null, version bigint not null default 1,
-        updated_at timestamptz not null default now());
-    create table if not exists meta (k text primary key, v text not null);
-    create table if not exists spend (
-        id bigserial primary key, at text not null, persona text, model text,
-        label text, usd double precision not null, source text);
-    create index if not exists spend_day on spend (substr(at, 1, 10));
-    create index if not exists spend_persona_at on spend (persona, at);
-    """
-
     def __init__(self, url: str, schema: str = "public"):
         from langgraph.checkpoint.postgres import PostgresSaver
         from psycopg.rows import dict_row
         from psycopg_pool import ConnectionPool
 
+        from .migrations import migrate
+
         self.url, self.schema = url, schema
-        ensure_schema(url, schema)
+        migrate(url, schema)   # idempotent and locked: safe when several processes start together
         opts = {"options": f"-csearch_path={schema}", "row_factory": dict_row}
         self.pool = ConnectionPool(url, min_size=1, max_size=8, open=True, kwargs={"autocommit": False, **opts})
         # PostgresSaver wants its own autocommit connections; give it a pool of them.
         self._ck_pool = ConnectionPool(url, min_size=1, max_size=4, open=True, kwargs={"autocommit": True, **opts})
         self.checkpointer = PostgresSaver(self._ck_pool)
-        self.checkpointer.setup()
+        # LangGraph creates and upgrades its own tables, and two processes doing that at once
+        # collide on the catalog, so one at a time.
+        with advisory_lock(url, f"{schema}:checkpointer-setup"):
+            self.checkpointer.setup()
+
+    def ping(self) -> None:
         with self.pool.connection() as c:
-            c.execute(self.SCHEMA)
+            c.execute("select 1")
 
     def has_documents(self) -> bool:
         with self.pool.connection() as c:
@@ -248,14 +250,8 @@ class PostgresStore(Store):
         It has its own connection, so a long holder (a model call) cannot starve
         the pool, and the lock is released if the process dies.
         """
-        import psycopg
-
-        with psycopg.connect(self.url, autocommit=True) as c:
-            c.execute("select pg_advisory_lock(hashtextextended(%s, 0))", (f"{self.schema}:{key}",))
-            try:
-                yield
-            finally:
-                c.execute("select pg_advisory_unlock(hashtextextended(%s, 0))", (f"{self.schema}:{key}",))
+        with advisory_lock(self.url, f"{self.schema}:{key}"):
+            yield
 
     def meta_get(self, key: str) -> str | None:
         with self.pool.connection() as c:
@@ -303,14 +299,52 @@ class PostgresStore(Store):
         self._ck_pool.close()
 
 
+LOCK_POLL_S = 0.02
+LOCK_TIMEOUT_S = float(os.environ.get("HR_LOCK_TIMEOUT_S", "120"))
+
+
+class LockTimeout(TimeoutError):
+    pass
+
+
+@contextlib.contextmanager
+def advisory_lock(url: str, key: str, timeout: float | None = None) -> Iterator[None]:
+    """A Postgres session advisory lock on its own connection: one holder per key across every
+    process, released when the block ends or the process dies.
+
+    It polls with pg_try_advisory_lock instead of blocking in pg_advisory_lock. A blocked
+    lock call is a running statement, and a running statement counts as an open transaction
+    to CREATE INDEX CONCURRENTLY, which waits for all of them. LangGraph builds its indexes
+    that way while holding one of these locks, so a process blocked on the same lock would
+    wait for the holder while the holder waited for it: a deadlock. Each try here finishes
+    at once, so nothing is left running while we wait.
+    """
+    import psycopg
+
+    deadline = time.monotonic() + (LOCK_TIMEOUT_S if timeout is None else timeout)
+    with psycopg.connect(url, autocommit=True) as c:
+        while not c.execute("select pg_try_advisory_lock(hashtextextended(%s, 0))", (key,)).fetchone()[0]:
+            if time.monotonic() > deadline:
+                raise LockTimeout(f"could not take lock {key!r} within the timeout; another process holds it")
+            time.sleep(LOCK_POLL_S)
+        try:
+            yield
+        finally:
+            c.execute("select pg_advisory_unlock(hashtextextended(%s, 0))", (key,))
+
+
 def ensure_schema(url: str, schema: str) -> None:
     if schema == "public":
         return
     import psycopg
     from psycopg import sql
 
-    with psycopg.connect(url, autocommit=True) as c:
+    # "if not exists" is not safe against a second process creating the same schema at the
+    # same instant (it fails on the catalog's unique index), so take a lock around it.
+    with psycopg.connect(url) as c:
+        c.execute("select pg_advisory_xact_lock(hashtextextended(%s, 0))", (f"hr-schema:{schema}",))
         c.execute(sql.SQL("create schema if not exists {}").format(sql.Identifier(schema)))
+        c.commit()
 
 
 def database_settings(home: Path, database_url: str | None = None) -> tuple[str, str] | None:

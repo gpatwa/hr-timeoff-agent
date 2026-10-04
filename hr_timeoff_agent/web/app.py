@@ -98,6 +98,19 @@ def create_app(
     def healthz():
         return JSONResponse({"ok": True, "model": llm.AGENT_MODEL, "live": not llm.is_offline()})
 
+    @app.get("/readyz")
+    def readyz():
+        """Ready only when what a request needs answers: the store, Qdrant if used, the identity provider if used."""
+        checks = ws.ready()
+        if oidc:
+            try:
+                ident.provider.metadata()
+                checks["identity_provider"] = None
+            except Exception as exc:  # noqa: BLE001
+                checks["identity_provider"] = type(exc).__name__
+        bad = {k: v for k, v in checks.items() if v}
+        return JSONResponse({"ready": not bad, "failing": bad}, status_code=503 if bad else 200)
+
     @app.get("/")
     def home_page(request: Request):
         persona = ws.persona(ident.current(request))

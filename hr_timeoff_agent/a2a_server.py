@@ -44,6 +44,7 @@ from a2a.types import (
 )
 from a2a.helpers import get_data_parts
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
 from . import telemetry
 from .a2a_client import A2AAgent, TaskResult
@@ -282,5 +283,15 @@ def create_timeoff_app(workspace: Workspace, tokens: BearerTokens, *, payroll: A
         jsonrpc_routes=create_jsonrpc_routes(request_handler=handler, rpc_url=RPC_PATH, context_builder=BearerContextBuilder(tokens)),
     )
     require_bearer(app, tokens, RPC_PATH)
+
+    @app.get("/healthz")
+    def healthz():
+        return {"ok": True, "agent": "timeoff"}
+
+    @app.get("/readyz")
+    def readyz():
+        bad = {k: v for k, v in workspace.ready().items() if v}
+        return JSONResponse({"ready": not bad, "failing": bad}, status_code=503 if bad else 200)
+
     telemetry.instrument_app(app, "a2a-timeoff")   # added last, so it also sees the 401s
     return app

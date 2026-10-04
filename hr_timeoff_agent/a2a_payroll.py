@@ -153,5 +153,14 @@ def create_payroll_app(tokens: BearerTokens, *, base_url: str = "http://127.0.0.
         jsonrpc_routes=create_jsonrpc_routes(request_handler=handler, rpc_url=RPC_PATH, context_builder=BearerContextBuilder(tokens)),
     )
     require_bearer(app, tokens, RPC_PATH)
+
+    @app.get("/healthz")
+    def healthz():
+        return {"ok": True, "agent": "payroll"}
+
+    @app.get("/readyz")
+    def readyz():
+        return {"ready": True, "failing": {}}   # no external dependency: its data is loaded at construction
+
     telemetry.instrument_app(app, "a2a-payroll")
     return app

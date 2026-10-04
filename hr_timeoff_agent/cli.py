@@ -240,6 +240,46 @@ def cmd_web(args) -> int:
     return 0
 
 
+def cmd_migrate(args) -> int:
+    from .storage import database_settings
+
+    settings = database_settings(Path("."))
+    if settings is None:
+        print("Migrations apply to Postgres. Set HR_DATABASE_URL (local files need none).")
+        return 2
+    try:
+        from . import migrations
+    except ImportError:
+        print("Postgres support needs the postgres extra:\n  ./.venv/bin/pip install -e '.[postgres]'")
+        return 2
+    url, schema = settings
+    try:
+        if args.status:
+            st = migrations.status(url, schema)
+            print(f"  schema {schema}: at version {st.current} of {st.latest}; applied {st.applied or 'none'}, pending {st.pending or 'none'}")
+            return 0 if not st.pending else 1
+        done = migrations.migrate(url, schema)
+    except (migrations.MigrationFailed, migrations.SchemaTooNew) as exc:
+        print(f"  {exc}")
+        return 1
+    print(f"  applied {done}" if done else "  already up to date")
+    return 0
+
+
+def cmd_init(args) -> int:
+    """Migrate and seed once, up front, so the services that share a database start into a finished one."""
+    try:
+        from .web.workspace import Workspace
+    except ImportError:
+        print("Needs the web extra:\n  ./.venv/bin/pip install -e '.[web]'")
+        return 2
+    home = Path(args.home or os.environ.get("HR_WEB_HOME") or Path.cwd() / "var")
+    ws = Workspace(home)   # opening a workspace migrates (Postgres) and seeds if empty
+    print(f"  tenant {ws.tenant_id()} ready: {len(ws.requests())} requests, {len(ws.personas())} people")
+    ws.close()
+    return 0
+
+
 def cmd_mcp(args) -> int:
     try:
         from .mcp_server import HRToolServer
@@ -271,7 +311,14 @@ def cmd_mcp(args) -> int:
 
     by_email = {(w.get("email") or "").lower(): w["worker_id"] for w in server.tenant.workers.values()}
     auth = OIDCBearer(cfg, server.tenant.tenant_id, lambda email: by_email.get((email or "").lower()), surface="mcp")
-    uvicorn.run(BearerGuard(server.server.streamable_http_app(), auth.authenticate), host=args.host, port=args.http, log_level="warning")
+    from mcp.server.transport_security import TransportSecuritySettings
+
+    # DNS-rebinding protection stays on: only these Host values are served. Behind a container
+    # network the service name is one (HR_MCP_ALLOWED_HOSTS=mcp:8200,localhost:8200).
+    hosts = [h for h in os.environ.get("HR_MCP_ALLOWED_HOSTS", "127.0.0.1:*,localhost:*,[::1]:*").split(",") if h]
+    app = server.server.streamable_http_app(
+        host=args.host, transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=True, allowed_hosts=hosts, allowed_origins=[]))
+    uvicorn.run(BearerGuard(app, auth.authenticate, public_paths=("/healthz",)), host=args.host, port=args.http, log_level="warning")
     return 0
 
 
@@ -307,7 +354,10 @@ def cmd_a2a(args) -> int:
     telemetry.setup_logging()
     home = Path(args.home or os.environ.get("HR_A2A_HOME", "var/a2a"))
     ws, tokens, people = _a2a_setup(home)
-    tf_url, pay_url = f"http://{args.host}:{args.port}", f"http://{args.host}:{args.payroll_port}"
+    # Where callers reach each agent (the URL on its agent card). Behind a container or a
+    # proxy that is not the address it binds, so it can be set.
+    tf_url = os.environ.get("HR_A2A_TIMEOFF_URL") or f"http://{args.host}:{args.port}"
+    pay_url = os.environ.get("HR_A2A_PAYROLL_URL") or f"http://{args.host}:{args.payroll_port}"
     from .oidc import OIDCConfig
 
     oidc = OIDCConfig.from_env()
@@ -480,11 +530,26 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("a2a-demo", help="walk through the A2A conversation, in process").set_defaults(func=cmd_a2a_demo)
 
+    mg = sub.add_parser("migrate", help="apply (or show) the Postgres schema migrations")
+    mg.add_argument("--status", action="store_true", help="show applied and pending migrations without applying")
+    mg.set_defaults(func=cmd_migrate)
+
+    ini = sub.add_parser("init", help="migrate the database and seed the tenant, then exit (run once before the services)")
+    ini.add_argument("--home", help="state directory (default: HR_WEB_HOME or var)")
+    ini.set_defaults(func=cmd_init)
+
     x = sub.add_parser("e2e", help="end-to-end self-test of every guarantee")
     x.add_argument("--require-live", action="store_true", help="fail if live checks cannot run")
     x.set_defaults(func=cmd_e2e)
 
     args = p.parse_args(argv)
+    from .config import MissingSecret, load_file_secrets
+
+    try:
+        load_file_secrets()   # NAME_FILE=/run/secrets/x fills NAME, for containers
+    except MissingSecret as exc:
+        print(exc)
+        return 2
     if getattr(args, "agents", None):
         os.environ["HR_AGENT_MODE"] = args.agents
     return args.func(args)
