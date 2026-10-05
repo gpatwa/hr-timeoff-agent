@@ -17,7 +17,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 os.environ.setdefault("HR_AGENT_OFFLINE", "1")
 
-from hr_timeoff_agent import evals, graph as graph_mod, llm, policy  # noqa: E402
+from hr_timeoff_agent import graph as graph_mod, llm, policy  # noqa: E402
+from hr_timeoff_agent.tooling import evals  # noqa: E402
 from hr_timeoff_agent.models import Finding, JudgeScore, Passage, Recommendation  # noqa: E402
 
 

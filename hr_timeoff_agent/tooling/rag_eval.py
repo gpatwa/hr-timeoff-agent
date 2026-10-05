@@ -29,12 +29,12 @@ import os
 import warnings
 from pathlib import Path
 
-from . import assembly, graph as graph_mod
-from . import policy, retrieval
-from .llm import AGENT_MODEL, is_offline
-from .models import Finding, Passage
+from .. import assembly, graph as graph_mod
+from .. import policy, retrieval
+from ..llm import AGENT_MODEL, is_offline
+from ..models import Finding, Passage
 
-EVAL_DIR = Path(__file__).resolve().parent.parent / "evals"
+EVAL_DIR = Path(__file__).resolve().parent.parent.parent / "evals"
 
 RAGAS_MODEL = os.environ.get("HR_AGENT_RAGAS_MODEL", "claude-sonnet-5")
 

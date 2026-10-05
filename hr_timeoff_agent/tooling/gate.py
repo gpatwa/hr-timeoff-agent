@@ -27,9 +27,10 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from . import config, evals, llm, policy, retrieval
+from .. import config, llm, policy, retrieval
+from . import evals
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 THRESHOLDS = ROOT / "evals" / "thresholds.json"
 JUDGE_PREFIX = "judge:"
 # A spread for routine checks: every category, four injections, one poisoned handbook.
@@ -117,7 +118,7 @@ class CaseMetrics:
 
 def _count_tool_calls(meter: Meter):
     """Wrap run_agent so each specialist's tool calls are counted."""
-    from . import agents
+    from .. import agents
 
     real = agents.run_agent
 
@@ -255,11 +256,11 @@ def run_a2a_multi(scratch: Path) -> dict:
 
     import httpx
 
-    from .a2a_client import A2AAgent
-    from .a2a_common import BearerTokens
-    from .a2a_payroll import create_payroll_app
-    from .a2a_server import create_timeoff_app
-    from .web.workspace import Workspace
+    from ..a2a_client import A2AAgent
+    from ..a2a_common import BearerTokens
+    from ..a2a_payroll import create_payroll_app
+    from ..a2a_server import create_timeoff_app
+    from ..web.workspace import Workspace
 
     start = time.monotonic()
 
