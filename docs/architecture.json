@@ -173,7 +173,7 @@
       "type": "database",
       "label": "Workspace state",
       "sublabel": "requests \u00b7 balances \u00b7 paused runs",
-      "tag": "SQLite",
+      "tag": "SQLite or Postgres",
       "pos": [
         1090,
         215
@@ -355,7 +355,7 @@
       "id": "store",
       "from": "workspace",
       "to": "state",
-      "label": "SQLite"
+      "label": "SQL"
     },
     {
       "id": "triage",

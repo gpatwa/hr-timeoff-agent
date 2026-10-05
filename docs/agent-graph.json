@@ -246,7 +246,7 @@
       "id": "checkpoint",
       "type": "database",
       "label": "Graph state",
-      "sublabel": "InMemory \u00b7 SQLite",
+      "sublabel": "InMemory \u00b7 SQLite \u00b7 Postgres",
       "tag": "makes resume possible",
       "pos": [
         1090,

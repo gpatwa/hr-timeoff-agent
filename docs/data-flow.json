@@ -170,7 +170,7 @@
       "sublabel": "balances, absences",
       "stage": 4,
       "row": 2,
-      "tag": "SQLite"
+      "tag": "SQLite or Postgres"
     }
   ],
   "flows": [
