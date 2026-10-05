@@ -13,7 +13,7 @@ import json
 import os
 from pathlib import Path
 
-from . import graph as graph_mod
+from . import assembly, graph as graph_mod
 from . import policy
 from .llm import JUDGE_MODEL, structured
 from .models import CaseResult, Finding, InjectionVerdict, JudgeScore, Passage, Recommendation
@@ -171,7 +171,7 @@ def run_case(tenant: policy.Tenant, case: dict, *, record: bool = False) -> Case
     request = request_for(tenant, case)
     tenant = tenant_for(tenant, case)
 
-    app = graph_mod.build(tenant, record_llm=record)
+    app = assembly.build(tenant, record_llm=record)
     config = {"configurable": {"thread_id": f"eval-{case['case_id']}"}}
 
     try:

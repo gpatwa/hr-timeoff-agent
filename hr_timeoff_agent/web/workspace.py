@@ -30,7 +30,7 @@ from pathlib import Path
 
 from langgraph.types import Command
 
-from .. import evidence, graph as graph_mod, llm, policy, retrieval, telemetry
+from .. import assembly, evidence, graph as graph_mod, llm, policy, retrieval, telemetry
 from ..storage import Store, open_store
 from ..models import Finding
 
@@ -176,7 +176,7 @@ class Workspace:
         return t
 
     def _graph(self, *, record: bool = False):
-        return graph_mod.build(self.tenant(), record_llm=record, checkpointer=self.checkpointer)
+        return assembly.build(self.tenant(), record_llm=record, checkpointer=self.checkpointer)
 
     # ── people ───────────────────────────────────────────────────────────
 

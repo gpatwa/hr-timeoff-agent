@@ -12,7 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 os.environ.setdefault("HR_AGENT_OFFLINE", "1")  # every vector used here is cached
 
-from hr_timeoff_agent import graph as graph_mod, policy, retrieval  # noqa: E402
+from hr_timeoff_agent import assembly, graph as graph_mod, policy, retrieval  # noqa: E402
 
 # Text lifted from the other tenant's handbook: the strongest possible match for it.
 OTHER_TENANT_TEXT = (
@@ -81,7 +81,7 @@ def test_offline_runs_never_load_the_embedding_models():
 
 def test_graph_records_retrieval_and_the_filter_used():
     tenant = policy.Tenant()
-    app = graph_mod.build(tenant)
+    app = assembly.build(tenant)
     state = app.invoke(
         graph_mod.initial_state(tenant.requests["REQ-2004"]),
         config={"configurable": {"thread_id": "t-retrieve"}},

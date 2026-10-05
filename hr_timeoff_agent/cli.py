@@ -23,7 +23,7 @@ from pathlib import Path
 
 from langgraph.types import Command
 
-from . import evals, evidence, graph as graph_mod, policy
+from . import assembly, evals, evidence, graph as graph_mod, policy
 from .llm import OfflineCacheMiss, is_offline
 
 OUT = Path(__file__).resolve().parent.parent / "out"
@@ -56,7 +56,7 @@ def cmd_run(args) -> int:
 
     request = tenant.requests[args.request_id]
     worker = tenant.workers[request["worker_id"]]
-    app = graph_mod.build(tenant, record_llm=args.record)
+    app = assembly.build(tenant, record_llm=args.record)
     config = {"configurable": {"thread_id": f"run-{args.request_id}"}}
 
     print(f"\n{RULE}\n  {args.request_id} · {worker['legal_name']} · mode: {_mode_banner()}\n{RULE}")
