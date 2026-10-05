@@ -770,6 +770,28 @@ refuses to cache a response served by any model other than the one asked for.
 before the first real run; it only fills keys with no recording and never
 overwrites one.
 
+## Design patterns this follows
+
+The vendors' public guides on building agents (Anthropic's "Building effective agents", OpenAI's agents guide
+and Agents SDK, Google's ADK and A2A material) agree on most of it. The names differ, so here is each idea,
+the name each uses, and where it is in this repo. Names are as those guides use them; check the originals
+for current wording.
+
+| Idea | Anthropic | OpenAI | Google | Here |
+|---|---|---|---|---|
+| Start with a fixed workflow, not a free agent | Prompt chaining | A single agent first | Sequential agent | The default mode: load, check policy, retrieve, assess, gate, record (`agent/graph.py`) |
+| A lead agent splits the work | Orchestrator-workers | Manager pattern (agents as tools) | Hierarchical coordinator with sub-agents | `--agents multi`: a coordinator over the policy and coverage specialists (`agent/agents.py`) |
+| A model loops over tools until done | Agent (tool loop) | Agent with tools | Loop agent, ReAct | The specialists' tool-calling loops, capped and replayable (`agent/agentloop.py`) |
+| Tools behind a standard interface | MCP | Function tools, MCP | MCP | Six read-only tools, tenant and audience fixed (`tools/server.py`) |
+| Agents call other agents | (not the focus) | Handoffs | A2A | The time-off agent and the separate payroll agent (`services/a2a/`) |
+| Checks outside the model | Guardrails, human checkpoints | Guardrails, human in the loop | Human-in-the-loop | Deterministic policy engine, approval gate, approver authorization (`core/policy.py`, `agent/graph.py`) |
+| See what happened | Tracing | Tracing | Observability | Hash-chained evidence ledger and OpenTelemetry (`core/evidence.py`, `adapters/telemetry.py`) |
+| Measure it | Evals | Evals | Evals | The 40-case suite, attack checks and the gate (`tooling/`, `evals/`) |
+
+What is not here: an evaluator-optimizer loop (one model reviewing and revising another's output before it
+reaches the manager), routing between specialists by request type, and parallel specialists (they run in
+sequence). Each costs more per triage; add one only if the evals show the quality needs it.
+
 ## Layout
 
 The code is organised as layers. Each package may import only the ones below it, and the two front doors
