@@ -30,7 +30,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from hr_timeoff_agent import config  # noqa: E402
 from hr_timeoff_agent.cli import main  # noqa: E402
 from hr_timeoff_agent.web.app import create_app  # noqa: E402
-from hr_timeoff_agent.web.workspace import Workspace  # noqa: E402
+from hr_timeoff_agent.workspace import Workspace  # noqa: E402
 
 
 def import_helpers():

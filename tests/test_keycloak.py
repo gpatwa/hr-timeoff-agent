@@ -39,7 +39,7 @@ from hr_timeoff_agent.a2a_payroll import DATA as PAYROLL_DATA, create_payroll_ap
 from hr_timeoff_agent.a2a_server import create_timeoff_app  # noqa: E402
 from hr_timeoff_agent.oidc import OIDCConfig, Provider, ServiceTokens, password_grant  # noqa: E402
 from hr_timeoff_agent.web.app import create_app  # noqa: E402
-from hr_timeoff_agent.web.workspace import Workspace  # noqa: E402
+from hr_timeoff_agent.workspace import Workspace  # noqa: E402
 
 CFG = OIDCConfig.from_env()
 PASSWORD = "hr-demo-pass"

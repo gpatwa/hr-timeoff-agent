@@ -315,7 +315,7 @@ class Agents:
     """Both A2A agents behind OIDC bearer checks, in process."""
 
     def __init__(self):
-        from hr_timeoff_agent.web.workspace import Workspace
+        from hr_timeoff_agent.workspace import Workspace
 
         self.ws = Workspace(tempfile.mkdtemp())
         v = verifier()

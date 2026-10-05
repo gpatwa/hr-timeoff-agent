@@ -58,3 +58,12 @@ class IdentityPort(Protocol):
     def current(self, request: Any) -> str | None: ...
     def sign_in(self, response: Any, worker_id: str) -> None: ...
     def sign_out(self, response: Any) -> None: ...
+
+
+@runtime_checkable
+class ToolHostPort(Protocol):
+    """What the agent runtime needs from a tool server: the MCP server object to connect to, and the
+    audience it reads for. The HR tool server is the one adapter."""
+
+    server: Any
+    reader: str

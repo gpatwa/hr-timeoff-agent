@@ -260,7 +260,7 @@ def run_a2a_multi(scratch: Path) -> dict:
     from ..a2a_common import BearerTokens
     from ..a2a_payroll import create_payroll_app
     from ..a2a_server import create_timeoff_app
-    from ..web.workspace import Workspace
+    from ..workspace import Workspace
 
     start = time.monotonic()
 

@@ -38,7 +38,7 @@ from hr_timeoff_agent.a2a_common import BearerTokens  # noqa: E402
 from hr_timeoff_agent.a2a_server import create_timeoff_app  # noqa: E402
 from hr_timeoff_agent.models import Recommendation  # noqa: E402
 from hr_timeoff_agent.storage import PostgresStore  # noqa: E402
-from hr_timeoff_agent.web.workspace import Workspace  # noqa: E402
+from hr_timeoff_agent.workspace import Workspace  # noqa: E402
 
 PRIYA, AIKO, SAMUEL = "W-100234", "W-100236", "W-100237"
 ALL_PASS = {"start": "2026-11-30", "end": "2026-12-02", "hours": "", "note": "Family trip, booked months ago.", "plan": "PTO"}

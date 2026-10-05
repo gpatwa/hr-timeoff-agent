@@ -20,7 +20,7 @@ from fastapi.templating import Jinja2Templates
 
 from .. import llm, telemetry
 from .identity import IdentityProvider, SignInFailed, identity_from_env
-from .workspace import BudgetExceeded, Forbidden, Invalid, Persona, Refused, Workspace
+from ..workspace import BudgetExceeded, Forbidden, Invalid, Persona, Refused, Workspace
 
 HERE = Path(__file__).resolve().parent
 

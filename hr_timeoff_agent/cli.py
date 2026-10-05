@@ -175,7 +175,7 @@ def cmd_migrate(args) -> int:
 def cmd_init(args) -> int:
     """Migrate and seed once, up front, so the services that share a database start into a finished one."""
     try:
-        from .web.workspace import Workspace
+        from .workspace import Workspace
     except ImportError:
         print("Needs the web extra:\n  ./.venv/bin/pip install -e '.[web]'")
         return 2
@@ -233,7 +233,7 @@ def _a2a_setup(home: Path):
     import secrets as _secrets
 
     from .a2a_common import BearerTokens
-    from .web.workspace import Workspace
+    from .workspace import Workspace
 
     ws = Workspace(home)
     secret = os.environ.get("HR_A2A_SECRET") or _secrets.token_hex(16)

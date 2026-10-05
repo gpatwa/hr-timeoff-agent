@@ -25,7 +25,7 @@ from hr_timeoff_agent.a2a_common import BearerTokens  # noqa: E402
 from hr_timeoff_agent.a2a_payroll import PayrollError, assess, create_payroll_app  # noqa: E402
 from hr_timeoff_agent.a2a_server import TimeOffExecutor, create_timeoff_app  # noqa: E402
 from hr_timeoff_agent.models import Recommendation  # noqa: E402
-from hr_timeoff_agent.web.workspace import Workspace  # noqa: E402
+from hr_timeoff_agent.workspace import Workspace  # noqa: E402
 
 PRIYA, AIKO, GRACE, SAMUEL, DANA = "W-100234", "W-100236", "W-100003", "W-100237", "W-100001"
 SERVICE = "timeoff-agent"

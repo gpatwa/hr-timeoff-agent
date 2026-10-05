@@ -30,7 +30,7 @@ except ImportError:
 
 from hr_timeoff_agent import graph as graph_mod, llm, telemetry  # noqa: E402
 from hr_timeoff_agent.models import Recommendation  # noqa: E402
-from hr_timeoff_agent.web.workspace import Refused, Workspace  # noqa: E402
+from hr_timeoff_agent.workspace import Refused, Workspace  # noqa: E402
 
 PRIYA, DANA, AIKO, GRACE = "W-100234", "W-100001", "W-100236", "W-100003"
 NOTE = "Family trip, booked months ago."
