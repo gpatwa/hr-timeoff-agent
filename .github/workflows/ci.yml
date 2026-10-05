@@ -36,6 +36,9 @@ jobs:
       - name: Interfaces (CLI flags and MCP tool contract are unchanged)
         run: python tests/test_golden.py
 
+      - name: Ports (every adapter meets its interface)
+        run: python tests/test_ports.py
+
       - name: Guarantees (human-only decisions, tamper detection, override)
         run: python tests/test_guarantees.py
 

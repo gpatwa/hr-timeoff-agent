@@ -75,9 +75,9 @@ root_package = "hr_timeoff_agent"
 include_external_packages = false
 
 [[tool.importlinter.contracts]]
-name = "core is pure: policy, models, evidence, config import no other part of the app"
+name = "core is pure: policy, models, evidence, config and the ports import no other part of the app"
 type = "forbidden"
-source_modules = ["hr_timeoff_agent.policy", "hr_timeoff_agent.models", "hr_timeoff_agent.evidence", "hr_timeoff_agent.config"]
+source_modules = ["hr_timeoff_agent.policy", "hr_timeoff_agent.models", "hr_timeoff_agent.evidence", "hr_timeoff_agent.config", "hr_timeoff_agent.ports"]
 forbidden_modules = [
     "hr_timeoff_agent.llm", "hr_timeoff_agent.graph", "hr_timeoff_agent.agents", "hr_timeoff_agent.agentloop",
     "hr_timeoff_agent.retrieval", "hr_timeoff_agent.storage", "hr_timeoff_agent.migrations", "hr_timeoff_agent.oidc",

@@ -10,6 +10,7 @@ NAME_FILE that points at nothing is an error, never a silent empty secret.
 
 from __future__ import annotations
 
+import contextlib
 import os
 from pathlib import Path
 
@@ -44,3 +45,17 @@ def load_file_secrets(names=SECRET_NAMES, env: dict | None = None) -> list[str]:
         env[name] = value
         loaded.append(name)
     return loaded
+
+
+@contextlib.contextmanager
+def scoped_env(**values: str | None):
+    """Set environment variables for the block and put each back as it was (unset stays unset).
+    A value of None unsets the variable for the block."""
+    saved = {k: os.environ.get(k) for k in values}
+    for k, v in values.items():
+        os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+    try:
+        yield
+    finally:
+        for k, v in saved.items():
+            os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)

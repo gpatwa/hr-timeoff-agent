@@ -21,6 +21,7 @@ the backend that produced it.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -73,6 +74,32 @@ before_live_call = None
 after_live_call = None
 
 T = TypeVar("T", bound=BaseModel)
+
+
+@contextlib.contextmanager
+def recording_into(path: Path):
+    """Within the block, recorded calls are read from and written to `path` instead of the committed
+    fixtures. Restores the previous file however the block ends."""
+    global FIXTURES
+    saved, FIXTURES = FIXTURES, Path(path)
+    try:
+        yield
+    finally:
+        FIXTURES = saved
+
+
+@contextlib.contextmanager
+def observing(before=None, after=None):
+    """Within the block, `before(model, label)` may refuse a live call and `after(model, label, usd, source)`
+    sees what it cost. Restores the previous hooks however the block ends."""
+    global before_live_call, after_live_call
+    saved = (before_live_call, after_live_call)
+    before_live_call, after_live_call = before, after
+    try:
+        yield
+    finally:
+        before_live_call, after_live_call = saved
+
 
 
 class OfflineCacheMiss(RuntimeError):
