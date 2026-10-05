@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from langgraph.types import Command  # noqa: E402
 
-from hr_timeoff_agent import evidence, graph as graph_mod, policy  # noqa: E402
+from hr_timeoff_agent import assembly, evidence, graph as graph_mod, policy  # noqa: E402
 from hr_timeoff_agent.models import Decision  # noqa: E402
 
 DANA = "W-100001"   # Priya's manager (REQ-2001, REQ-2005)
@@ -22,7 +22,7 @@ MARCUS = "W-100235"  # Priya's peer, not a manager
 
 def _app_and_request(request_id="REQ-2001"):
     tenant = policy.Tenant()
-    return graph_mod.build(tenant), tenant.requests[request_id]
+    return assembly.build(tenant), tenant.requests[request_id]
 
 
 def _paused(app, request, thread_id):

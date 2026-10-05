@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .pglock import advisory_lock, ensure_schema
+
 BASELINE = """
 create table if not exists documents (
     name text primary key, body jsonb not null, version bigint not null default 1,
@@ -59,7 +61,6 @@ class Status:
 def _connect(url: str, schema: str):
     import psycopg
 
-    from .storage import ensure_schema
 
     ensure_schema(url, schema)
     return psycopg.connect(url, options=f"-csearch_path={schema}", autocommit=False)
@@ -91,7 +92,6 @@ def migrate(url: str, schema: str = "public", migrations=None) -> list[int]:
     older open transaction to finish, and a waiter holding one would deadlock with it.
     The work itself then runs on a second connection, in short transactions.
     """
-    from .storage import advisory_lock, ensure_schema
 
     migrations = sorted(MIGRATIONS if migrations is None else migrations)
     known = {v for v, _, _ in migrations}

@@ -18,7 +18,7 @@ os.environ.setdefault("HR_AGENT_OFFLINE", "1")
 
 from pydantic import BaseModel  # noqa: E402
 
-from hr_timeoff_agent import agentloop, agents, evidence, graph as graph_mod, llm, policy, retrieval  # noqa: E402
+from hr_timeoff_agent import agentloop, agents, assembly, evidence, graph as graph_mod, llm, policy, retrieval  # noqa: E402
 from hr_timeoff_agent.agentloop import AgentRun, StaleTrajectory, ToolCall, parse_claude_stream, run_agent  # noqa: E402
 from hr_timeoff_agent.mcp_server import HRToolServer, digest  # noqa: E402
 from hr_timeoff_agent.models import Recommendation  # noqa: E402
@@ -253,7 +253,7 @@ def _multi_run():
     saved: dict = {}
     _fake_agents(saved)
     try:
-        app = graph_mod.build(tenant, agents="multi")
+        app = assembly.build(tenant, agents="multi")
         state = app.invoke(graph_mod.initial_state(tenant.requests["REQ-2004"]), config={"configurable": {"thread_id": "t-multi"}})
         return tenant, app, state
     finally:
@@ -294,9 +294,9 @@ def test_only_the_direct_manager_can_resume_a_multi_agent_run():
 
 def test_single_agent_is_still_the_default():
     tenant = policy.Tenant()
-    assert graph_mod.agent_mode() == "single" or os.environ.get("HR_AGENT_MODE")
+    assert assembly.agent_mode() == "single" or os.environ.get("HR_AGENT_MODE")
     try:
-        graph_mod.build(tenant, agents="swarm")
+        assembly.build(tenant, agents="swarm")
     except ValueError:
         return
     raise AssertionError("an unknown mode was accepted")

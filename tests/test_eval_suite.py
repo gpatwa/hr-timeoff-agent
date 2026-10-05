@@ -147,12 +147,12 @@ def test_the_corpus_override_is_set_while_a_case_runs_and_always_restored():
             raise RuntimeError("stop here")
 
     case = next(c for c in CASES if c.get("corpus") == "poisoned-policy")
-    real = evals.graph_mod.build
-    evals.graph_mod.build = lambda *a, **kw: Boom()
+    real = evals.assembly.build
+    evals.assembly.build = lambda *a, **kw: Boom()
     try:
         r = evals.run_case(TENANT, case)
     finally:
-        evals.graph_mod.build = real
+        evals.assembly.build = real
     assert r.error and "stop here" in r.error
     assert seen["during"].endswith("corpora/poisoned-policy") and os.environ.get("HR_CORPUS_DIR") is None
 

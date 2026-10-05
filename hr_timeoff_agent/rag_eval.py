@@ -29,7 +29,7 @@ import os
 import warnings
 from pathlib import Path
 
-from . import graph as graph_mod
+from . import assembly, graph as graph_mod
 from . import policy, retrieval
 from .llm import AGENT_MODEL, is_offline
 from .models import Finding, Passage
@@ -96,7 +96,7 @@ async def _score_case(tenant: policy.Tenant, case: dict, generation: dict | None
     from ragas import SingleTurnSample
 
     request = tenant.requests[case["request_id"]]
-    app = graph_mod.build(tenant)
+    app = assembly.build(tenant)
     state = app.invoke(
         graph_mod.initial_state(request),
         config={"configurable": {"thread_id": f"rag-{case['case_id']}"}},

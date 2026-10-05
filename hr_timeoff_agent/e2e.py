@@ -24,7 +24,7 @@ from typing import Callable
 
 from langgraph.types import Command
 
-from . import evidence, graph as graph_mod, llm, policy, retrieval
+from . import assembly, evidence, graph as graph_mod, llm, policy, retrieval
 from .models import Recommendation
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -86,7 +86,7 @@ def _paused(app, request: dict, thread: str) -> tuple[dict, dict]:
 
 def check_agent_never_decides(t: policy.Tenant) -> str:
     for rid, request in t.requests.items():
-        state, _ = _paused(graph_mod.build(t), request, f"e2e-halt-{rid}")
+        state, _ = _paused(assembly.build(t), request, f"e2e-halt-{rid}")
         expect("__interrupt__" in state, f"{rid} did not pause at approval_gate")
         expect(state["decision"] is None, f"{rid} produced a decision without a human")
     return f"all {len(t.requests)} requests paused with no decision"
@@ -110,7 +110,7 @@ def check_cli_paths(t: policy.Tenant) -> str:
 
 
 def check_refusal_does_not_jam_the_run(t: policy.Tenant) -> str:
-    app = graph_mod.build(t)
+    app = assembly.build(t)
     _, cfg = _paused(app, t.requests["REQ-2001"], "e2e-refusal")
     refused = app.invoke(Command(resume={"outcome": "approved", "decided_by_id": "W-100235"}), config=cfg)
     expect("__interrupt__" in refused and refused["decision"] is None, "a peer's approval was not refused")
@@ -124,7 +124,7 @@ def check_refusal_does_not_jam_the_run(t: policy.Tenant) -> str:
 
 
 def check_tamper_detection(t: policy.Tenant) -> str:
-    app = graph_mod.build(t)
+    app = assembly.build(t)
     _, cfg = _paused(app, t.requests["REQ-2001"], "e2e-tamper")
     final = app.invoke(Command(resume={"outcome": "approved", "decided_by_id": "W-100001"}), config=cfg)
     for i in range(len(final["evidence"])):
@@ -150,7 +150,7 @@ def check_retrieval_isolation(t: policy.Tenant) -> str:
 def check_citations_are_given_inputs(t: policy.Tenant) -> str:
     rule_ids = {r["id"] for r in t.policy["rules"]}
     for rid, request in t.requests.items():
-        state, _ = _paused(graph_mod.build(t), request, f"e2e-cite-{rid}")
+        state, _ = _paused(assembly.build(t), request, f"e2e-cite-{rid}")
         rec = state["recommendation"]
         given = {p["passage_id"] for p in state["passages"]}
         expect(set(rec["cited_rule_ids"]) <= rule_ids, f"{rid} cites a rule that does not exist")
@@ -275,7 +275,7 @@ def check_multi_agent(t: policy.Tenant) -> str:
     allowed = {"policy_specialist": set(POLICY_TOOLS), "coverage_specialist": set(COVERAGE_TOOLS)}
     counts = {}
     for rid, request in t.requests.items():
-        state, _ = _paused(graph_mod.build(t, agents="multi"), request, f"e2e-multi-{rid}")
+        state, _ = _paused(assembly.build(t, agents="multi"), request, f"e2e-multi-{rid}")
         expect("__interrupt__" in state and state["decision"] is None, f"{rid}: the specialists decided something")
         calls = [e for e in state["evidence"] if e["data"].get("via") == "mcp"]
         expect({c["data"]["agent"] for c in calls} == set(allowed), f"{rid}: both specialists should have used tools")
@@ -380,7 +380,7 @@ def check_live_agent_call(t: policy.Tenant) -> str:
         shutil.copy(llm.FIXTURES, scratch)
         saved, llm.FIXTURES = llm.FIXTURES, scratch
         try:
-            state, _ = _paused(graph_mod.build(t, record_llm=True), t.requests["REQ-2004"], "e2e-live")
+            state, _ = _paused(assembly.build(t, record_llm=True), t.requests["REQ-2004"], "e2e-live")
             entry = next(v for v in json.loads(scratch.read_text()).values() if v["label"] == "assess:REQ-2004")
         finally:
             llm.FIXTURES = saved
@@ -407,7 +407,7 @@ def check_live_multi_agent(t: policy.Tenant) -> str:
             with _env(HR_AGENT_EMBEDDINGS=str(emb), HR_AGENT_FIXTURES=str(scratch)):
                 tenant = policy.Tenant()
                 tenant._policy_index = retrieval.PolicyIndex(embedder=retrieval.Embedder(cache_path=emb))
-                state, _ = _paused(graph_mod.build(tenant, record_llm=True, agents="multi"), tenant.requests["REQ-2004"], "e2e-live-multi")
+                state, _ = _paused(assembly.build(tenant, record_llm=True, agents="multi"), tenant.requests["REQ-2004"], "e2e-live-multi")
                 entries = [v for v in json.loads(scratch.read_text()).values() if v.get("kind") == "agent" and v["label"].endswith("REQ-2004")]
                 calls = [e for e in state["evidence"] if e["data"].get("via") == "mcp"]
                 expect("__interrupt__" in state and state["decision"] is None, "the live multi-agent run did not pause for a human")
@@ -415,7 +415,7 @@ def check_live_multi_agent(t: policy.Tenant) -> str:
                 expect(calls, "the specialists made no tool calls")
                 # and what was just recorded replays without the model
                 with _env(HR_AGENT_OFFLINE="1"):
-                    again, _ = _paused(graph_mod.build(tenant, agents="multi"), tenant.requests["REQ-2004"], "e2e-live-multi-replay")
+                    again, _ = _paused(assembly.build(tenant, agents="multi"), tenant.requests["REQ-2004"], "e2e-live-multi-replay")
                 expect(again["recommendation"] == state["recommendation"], "the recorded trajectory did not replay to the same recommendation")
         finally:
             llm.FIXTURES = saved

@@ -104,7 +104,7 @@ allow_indirect_imports = true
 [[tool.importlinter.contracts]]
 name = "the agent runtime does not import a service (web, A2A)"
 type = "forbidden"
-source_modules = ["hr_timeoff_agent.graph", "hr_timeoff_agent.agents", "hr_timeoff_agent.agentloop", "hr_timeoff_agent.llm", "hr_timeoff_agent.retrieval"]
+source_modules = ["hr_timeoff_agent.graph", "hr_timeoff_agent.agents", "hr_timeoff_agent.agentloop", "hr_timeoff_agent.assembly", "hr_timeoff_agent.llm", "hr_timeoff_agent.retrieval"]
 forbidden_modules = ["hr_timeoff_agent.web", "hr_timeoff_agent.a2a_server", "hr_timeoff_agent.a2a_payroll", "hr_timeoff_agent.a2a_client"]
 allow_indirect_imports = true
 
@@ -130,21 +130,22 @@ ignore_imports = [
 ]
 
 [[tool.importlinter.contracts]]
-name = "no import cycle between graph and agents"
+name = "graph (nodes) does not import agents; assembly joins them"
 type = "forbidden"
 source_modules = ["hr_timeoff_agent.graph"]
 forbidden_modules = ["hr_timeoff_agent.agents"]
 allow_indirect_imports = true
-ignore_imports = [
-    "hr_timeoff_agent.graph -> hr_timeoff_agent.agents",   # stage 2: extract the node contract
-]
 
 [[tool.importlinter.contracts]]
-name = "no import cycle between storage and migrations"
+name = "pglock is a leaf"
+type = "forbidden"
+source_modules = ["hr_timeoff_agent.pglock"]
+forbidden_modules = ["hr_timeoff_agent.storage", "hr_timeoff_agent.migrations", "hr_timeoff_agent.graph", "hr_timeoff_agent.web"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "migrations does not import storage; both use pglock"
 type = "forbidden"
 source_modules = ["hr_timeoff_agent.migrations"]
 forbidden_modules = ["hr_timeoff_agent.storage"]
 allow_indirect_imports = true
-ignore_imports = [
-    "hr_timeoff_agent.migrations -> hr_timeoff_agent.storage",   # stage 2: one shared lock and connection helper
-]
