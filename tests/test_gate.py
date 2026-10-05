@@ -80,7 +80,7 @@ def test_a_case_that_errored_fails_the_gate_even_if_the_rest_look_fine():
 
 
 def test_the_a2a_result_is_judged_on_passing_cost_time_and_tool_use():
-    ok = {"passed": True, "detail": "d", "usd": 0.2, "seconds": 20.0, "tool_calls": 3}
+    ok = {"passed": True, "detail": "d", "usd": 0.05, "seconds": 20.0, "tool_calls": 3}
     assert gate.evaluate({}, ok, THRESHOLDS) == []
     assert any("did not pass" in v or "boom" in v for v in gate.evaluate({}, {"passed": False, "detail": "boom"}, THRESHOLDS))
     assert any("over the ceiling" in v for v in gate.evaluate({}, {**ok, "usd": 9.0}, THRESHOLDS))
