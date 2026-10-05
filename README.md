@@ -779,9 +779,9 @@ hr_timeoff_agent/
   retrieval.py  hybrid retrieval in Qdrant, tenant/audience filtered before ranking
   evidence.py   append-only hash-chained ledger
   graph.py      the LangGraph workflow and the approval interrupt
-  evals.py      graded eval and the LLM judge
-  rag_eval.py   RAGAS eval of the retrieval step
-  e2e.py        end-to-end self-test: every guarantee as a pass/fail check
+  tooling/evals.py      graded eval and the LLM judge
+  tooling/rag_eval.py   RAGAS eval of the retrieval step
+  tooling/e2e.py        end-to-end self-test: every guarantee as a pass/fail check
   mcp_server.py the HR tools as an MCP server (read-only, tenant and audience fixed)
   mcp_client.py a small synchronous client for it
   agentloop.py  tool-calling agent loops with replayable trajectories
@@ -790,7 +790,7 @@ hr_timeoff_agent/
   a2a_payroll.py a separate payroll-impact agent over A2A
   a2a_client.py, a2a_common.py  the A2A client, bearer-token identity, helpers
   web/          the browser app: workspace (state + rules), identity, routes, pages
-  report.py     builds docs/report.html from real run output
+  tooling/report.py     builds docs/report.html from real run output
   cli.py
 data/           mock Workday-shaped tenant: workers, absences, policy, requests,
                 leave handbook and past decisions (plus a second tenant, for isolation tests)

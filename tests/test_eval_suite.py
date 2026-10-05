@@ -16,7 +16,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 os.environ.setdefault("HR_AGENT_OFFLINE", "1")
 
-from hr_timeoff_agent import evals, policy, retrieval  # noqa: E402
+from hr_timeoff_agent import policy, retrieval  # noqa: E402
+from hr_timeoff_agent.tooling import evals  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 CASES = json.loads((ROOT / "evals" / "cases.json").read_text())

@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from hr_timeoff_agent import policy, retrieval  # noqa: E402
 from hr_timeoff_agent.graph import ASSESS_SYSTEM, build_assess_prompt  # noqa: E402
-from hr_timeoff_agent.evals import JUDGE_SYSTEM, build_judge_prompt  # noqa: E402
+from hr_timeoff_agent.tooling.evals import JUDGE_SYSTEM, build_judge_prompt  # noqa: E402
 from hr_timeoff_agent.llm import AGENT_MODEL, FIXTURES, JUDGE_MODEL, _key  # noqa: E402
 from hr_timeoff_agent.models import JudgeScore, Recommendation  # noqa: E402
 

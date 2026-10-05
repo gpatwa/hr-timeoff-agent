@@ -83,12 +83,11 @@ forbidden_modules = [
     "hr_timeoff_agent.retrieval", "hr_timeoff_agent.storage", "hr_timeoff_agent.migrations", "hr_timeoff_agent.oidc",
     "hr_timeoff_agent.telemetry", "hr_timeoff_agent.mcp_server", "hr_timeoff_agent.mcp_client",
     "hr_timeoff_agent.a2a_client", "hr_timeoff_agent.a2a_common", "hr_timeoff_agent.a2a_server", "hr_timeoff_agent.a2a_payroll",
-    "hr_timeoff_agent.web", "hr_timeoff_agent.cli", "hr_timeoff_agent.gate", "hr_timeoff_agent.evals",
-    "hr_timeoff_agent.e2e", "hr_timeoff_agent.report", "hr_timeoff_agent.rag_eval",
+    "hr_timeoff_agent.web", "hr_timeoff_agent.cli", "hr_timeoff_agent.tooling",
 ]
 
 [[tool.importlinter.contracts]]
-name = "nothing in the product imports the eval and test tooling"
+name = "nothing in the product imports the tooling package (evals, gate, e2e, report)"
 type = "forbidden"
 source_modules = [
     "hr_timeoff_agent.policy", "hr_timeoff_agent.models", "hr_timeoff_agent.evidence", "hr_timeoff_agent.config",
@@ -96,9 +95,9 @@ source_modules = [
     "hr_timeoff_agent.retrieval", "hr_timeoff_agent.storage", "hr_timeoff_agent.migrations", "hr_timeoff_agent.oidc",
     "hr_timeoff_agent.telemetry", "hr_timeoff_agent.mcp_server", "hr_timeoff_agent.mcp_client",
     "hr_timeoff_agent.a2a_client", "hr_timeoff_agent.a2a_common", "hr_timeoff_agent.a2a_server", "hr_timeoff_agent.a2a_payroll",
-    "hr_timeoff_agent.web",
+    "hr_timeoff_agent.web", "hr_timeoff_agent.pglock", "hr_timeoff_agent.assembly", "hr_timeoff_agent.ports", "hr_timeoff_agent.clicommon",
 ]
-forbidden_modules = ["hr_timeoff_agent.gate", "hr_timeoff_agent.evals", "hr_timeoff_agent.e2e", "hr_timeoff_agent.report", "hr_timeoff_agent.rag_eval"]
+forbidden_modules = ["hr_timeoff_agent.tooling"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]

@@ -11,7 +11,7 @@ import html
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 OUT = ROOT / "out"        # run artifacts (gitignored)
 DOCS = ROOT / "docs"      # the rendered page, committed and servable by Pages
 
