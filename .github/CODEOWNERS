@@ -4,9 +4,9 @@
 /hr_timeoff_agent/core/             @gpatwa
 /hr_timeoff_agent/adapters/         @gpatwa
 /hr_timeoff_agent/agent/            @gpatwa
-/hr_timeoff_agent/tooling/          @gpatwa
+/hr_timeoff_agent/eval_harness/          @gpatwa
 /hr_timeoff_agent/services/         @gpatwa
-/hr_timeoff_agent/tools/            @gpatwa
+/hr_timeoff_agent/hr_tools/            @gpatwa
 /contracts/                         @gpatwa
 /evals/                             @gpatwa
 /deploy/                            @gpatwa

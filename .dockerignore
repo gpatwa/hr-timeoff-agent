@@ -17,4 +17,4 @@ HANDOFF.md
 CONTEXT.md
 .env
 .DS_Store
-hr_timeoff_agent/tooling
+hr_timeoff_agent/eval_harness

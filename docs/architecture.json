@@ -282,7 +282,7 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/tools/server.py",
+          "path": "hr_timeoff_agent/hr_tools/server.py",
           "line": 78,
           "label": "HRToolServer"
         }

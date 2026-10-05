@@ -398,7 +398,7 @@ def test_service_tokens_are_cached_and_refreshed_before_they_expire():
 
 
 def test_the_mcp_http_server_needs_a_valid_token():
-    from hr_timeoff_agent.tools.server import HRToolServer
+    from hr_timeoff_agent.hr_tools.server import HRToolServer
     from hr_timeoff_agent.adapters.oidc import BearerGuard
 
     server = HRToolServer()

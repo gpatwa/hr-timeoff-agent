@@ -16,7 +16,7 @@ from .graph import AgentState, _index, make_nodes, traced_node
 
 def tool_host(tenant: policy.Tenant):
     """The HR tool server for this tenant, built once. Needs the mcp extra."""
-    from ..tools.server import HRToolServer
+    from ..hr_tools.server import HRToolServer
 
     if not hasattr(tenant, "_mcp_server"):
         tenant._mcp_server = HRToolServer(tenant, index=_index(tenant), reader="manager")

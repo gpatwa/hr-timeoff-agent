@@ -18,7 +18,7 @@ os.environ.setdefault("HR_AGENT_OFFLINE", "1")
 
 from hr_timeoff_agent.core import policy
 from hr_timeoff_agent.adapters import retrieval  # noqa: E402
-from hr_timeoff_agent.tooling import evals  # noqa: E402
+from hr_timeoff_agent.eval_harness import evals  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 CASES = json.loads((ROOT / "evals" / "cases.json").read_text())
@@ -125,8 +125,8 @@ def test_a_tool_server_started_for_a_hostile_case_searches_the_overlay_not_the_r
     """Under the Claude Code backend the MCP server is a child process. It must be pointed at the overlay,
     or the specialists search the real corpus and the attack never reaches them (this was a real bug:
     the first multi-agent runs of the two corpus cases tested nothing)."""
-    from hr_timeoff_agent.tools.client import call_tool
-    from hr_timeoff_agent.tools.server import HRToolServer
+    from hr_timeoff_agent.hr_tools.client import call_tool
+    from hr_timeoff_agent.hr_tools.server import HRToolServer
 
     case = next(c for c in CASES if c.get("corpus") == "poisoned-precedent")
     request, got = findings_for(case)

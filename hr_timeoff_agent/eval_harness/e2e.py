@@ -223,7 +223,7 @@ def check_web_app(t: policy.Tenant) -> str:
 def check_mcp_tools(t: policy.Tenant) -> str:
     """The HR tools over MCP, through a real child process speaking the protocol."""
     try:
-        from ..tools.client import ToolCallError, call_tool, list_tools
+        from ..hr_tools.client import ToolCallError, call_tool, list_tools
     except ImportError:
         raise CheckFailed("mcp extra not installed: pip install -e '.[mcp]'")
 

@@ -189,7 +189,7 @@ def cmd_init(args) -> int:
 
 def cmd_mcp(args) -> int:
     try:
-        from .tools.server import HRToolServer
+        from .hr_tools.server import HRToolServer
     except ImportError:
         print("The MCP server needs the mcp extra:\n  ./.venv/bin/pip install -e '.[mcp]'")
         return 2
@@ -425,12 +425,12 @@ def main(argv: list[str] | None = None) -> int:
     ini.add_argument("--home", help="state directory (default: HR_WEB_HOME or var)")
     ini.set_defaults(func=cmd_init)
 
-    try:  # the eval, gate and self-test commands live in tooling, which a slim install may not ship
-        from .tooling import commands as tooling_commands
+    try:  # the eval, gate and self-test commands live in eval_harness, which a slim install may not ship
+        from .eval_harness import commands as harness_commands
     except ImportError:
-        tooling_commands = None
-    if tooling_commands:
-        tooling_commands.register(sub)
+        harness_commands = None
+    if harness_commands:
+        harness_commands.register(sub)
 
     args = p.parse_args(argv)
     from .core.config import MissingSecret, load_file_secrets

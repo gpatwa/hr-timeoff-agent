@@ -782,11 +782,11 @@ for current wording.
 | Start with a fixed workflow, not a free agent | Prompt chaining | A single agent first | Sequential agent | The default mode: load, check policy, retrieve, assess, gate, record (`agent/graph.py`) |
 | A lead agent splits the work | Orchestrator-workers | Manager pattern (agents as tools) | Hierarchical coordinator with sub-agents | `--agents multi`: a coordinator over the policy and coverage specialists (`agent/agents.py`) |
 | A model loops over tools until done | Agent (tool loop) | Agent with tools | Loop agent, ReAct | The specialists' tool-calling loops, capped and replayable (`agent/agentloop.py`) |
-| Tools behind a standard interface | MCP | Function tools, MCP | MCP | Six read-only tools, tenant and audience fixed (`tools/server.py`) |
+| Tools behind a standard interface | MCP | Function tools, MCP | MCP | Six read-only tools, tenant and audience fixed (`hr_tools/server.py`) |
 | Agents call other agents | (not the focus) | Handoffs | A2A | The time-off agent and the separate payroll agent (`services/a2a/`) |
 | Checks outside the model | Guardrails, human checkpoints | Guardrails, human in the loop | Human-in-the-loop | Deterministic policy engine, approval gate, approver authorization (`core/policy.py`, `agent/graph.py`) |
 | See what happened | Tracing | Tracing | Observability | Hash-chained evidence ledger and OpenTelemetry (`core/evidence.py`, `adapters/telemetry.py`) |
-| Measure it | Evals | Evals | Evals | The 40-case suite, attack checks and the gate (`tooling/`, `evals/`) |
+| Measure it | Evals | Evals | Evals | The 40-case suite, attack checks and the gate (`eval_harness/`, `evals/`) |
 
 What is not here: an evaluator-optimizer loop (one model reviewing and revising another's output before it
 reaches the manager), routing between specialists by request type, and parallel specialists (they run in
@@ -801,7 +801,7 @@ fails CI on a bad import.
 ```
 hr_timeoff_agent/
   cli.py, __main__.py        entry point: python -m hr_timeoff_agent <command>
-  tooling/                   evals, the live gate, e2e self-test, report. Imports the product, never the reverse;
+  eval_harness/                   evals, the live gate, e2e self-test, report. Imports the product, never the reverse;
                              left out of the container image
   clicommon.py               shared CLI output helpers
   services/                  the front doors
@@ -812,7 +812,7 @@ hr_timeoff_agent/
     agents.py, agentloop.py  the specialists, the coordinator, replayable tool-calling loops
     assembly.py              wires graph + agents into one compiled workflow (the only place that knows both)
     workspace.py             the domain layer both front doors use: authorization, spend cap, paused runs
-  tools/                     the HR tools over MCP: server (read-only, tenant and audience fixed), client
+  hr_tools/                     the HR tools over MCP: server (read-only, tenant and audience fixed), client
   adapters/                  what talks to the outside world
     llm.py                   the model: Anthropic API, Claude Code, recorded fixtures
     retrieval.py             hybrid retrieval in Qdrant, tenant/audience filtered before ranking

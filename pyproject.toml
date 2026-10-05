@@ -76,15 +76,15 @@ root_package = "hr_timeoff_agent"
 include_external_packages = false
 
 [[tool.importlinter.contracts]]
-name = "layers: cli > tooling > clicommon > services > agent > tools > adapters > core"
+name = "layers: cli > eval_harness > clicommon > services > agent > hr_tools > adapters > core"
 type = "layers"
 layers = [
     "hr_timeoff_agent.cli",
-    "hr_timeoff_agent.tooling",
+    "hr_timeoff_agent.eval_harness",
     "hr_timeoff_agent.clicommon",
     "hr_timeoff_agent.services",
     "hr_timeoff_agent.agent",
-    "hr_timeoff_agent.tools",
+    "hr_timeoff_agent.hr_tools",
     "hr_timeoff_agent.adapters",
     "hr_timeoff_agent.core",
 ]
@@ -97,8 +97,8 @@ layers = ["hr_timeoff_agent.services.web | hr_timeoff_agent.services.a2a"]
 [[tool.importlinter.contracts]]
 name = "the agent runtime does not reach into the tool server; assembly alone builds it"
 type = "forbidden"
-source_modules = ["hr_timeoff_agent.agent.agentloop", "hr_timeoff_agent.agent.agents", "hr_timeoff_agent.agent.graph", "hr_timeoff_agent.agent.workspace", "hr_timeoff_agent.tools.client"]
-forbidden_modules = ["hr_timeoff_agent.tools.server"]
+source_modules = ["hr_timeoff_agent.agent.agentloop", "hr_timeoff_agent.agent.agents", "hr_timeoff_agent.agent.graph", "hr_timeoff_agent.agent.workspace", "hr_timeoff_agent.hr_tools.client"]
+forbidden_modules = ["hr_timeoff_agent.hr_tools.server"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]

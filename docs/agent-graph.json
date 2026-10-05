@@ -209,7 +209,7 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/tools/server.py",
+          "path": "hr_timeoff_agent/hr_tools/server.py",
           "line": 78,
           "label": "HRToolServer"
         }
@@ -346,7 +346,7 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/tooling/evals.py",
+          "path": "hr_timeoff_agent/eval_harness/evals.py",
           "line": 228,
           "label": "run_all"
         }

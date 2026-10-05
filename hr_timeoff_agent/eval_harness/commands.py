@@ -142,7 +142,7 @@ def cmd_report(args) -> int:
 
 
 def register(sub) -> None:
-    """Add the tooling commands to the CLI's subparsers."""
+    """Add the eval_harness commands to the CLI's subparsers."""
     e = sub.add_parser("eval", help="run the graded eval")
     e.add_argument("--record", action="store_true")
     e.add_argument("--agents", choices=["single", "multi"], help="which assessment to grade (default: HR_AGENT_MODE or single)")

@@ -30,7 +30,7 @@ from typing import Any, Type, TypeVar
 from pydantic import BaseModel
 
 from ..adapters import llm, telemetry
-from ..tools.client import stdio_params, tool_definitions, try_tools
+from ..hr_tools.client import stdio_params, tool_definitions, try_tools
 from ..core.canonical import digest
 from ..core.ports import ToolHostPort
 

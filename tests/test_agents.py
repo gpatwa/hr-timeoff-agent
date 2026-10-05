@@ -22,7 +22,7 @@ from hr_timeoff_agent.agent import agentloop, agents, assembly, graph as graph_m
 from hr_timeoff_agent.core import evidence, policy
 from hr_timeoff_agent.adapters import llm, retrieval  # noqa: E402
 from hr_timeoff_agent.agent.agentloop import AgentRun, StaleTrajectory, ToolCall, parse_claude_stream, run_agent  # noqa: E402
-from hr_timeoff_agent.tools.server import HRToolServer, digest  # noqa: E402
+from hr_timeoff_agent.hr_tools.server import HRToolServer, digest  # noqa: E402
 from hr_timeoff_agent.core.models import Recommendation  # noqa: E402
 
 PRIYA = "W-100234"
@@ -60,7 +60,7 @@ class scratch_cache:
 
 def _record(server, tools, call_args, *, system="s", user="u") -> str:
     """Hand-write a trajectory the way a live run would have recorded it."""
-    from hr_timeoff_agent.tools.client import call_tool
+    from hr_timeoff_agent.hr_tools.client import call_tool
 
     trace = [
         {"tool": t, "arguments": a, "result_sha256": digest(call_tool(t, a, server))} for t, a in call_args

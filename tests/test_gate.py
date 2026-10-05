@@ -22,7 +22,7 @@ for var in ("HR_DATABASE_URL", "HR_OIDC_ISSUER", "ANTHROPIC_API_KEY"):
 
 from hr_timeoff_agent.agent import agents
 from hr_timeoff_agent.adapters import llm  # noqa: E402
-from hr_timeoff_agent.tooling import gate  # noqa: E402
+from hr_timeoff_agent.eval_harness import gate  # noqa: E402
 from hr_timeoff_agent.agent.agentloop import AgentRun  # noqa: E402
 from hr_timeoff_agent.cli import main  # noqa: E402
 from hr_timeoff_agent.core.models import Recommendation  # noqa: E402

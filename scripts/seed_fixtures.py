@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from hr_timeoff_agent.core import policy
 from hr_timeoff_agent.adapters import retrieval  # noqa: E402
 from hr_timeoff_agent.agent.graph import ASSESS_SYSTEM, build_assess_prompt  # noqa: E402
-from hr_timeoff_agent.tooling.evals import JUDGE_SYSTEM, build_judge_prompt  # noqa: E402
+from hr_timeoff_agent.eval_harness.evals import JUDGE_SYSTEM, build_judge_prompt  # noqa: E402
 from hr_timeoff_agent.adapters.llm import AGENT_MODEL, FIXTURES, JUDGE_MODEL, _key  # noqa: E402
 from hr_timeoff_agent.core.models import JudgeScore, Recommendation  # noqa: E402
 

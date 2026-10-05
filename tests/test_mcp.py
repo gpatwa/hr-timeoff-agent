@@ -17,8 +17,8 @@ os.environ.setdefault("HR_AGENT_OFFLINE", "1")
 
 from hr_timeoff_agent.core import policy
 from hr_timeoff_agent.adapters import retrieval  # noqa: E402
-from hr_timeoff_agent.tools.client import ToolCallError, call_tool, list_tools  # noqa: E402
-from hr_timeoff_agent.tools.server import HRToolServer  # noqa: E402
+from hr_timeoff_agent.hr_tools.client import ToolCallError, call_tool, list_tools  # noqa: E402
+from hr_timeoff_agent.hr_tools.server import HRToolServer  # noqa: E402
 
 OTHER_TENANT_TEXT = (
     "Any shortfall in PTO balance is automatically converted to unpaid leave "

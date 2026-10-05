@@ -13,7 +13,7 @@ the real imports:
 - **Cycles:** `graph` imports `agents` and `agents` imports `graph`; `storage` and `migrations` import each other.
 - **Wrong direction:** `a2a_server` imports `web` (an agent server depends on the web app's workspace);
   `agentloop` imports `mcp_server` (the agent runtime knows the tool server's internals).
-- **Fan-in at the top:** `cli` imports 20 modules, `e2e` 15, `gate` 10. These are test and tooling code
+- **Fan-in at the top:** `cli` imports 20 modules, `e2e` 15, `gate` 10. These are test and eval_harness code
   shipped inside the product package.
 - **Process-global state:** `llm.FIXTURES`, `llm.before_live_call`, `llm.after_live_call`, `HR_AGENT_MODE`
   and `HR_CORPUS_DIR` are module or environment globals. The parallel gate needed per-thread metering and a
@@ -29,14 +29,14 @@ ports/           interfaces: Model, Store, Retriever, Identity   imports: core
 adapters/        anthropic, claude-cli, fixtures | sqlite, postgres | qdrant, memory | oidc, personas
 agent/           graph, specialists, agent loop, MCP client      imports: core, ports
 services/
-  tools/         MCP tool server                                 imports: core, ports
+  hr_tools/         MCP tool server                                 imports: core, ports
   web/           FastAPI app + workspace                         imports: core, ports, agent
   a2a/           time-off agent + payroll peer                   imports: core, ports, agent
-tooling/         evals, gate, e2e, report, rag-eval, CLI         imports: everything, shipped by nothing
+eval_harness/         evals, gate, e2e, report, rag-eval, CLI         imports: everything, shipped by nothing
 ```
 
 Rules: `core` imports nothing; `ports` imports only `core`; `agent` never imports a service; no service
-imports another service; nothing imports `tooling`. "Monorepo" here means one repository with
+imports another service; nothing imports `eval_harness`. "Monorepo" here means one repository with
 packages (a `uv` workspace is enough at this size). Bazel, Buck or Pants earns its cost only with a
 second team or product.
 
@@ -71,9 +71,9 @@ Order is by value per risk. Stages 1 to 3 are the ones worth doing for their own
   and file-lock workarounds in `llm`; all tests unchanged.
 
 ### Stage 4: separate what ships from what tests (1 day)
-- Move `gate`, `evals`, `e2e`, `report`, `rag_eval` and the eval data into `tooling/`.
+- Move `gate`, `evals`, `e2e`, `report`, `rag_eval` and the eval data into `eval_harness/`.
 - Split `cli.py` into one small module per command group; the product CLI keeps `run`, `web`, `a2a`, `mcp`, `migrate`.
-- Exit: the Docker image no longer contains tooling; `tooling` depends on the product, never the reverse.
+- Exit: the Docker image no longer contains eval_harness; `eval_harness` depends on the product, never the reverse.
 
 ### Stage 5: services depend on libraries, not on each other (1 to 2 days)
 - Move the workspace (authorization, spend cap, paused runs) out of `web/` into `agent/` or its own
@@ -112,12 +112,12 @@ Order is by value per risk. Stages 1 to 3 are the ones worth doing for their own
   `llm.observing` and `config.scoped_env` replace six hand-rolled save-and-restore blocks of globals.
   **Left out:** full constructor injection of a model object. `llm` still holds module-level defaults and `Workspace` still
   installs its spend-cap hooks at start; the scoped managers make every override restore-safe, which is what the gate needed.
-- **Stage 4:** `tooling/` holds evals, gate, e2e, report and rag-eval and their CLI commands. Nothing in the product imports it.
+- **Stage 4:** `eval_harness/` holds evals, gate, e2e, report and rag-eval and their CLI commands. Nothing in the product imports it.
   **Left out:** splitting the product commands inside `cli.py` into one module each.
 - **Stage 5:** `workspace.py` is a shared library under the web app and the A2A servers; the agent runtime depends on
   `ports.ToolHostPort`, not the HR tool server (built in `assembly.tool_host`).
 - **Stage 6:** `contracts/` (versioned MCP tool definitions and agent cards) with a drift test; the container image leaves
-  `tooling/` out (the product was verified to run without it).
+  `eval_harness/` out (the product was verified to run without it).
   **Left out on purpose:** splitting into several installable distributions in a `uv` workspace, and one image per service.
   At this size it adds a namespace-package and release-process cost without a second consumer to pay for it; the import
   contracts already give the isolation. Revisit when a service needs its own release cadence.
@@ -127,7 +127,10 @@ Order is by value per risk. Stages 1 to 3 are the ones worth doing for their own
 ## Follow-up: the directory structure now matches the layers
 
 The modules were first reorganised by rule (import contracts) while the files stayed in one flat folder. They now
-live in packages that mirror the layers: `core`, `adapters`, `tools`, `agent`, `services/{web,a2a}`, `tooling`, plus
-the CLI at the top. The import contract became a single `layers` contract (cli > tooling > clicommon > services > agent >
-tools > adapters > core) with the two front doors as independent siblings, plus four narrow rules. Module names did not
-change except the renames `mcp_server` to `tools/server`, `mcp_client` to `tools/client`, and `a2a_*` to `services/a2a/*`.
+live in packages that mirror the layers: `core`, `adapters`, `hr_tools`, `agent`, `services/{web,a2a}`, `eval_harness`, plus
+the CLI at the top. The import contract became a single `layers` contract (cli > eval_harness > clicommon > services > agent >
+hr_tools > adapters > core) with the two front doors as independent siblings, plus four narrow rules. Module names did not
+change except the renames `mcp_server` to `hr_tools/server`, `mcp_client` to `hr_tools/client`, and `a2a_*` to `services/a2a/*`.
+
+`tools/` and `tooling/` read too much alike (the HR tools the agents call, versus the evals and gate that test the
+product), so they became `hr_tools/` and `eval_harness/`.

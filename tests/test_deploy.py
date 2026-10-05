@@ -353,7 +353,7 @@ def test_the_mcp_server_serves_only_the_hosts_it_is_told_to_and_leaves_health_op
     from test_oidc import CFG, token, verifier
 
     from hr_timeoff_agent.services.a2a.common import OIDCBearer
-    from hr_timeoff_agent.tools.server import HRToolServer
+    from hr_timeoff_agent.hr_tools.server import HRToolServer
     from hr_timeoff_agent.adapters.oidc import BearerGuard
     from mcp.server.transport_security import TransportSecuritySettings
 

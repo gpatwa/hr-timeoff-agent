@@ -74,7 +74,7 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/tooling/gate.py",
+          "path": "hr_timeoff_agent/eval_harness/gate.py",
           "line": 352,
           "label": "run_gate"
         }
@@ -177,7 +177,7 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/tools/server.py",
+          "path": "hr_timeoff_agent/hr_tools/server.py",
           "line": 1,
           "label": "MCPServer"
         }

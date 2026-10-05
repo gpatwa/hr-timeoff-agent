@@ -20,7 +20,7 @@ os.environ.setdefault("HR_AGENT_OFFLINE", "1")
 from hr_timeoff_agent.agent import graph as graph_mod
 from hr_timeoff_agent.adapters import llm
 from hr_timeoff_agent.core import policy  # noqa: E402
-from hr_timeoff_agent.tooling import evals  # noqa: E402
+from hr_timeoff_agent.eval_harness import evals  # noqa: E402
 from hr_timeoff_agent.core.models import Finding, JudgeScore, Passage, Recommendation  # noqa: E402
 
 

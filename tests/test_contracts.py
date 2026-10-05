@@ -29,7 +29,7 @@ from hr_timeoff_agent.adapters import retrieval  # noqa: E402
 from hr_timeoff_agent.services.a2a.payroll import agent_card as payroll_card  # noqa: E402
 from hr_timeoff_agent.services.a2a.server import agent_card as timeoff_card  # noqa: E402
 from hr_timeoff_agent.agent.agents import COVERAGE_TOOLS, POLICY_TOOLS  # noqa: E402
-from hr_timeoff_agent.tools.server import HRToolServer  # noqa: E402
+from hr_timeoff_agent.hr_tools.server import HRToolServer  # noqa: E402
 
 DIR = Path(__file__).resolve().parent.parent / "contracts"
 MCP_FILE, A2A_FILE = DIR / "mcp-tools.json", DIR / "a2a-agent-cards.json"
