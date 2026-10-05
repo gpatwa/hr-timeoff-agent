@@ -31,7 +31,8 @@ from pydantic import BaseModel
 
 from . import llm, telemetry
 from .mcp_client import stdio_params, tool_definitions, try_tools
-from .mcp_server import HRToolServer, digest
+from .canonical import digest
+from .ports import ToolHostPort
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -74,7 +75,7 @@ def agent_key(model: str, system: str, user: str, schema: Type[BaseModel], tools
     return "agent-" + llm._key(model, system + "\n#tools:" + ",".join(sorted(tools)), user, schema)
 
 
-def _execute(server: HRToolServer, wanted: list[tuple[str, dict]]) -> list[ToolCall]:
+def _execute(server: ToolHostPort, wanted: list[tuple[str, dict]]) -> list[ToolCall]:
     out = []
     with telemetry.span("mcp.tools", calls=len(wanted), tools=",".join(t for t, _ in wanted)) as sp:
         for (tool, arguments), (ok, value) in zip(wanted, try_tools(wanted, server)):
@@ -87,7 +88,7 @@ def _execute(server: HRToolServer, wanted: list[tuple[str, dict]]) -> list[ToolC
     return out
 
 
-def _replay(server: HRToolServer, entry: dict, tools: list[str]) -> tuple[Any, list[ToolCall]]:
+def _replay(server: ToolHostPort, entry: dict, tools: list[str]) -> tuple[Any, list[ToolCall]]:
     trace = entry["trace"]
     for t in trace:
         if t["tool"] not in tools:
@@ -107,7 +108,7 @@ def run_agent(
     user: str,
     schema: Type[T],
     tools: list[str],
-    server: HRToolServer,
+    server: ToolHostPort,
     model: str = llm.AGENT_MODEL,
     record: bool = False,
     label: str = "",
@@ -184,7 +185,7 @@ def _run_agent(*, system, user, schema, tools, server, model, record, label) -> 
 
 # ── live: the Messages API ──────────────────────────────────────────────────
 
-def _via_api(*, model: str, system: str, user: str, schema: Type[T], tools: list[str], server: HRToolServer):
+def _via_api(*, model: str, system: str, user: str, schema: Type[T], tools: list[str], server: ToolHostPort):
     import anthropic
 
     client = llm.api_client()

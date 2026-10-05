@@ -1,7 +1,7 @@
 """A small synchronous client for the HR tool server.
 
 The agent graph is synchronous, so this wraps the async MCP client. Pass an
-`HRToolServer` for an in-process connection (tests, the demo) or leave it out to
+`ToolHostPort` for an in-process connection (tests, the demo) or leave it out to
 spawn the server as a subprocess over stdio, which is how an external MCP host
 would reach it.
 """
@@ -16,7 +16,7 @@ from typing import Any
 from mcp.client import Client
 from mcp.client.stdio import StdioServerParameters
 
-from .mcp_server import HRToolServer
+from .ports import ToolHostPort
 
 
 class ToolCallError(RuntimeError):
@@ -47,13 +47,13 @@ async def _call(target, calls: list[tuple[str, dict]]) -> list[Any]:
     return out
 
 
-def call_tools(calls: list[tuple[str, dict]], server: HRToolServer | None = None, *, reader: str = "manager") -> list[Any]:
+def call_tools(calls: list[tuple[str, dict]], server: ToolHostPort | None = None, *, reader: str = "manager") -> list[Any]:
     """Run tool calls over one connection and return each structured result, in order."""
     target = server.server if server is not None else stdio_params(reader)
     return asyncio.run(_call(target, calls))
 
 
-def call_tool(name: str, arguments: dict, server: HRToolServer | None = None, *, reader: str = "manager") -> Any:
+def call_tool(name: str, arguments: dict, server: ToolHostPort | None = None, *, reader: str = "manager") -> Any:
     return call_tools([(name, arguments)], server, reader=reader)[0]
 
 
@@ -66,7 +66,7 @@ async def _list(target) -> list[dict]:
         ]
 
 
-def list_tools(server: HRToolServer | None = None, *, reader: str = "manager") -> list[dict]:
+def list_tools(server: ToolHostPort | None = None, *, reader: str = "manager") -> list[dict]:
     return asyncio.run(_list(server.server if server is not None else stdio_params(reader)))
 
 
@@ -82,7 +82,7 @@ async def _try(target, calls: list[tuple[str, dict]]) -> list[tuple[bool, Any]]:
     return out
 
 
-def try_tools(calls: list[tuple[str, dict]], server: HRToolServer | None = None, *, reader: str = "manager") -> list[tuple[bool, Any]]:
+def try_tools(calls: list[tuple[str, dict]], server: ToolHostPort | None = None, *, reader: str = "manager") -> list[tuple[bool, Any]]:
     """Like call_tools, but a failed call is data, not an exception: (False, message).
     An agent's bad argument is something to show it, not something to crash on."""
     target = server.server if server is not None else stdio_params(reader)
@@ -101,7 +101,7 @@ async def _definitions(target, names: list[str]) -> list[dict]:
     ]
 
 
-def tool_definitions(names: list[str], server: HRToolServer | None = None, *, reader: str = "manager") -> list[dict]:
+def tool_definitions(names: list[str], server: ToolHostPort | None = None, *, reader: str = "manager") -> list[dict]:
     """The named tools as Messages-API tool definitions, straight from the MCP server."""
     target = server.server if server is not None else stdio_params(reader)
     return asyncio.run(_definitions(target, names))

@@ -108,25 +108,25 @@ forbidden_modules = ["hr_timeoff_agent.web", "hr_timeoff_agent.a2a_server", "hr_
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
-name = "services do not import each other"
+name = "the front doors (web, A2A) do not import each other; both use workspace"
 type = "forbidden"
-source_modules = ["hr_timeoff_agent.a2a_server", "hr_timeoff_agent.a2a_payroll"]
+source_modules = ["hr_timeoff_agent.a2a_server", "hr_timeoff_agent.a2a_payroll", "hr_timeoff_agent.a2a_common", "hr_timeoff_agent.a2a_client", "hr_timeoff_agent.workspace"]
 forbidden_modules = ["hr_timeoff_agent.web"]
 allow_indirect_imports = true
-ignore_imports = [
-    "hr_timeoff_agent.a2a_server -> hr_timeoff_agent.web.workspace",   # stage 5: the workspace becomes a shared library
-]
 
 [[tool.importlinter.contracts]]
 name = "the agent runtime does not reach into the tool server's internals"
 type = "forbidden"
-source_modules = ["hr_timeoff_agent.agentloop", "hr_timeoff_agent.agents", "hr_timeoff_agent.graph"]
+source_modules = ["hr_timeoff_agent.agentloop", "hr_timeoff_agent.agents", "hr_timeoff_agent.graph", "hr_timeoff_agent.mcp_client", "hr_timeoff_agent.workspace"]
 forbidden_modules = ["hr_timeoff_agent.mcp_server"]
 allow_indirect_imports = true
-ignore_imports = [
-    "hr_timeoff_agent.agentloop -> hr_timeoff_agent.mcp_server",   # stage 5: depend on a tool contract, not the server
-    "hr_timeoff_agent.agents -> hr_timeoff_agent.mcp_server",      # stage 5
-]
+
+[[tool.importlinter.contracts]]
+name = "the web app does not import the A2A servers"
+type = "forbidden"
+source_modules = ["hr_timeoff_agent.web"]
+forbidden_modules = ["hr_timeoff_agent.a2a_server", "hr_timeoff_agent.a2a_payroll"]
+allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "graph (nodes) does not import agents; assembly joins them"

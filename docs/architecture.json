@@ -162,7 +162,7 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/web/workspace.py",
+          "path": "hr_timeoff_agent/workspace.py",
           "line": 86,
           "label": "Workspace"
         }
@@ -184,7 +184,7 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/web/workspace.py",
+          "path": "hr_timeoff_agent/workspace.py",
           "line": 86,
           "label": "Workspace"
         }

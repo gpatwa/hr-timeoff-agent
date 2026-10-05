@@ -30,6 +30,7 @@ from mcp.types import ToolAnnotations
 
 from pydantic import BaseModel
 
+from .canonical import canonical, digest  # noqa: F401  (re-exported)
 from . import policy, retrieval
 from .models import Finding, Passage
 
@@ -71,22 +72,6 @@ def _dates(*values: str) -> None:
             date.fromisoformat(v)
         except ValueError:
             raise ToolError(f"{v!r} is not an ISO date (YYYY-MM-DD).") from None
-
-
-def canonical(value: Any) -> Any:
-    """JSON-normal form: whole-number floats become ints, so 96 and 96.0 hash alike
-    however a client happened to serialize them."""
-    if isinstance(value, float) and value.is_integer():
-        return int(value)
-    if isinstance(value, dict):
-        return {k: canonical(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [canonical(v) for v in value]
-    return value
-
-
-def digest(value: Any) -> str:
-    return hashlib.sha256(json.dumps(canonical(value), sort_keys=True, default=str).encode()).hexdigest()[:16]
 
 
 class HRToolServer:

@@ -284,7 +284,7 @@ def check_a2a(t: policy.Tenant) -> str:
         from ..a2a_common import BearerTokens
         from ..a2a_payroll import create_payroll_app
         from ..a2a_server import create_timeoff_app
-        from ..web.workspace import Workspace
+        from ..workspace import Workspace
     except ImportError:
         raise CheckFailed("a2a extra not installed: pip install -e '.[a2a]'")
     logging.getLogger("a2a").setLevel(logging.ERROR)
@@ -370,7 +370,7 @@ def check_live_agent_call(t: policy.Tenant) -> str:
 def check_live_multi_agent(t: policy.Tenant) -> str:
     """The specialists run live for REQ-2004 into scratch caches, then replay from them."""
     from .. import retrieval
-    from ..agents import _mcp_server
+    from ..assembly import tool_host as _mcp_server
 
     with tempfile.TemporaryDirectory() as d:
         scratch, emb = Path(d) / "llm_cache.json", Path(d) / "embeddings.json"

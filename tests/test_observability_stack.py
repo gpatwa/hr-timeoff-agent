@@ -33,7 +33,7 @@ import httpx  # noqa: E402
 
 from hr_timeoff_agent import graph as graph_mod, llm, telemetry  # noqa: E402
 from hr_timeoff_agent.models import Recommendation  # noqa: E402
-from hr_timeoff_agent.web.workspace import Workspace  # noqa: E402
+from hr_timeoff_agent.workspace import Workspace  # noqa: E402
 
 JAEGER, PROM = os.environ["HR_JAEGER_URL"].rstrip("/"), os.environ["HR_PROMETHEUS_URL"].rstrip("/")
 SERVICE = f"hr-smoke-{uuid.uuid4().hex[:8]}"

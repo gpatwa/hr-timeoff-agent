@@ -21,8 +21,8 @@ from . import evidence, policy
 from .agentloop import AgentRun, run_agent
 from .graph import ASSESS_SYSTEM, _index, build_assess_prompt, outage_recommendation
 from .llm import ModelUnavailable, structured
-from .mcp_server import HRToolServer
 from .models import Finding, Passage, Recommendation
+from .ports import ToolHostPort
 
 POLICY_TOOLS = ["search_handbook", "search_precedents", "get_worker"]
 COVERAGE_TOOLS = ["team_availability", "get_balance", "get_worker"]
@@ -103,14 +103,8 @@ def coordinator_prompt(state: dict) -> str:
     return "\n".join(lines)
 
 
-def _mcp_server(tenant: policy.Tenant) -> HRToolServer:
-    if not hasattr(tenant, "_mcp_server"):
-        tenant._mcp_server = HRToolServer(tenant, index=_index(tenant), reader="manager")
-    return tenant._mcp_server
-
-
-def make_multi_nodes(tenant: policy.Tenant, *, record_llm: bool = False):
-    server = _mcp_server(tenant)
+def make_multi_nodes(tenant: policy.Tenant, tools: ToolHostPort, *, record_llm: bool = False):
+    server = tools
 
     def investigate(state: dict, name: str, system: str, tools: list[str]) -> tuple[AgentRun, list[dict]]:
         run = run_agent(

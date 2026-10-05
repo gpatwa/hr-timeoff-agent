@@ -11,7 +11,16 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 
 from . import policy
-from .graph import AgentState, make_nodes, traced_node
+from .graph import AgentState, _index, make_nodes, traced_node
+
+
+def tool_host(tenant: policy.Tenant):
+    """The HR tool server for this tenant, built once. Needs the mcp extra."""
+    from .mcp_server import HRToolServer
+
+    if not hasattr(tenant, "_mcp_server"):
+        tenant._mcp_server = HRToolServer(tenant, index=_index(tenant), reader="manager")
+    return tenant._mcp_server
 
 
 def agent_mode() -> str:
@@ -46,7 +55,7 @@ def build(tenant: policy.Tenant, *, record_llm: bool = False, checkpointer=None,
     else:
         from .agents import make_multi_nodes  # needs the mcp extra
 
-        policy_specialist, coverage_specialist, coordinate = make_multi_nodes(tenant, record_llm=record_llm)
+        policy_specialist, coverage_specialist, coordinate = make_multi_nodes(tenant, tool_host(tenant), record_llm=record_llm)
         g.add_node("policy_specialist", traced_node("policy_specialist", policy_specialist))
         g.add_node("coverage_specialist", traced_node("coverage_specialist", coverage_specialist))
         g.add_node("assess", traced_node("assess", coordinate))
