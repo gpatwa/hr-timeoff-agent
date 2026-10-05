@@ -1,0 +1,148 @@
+{
+  "contract": {
+    "payroll agent": {
+      "capabilities": {
+        "pushNotifications": false,
+        "streaming": false
+      },
+      "defaultInputModes": [
+        "application/json"
+      ],
+      "defaultOutputModes": [
+        "application/json",
+        "text/plain"
+      ],
+      "description": "Estimates the pay effect of unpaid leave for one tenant. Deterministic; reads its own compensation data.",
+      "name": "Payroll impact agent",
+      "provider": {
+        "organization": "hr-timeoff-agent (synthetic)",
+        "url": "http://example.invalid"
+      },
+      "securityRequirements": [
+        {
+          "schemes": {
+            "bearer": {}
+          }
+        }
+      ],
+      "securitySchemes": {
+        "bearer": {
+          "httpAuthSecurityScheme": {
+            "description": "Service token",
+            "scheme": "Bearer"
+          }
+        }
+      },
+      "skills": [
+        {
+          "description": "Given tenant_id, worker_id, unpaid_hours, start and end, returns the estimated pay reduction by pay period and whether payroll sign-off or a benefits review is required.",
+          "examples": [
+            "{\"skill\": \"assess_unpaid_leave_impact\", \"tenant_id\": \"TEN-001\", \"worker_id\": \"W-100237\", \"unpaid_hours\": 80, \"start\": \"2026-10-19\", \"end\": \"2026-11-06\"}"
+          ],
+          "id": "assess_unpaid_leave_impact",
+          "inputModes": [
+            "application/json"
+          ],
+          "name": "Assess unpaid-leave impact",
+          "outputModes": [
+            "application/json"
+          ],
+          "tags": [
+            "payroll",
+            "unpaid-leave"
+          ]
+        }
+      ],
+      "supportedInterfaces": [
+        {
+          "protocolBinding": "JSONRPC",
+          "protocolVersion": "1.0",
+          "url": "http://example.invalid/a2a/jsonrpc"
+        }
+      ],
+      "version": "1.0.0"
+    },
+    "time-off agent": {
+      "capabilities": {
+        "pushNotifications": false,
+        "streaming": false
+      },
+      "defaultInputModes": [
+        "application/json"
+      ],
+      "defaultOutputModes": [
+        "application/json",
+        "text/plain"
+      ],
+      "description": "Files and triages time-off requests, and prepares them for the approving manager. The agent recommends; only the requester's direct manager decides, and the decision is checked by an approval gate and recorded in a hash-chained evidence trail.",
+      "name": "Time-off triage agent",
+      "provider": {
+        "organization": "hr-timeoff-agent (synthetic data)",
+        "url": "http://example.invalid"
+      },
+      "securityRequirements": [
+        {
+          "schemes": {
+            "bearer": {}
+          }
+        }
+      ],
+      "securitySchemes": {
+        "bearer": {
+          "httpAuthSecurityScheme": {
+            "description": "Per-worker token",
+            "scheme": "Bearer"
+          }
+        }
+      },
+      "skills": [
+        {
+          "description": "For an employee. Data: plan (default PTO), from, to (YYYY-MM-DD), hours (optional), note. Completes with the request id and the required approver.",
+          "examples": [
+            "{\"skill\": \"file_time_off_request\", \"plan\": \"PTO\", \"from\": \"2026-11-30\", \"to\": \"2026-12-02\", \"note\": \"Family trip\"}"
+          ],
+          "id": "file_time_off_request",
+          "inputModes": [
+            "application/json"
+          ],
+          "name": "File a time-off request",
+          "outputModes": [
+            "application/json"
+          ],
+          "tags": [
+            "time-off",
+            "employee"
+          ]
+        },
+        {
+          "description": "For a manager or HR. Data: request_id. For the requester's direct manager the task pauses in input-required with the recommendation, findings and payroll impact; reply on the same task with data {outcome: approved|declined|returned, note}. Anyone else who may see the request gets a completed, view-only review.",
+          "examples": [
+            "{\"skill\": \"review_time_off_request\", \"request_id\": \"REQ-2004\"}"
+          ],
+          "id": "review_time_off_request",
+          "inputModes": [
+            "application/json"
+          ],
+          "name": "Review a time-off request as the approver",
+          "outputModes": [
+            "application/json"
+          ],
+          "tags": [
+            "time-off",
+            "approver",
+            "human-in-the-loop"
+          ]
+        }
+      ],
+      "supportedInterfaces": [
+        {
+          "protocolBinding": "JSONRPC",
+          "protocolVersion": "1.0",
+          "url": "http://example.invalid/a2a/jsonrpc"
+        }
+      ],
+      "version": "1.0.0"
+    }
+  },
+  "contract_version": "1.0.0"
+}
