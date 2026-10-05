@@ -29,10 +29,11 @@ import os
 import warnings
 from pathlib import Path
 
-from .. import assembly, graph as graph_mod
-from .. import policy, retrieval
-from ..llm import AGENT_MODEL, is_offline
-from ..models import Finding, Passage
+from ..agent import assembly, graph as graph_mod
+from ..core import policy
+from ..adapters import retrieval
+from ..adapters.llm import AGENT_MODEL, is_offline
+from ..core.models import Finding, Passage
 
 EVAL_DIR = Path(__file__).resolve().parent.parent.parent / "evals"
 

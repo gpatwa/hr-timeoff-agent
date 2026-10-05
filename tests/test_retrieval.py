@@ -12,7 +12,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 os.environ.setdefault("HR_AGENT_OFFLINE", "1")  # every vector used here is cached
 
-from hr_timeoff_agent import assembly, graph as graph_mod, policy, retrieval  # noqa: E402
+from hr_timeoff_agent.agent import assembly, graph as graph_mod
+from hr_timeoff_agent.core import policy
+from hr_timeoff_agent.adapters import retrieval  # noqa: E402
 
 # Text lifted from the other tenant's handbook: the strongest possible match for it.
 OTHER_TENANT_TEXT = (

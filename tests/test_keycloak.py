@@ -33,13 +33,13 @@ os.environ.setdefault("HR_PUBLIC_URL", "http://localhost:8000")
 import httpx  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from hr_timeoff_agent.a2a_client import A2AAgent  # noqa: E402
-from hr_timeoff_agent.a2a_common import OIDCBearer  # noqa: E402
-from hr_timeoff_agent.a2a_payroll import DATA as PAYROLL_DATA, create_payroll_app  # noqa: E402
-from hr_timeoff_agent.a2a_server import create_timeoff_app  # noqa: E402
-from hr_timeoff_agent.oidc import OIDCConfig, Provider, ServiceTokens, password_grant  # noqa: E402
-from hr_timeoff_agent.web.app import create_app  # noqa: E402
-from hr_timeoff_agent.workspace import Workspace  # noqa: E402
+from hr_timeoff_agent.services.a2a.client import A2AAgent  # noqa: E402
+from hr_timeoff_agent.services.a2a.common import OIDCBearer  # noqa: E402
+from hr_timeoff_agent.services.a2a.payroll import DATA as PAYROLL_DATA, create_payroll_app  # noqa: E402
+from hr_timeoff_agent.services.a2a.server import create_timeoff_app  # noqa: E402
+from hr_timeoff_agent.adapters.oidc import OIDCConfig, Provider, ServiceTokens, password_grant  # noqa: E402
+from hr_timeoff_agent.services.web.app import create_app  # noqa: E402
+from hr_timeoff_agent.agent.workspace import Workspace  # noqa: E402
 
 CFG = OIDCConfig.from_env()
 PASSWORD = "hr-demo-pass"

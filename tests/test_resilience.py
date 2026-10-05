@@ -27,12 +27,14 @@ logging.getLogger("a2a").setLevel(logging.ERROR)
 
 import httpx  # noqa: E402
 
-from hr_timeoff_agent import agents as agents_mod, evidence, graph as graph_mod, llm, policy  # noqa: E402
-from hr_timeoff_agent.a2a_client import A2AAgent  # noqa: E402
-from hr_timeoff_agent.a2a_common import PeerBreaker  # noqa: E402
-from hr_timeoff_agent.a2a_server import create_timeoff_app  # noqa: E402
-from hr_timeoff_agent.models import Recommendation  # noqa: E402
-from hr_timeoff_agent.workspace import Invalid, Workspace  # noqa: E402
+from hr_timeoff_agent.agent import agents as agents_mod, graph as graph_mod
+from hr_timeoff_agent.core import evidence, policy
+from hr_timeoff_agent.adapters import llm  # noqa: E402
+from hr_timeoff_agent.services.a2a.client import A2AAgent  # noqa: E402
+from hr_timeoff_agent.services.a2a.common import PeerBreaker  # noqa: E402
+from hr_timeoff_agent.services.a2a.server import create_timeoff_app  # noqa: E402
+from hr_timeoff_agent.core.models import Recommendation  # noqa: E402
+from hr_timeoff_agent.agent.workspace import Invalid, Workspace  # noqa: E402
 
 PRIYA, DANA, AIKO, SAMUEL = "W-100234", "W-100001", "W-100236", "W-100237"
 ALL_PASS = {"start": "2026-11-30", "end": "2026-12-02", "hours": "", "note": "Family trip, booked months ago.", "plan": "PTO"}
@@ -305,7 +307,7 @@ def _stack_with_payroll(transport):
 
 
 def test_a_slow_payroll_peer_costs_a_bounded_wait_then_is_skipped():
-    import hr_timeoff_agent.a2a_server as srv
+    import hr_timeoff_agent.services.a2a.server as srv
     from test_a2a import AIKO as A_AIKO, REVIEW
 
     seen = [0]

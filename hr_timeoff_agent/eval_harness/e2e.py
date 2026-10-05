@@ -23,8 +23,10 @@ from typing import Callable
 
 from langgraph.types import Command
 
-from .. import assembly, config, evidence, graph as graph_mod, llm, policy, retrieval
-from ..models import Recommendation
+from ..agent import assembly, graph as graph_mod
+from ..core import config, evidence, policy
+from ..adapters import llm, retrieval
+from ..core.models import Recommendation
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -188,7 +190,7 @@ def check_web_app(t: policy.Tenant) -> str:
     try:
         from fastapi.testclient import TestClient
 
-        from ..web.app import create_app
+        from ..services.web.app import create_app
     except ImportError:
         raise CheckFailed("web extra not installed: pip install -e '.[web]'")
     import html
@@ -221,7 +223,7 @@ def check_web_app(t: policy.Tenant) -> str:
 def check_mcp_tools(t: policy.Tenant) -> str:
     """The HR tools over MCP, through a real child process speaking the protocol."""
     try:
-        from ..mcp_client import ToolCallError, call_tool, list_tools
+        from ..hr_tools.client import ToolCallError, call_tool, list_tools
     except ImportError:
         raise CheckFailed("mcp extra not installed: pip install -e '.[mcp]'")
 
@@ -251,7 +253,7 @@ def check_mcp_tools(t: policy.Tenant) -> str:
 def check_multi_agent(t: policy.Tenant) -> str:
     """The multi-agent assessment on all five requests, replayed from recorded trajectories."""
     try:
-        from ..agents import POLICY_TOOLS, COVERAGE_TOOLS
+        from ..agent.agents import POLICY_TOOLS, COVERAGE_TOOLS
     except ImportError:
         raise CheckFailed("mcp extra not installed: pip install -e '.[mcp]'")
     allowed = {"policy_specialist": set(POLICY_TOOLS), "coverage_specialist": set(COVERAGE_TOOLS)}
@@ -280,11 +282,11 @@ def check_a2a(t: policy.Tenant) -> str:
 
         import httpx
 
-        from ..a2a_client import A2AAgent
-        from ..a2a_common import BearerTokens
-        from ..a2a_payroll import create_payroll_app
-        from ..a2a_server import create_timeoff_app
-        from ..workspace import Workspace
+        from ..services.a2a.client import A2AAgent
+        from ..services.a2a.common import BearerTokens
+        from ..services.a2a.payroll import create_payroll_app
+        from ..services.a2a.server import create_timeoff_app
+        from ..agent.workspace import Workspace
     except ImportError:
         raise CheckFailed("a2a extra not installed: pip install -e '.[a2a]'")
     logging.getLogger("a2a").setLevel(logging.ERROR)
@@ -369,8 +371,8 @@ def check_live_agent_call(t: policy.Tenant) -> str:
 
 def check_live_multi_agent(t: policy.Tenant) -> str:
     """The specialists run live for REQ-2004 into scratch caches, then replay from them."""
-    from .. import retrieval
-    from ..assembly import tool_host as _mcp_server
+    from ..adapters import retrieval
+    from ..agent.assembly import tool_host as _mcp_server
 
     with tempfile.TemporaryDirectory() as d:
         scratch, emb = Path(d) / "llm_cache.json", Path(d) / "embeddings.json"

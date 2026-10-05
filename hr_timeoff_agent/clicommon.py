@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .llm import is_offline
+from .adapters.llm import is_offline
 
 OUT = Path(__file__).resolve().parent.parent / "out"
 RULE = "─" * 74

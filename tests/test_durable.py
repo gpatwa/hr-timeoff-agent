@@ -32,13 +32,14 @@ os.environ["HR_DATABASE_SCHEMA"] = "auto"
 
 import httpx  # noqa: E402
 
-from hr_timeoff_agent import graph as graph_mod, llm  # noqa: E402
-from hr_timeoff_agent.a2a_client import A2AAgent  # noqa: E402
-from hr_timeoff_agent.a2a_common import BearerTokens  # noqa: E402
-from hr_timeoff_agent.a2a_server import create_timeoff_app  # noqa: E402
-from hr_timeoff_agent.models import Recommendation  # noqa: E402
-from hr_timeoff_agent.storage import PostgresStore  # noqa: E402
-from hr_timeoff_agent.workspace import Workspace  # noqa: E402
+from hr_timeoff_agent.agent import graph as graph_mod
+from hr_timeoff_agent.adapters import llm  # noqa: E402
+from hr_timeoff_agent.services.a2a.client import A2AAgent  # noqa: E402
+from hr_timeoff_agent.services.a2a.common import BearerTokens  # noqa: E402
+from hr_timeoff_agent.services.a2a.server import create_timeoff_app  # noqa: E402
+from hr_timeoff_agent.core.models import Recommendation  # noqa: E402
+from hr_timeoff_agent.adapters.storage import PostgresStore  # noqa: E402
+from hr_timeoff_agent.agent.workspace import Workspace  # noqa: E402
 
 PRIYA, AIKO, SAMUEL = "W-100234", "W-100236", "W-100237"
 ALL_PASS = {"start": "2026-11-30", "end": "2026-12-02", "hours": "", "note": "Family trip, booked months ago.", "plan": "PTO"}
@@ -156,7 +157,7 @@ def test_loading_the_qdrant_index_twice_does_not_duplicate_it():
     if not url:
         print("    (HR_QDRANT_URL not set: Qdrant check skipped)")
         return
-    from hr_timeoff_agent import retrieval
+    from hr_timeoff_agent.adapters import retrieval
 
     first = retrieval.PolicyIndex(qdrant_url=url)
     before = first.client.count("handbook").count, first.client.count("precedents").count

@@ -12,8 +12,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from langgraph.types import Command  # noqa: E402
 
-from hr_timeoff_agent import assembly, evidence, graph as graph_mod, policy  # noqa: E402
-from hr_timeoff_agent.models import Decision  # noqa: E402
+from hr_timeoff_agent.agent import assembly, graph as graph_mod
+from hr_timeoff_agent.core import evidence, policy  # noqa: E402
+from hr_timeoff_agent.core.models import Decision  # noqa: E402
 
 DANA = "W-100001"   # Priya's manager (REQ-2001, REQ-2005)
 AIKO = "W-100236"   # Samuel's manager (REQ-2004); also the requester in REQ-2003

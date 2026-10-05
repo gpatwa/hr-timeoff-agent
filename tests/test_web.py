@@ -22,9 +22,10 @@ os.environ.setdefault("HR_AGENT_OFFLINE", "1")
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from hr_timeoff_agent import graph as graph_mod, llm  # noqa: E402
-from hr_timeoff_agent.models import Recommendation  # noqa: E402
-from hr_timeoff_agent.web.app import create_app  # noqa: E402
+from hr_timeoff_agent.agent import graph as graph_mod
+from hr_timeoff_agent.adapters import llm  # noqa: E402
+from hr_timeoff_agent.core.models import Recommendation  # noqa: E402
+from hr_timeoff_agent.services.web.app import create_app  # noqa: E402
 
 PRIYA, MARCUS, AIKO, SAMUEL, DANA, GRACE = "W-100234", "W-100235", "W-100236", "W-100237", "W-100001", "W-100003"
 # Same note as REQ-2001 and every rule passing, so the retrieval query is one

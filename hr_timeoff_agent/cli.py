@@ -23,9 +23,10 @@ from pathlib import Path
 
 from langgraph.types import Command
 
-from . import assembly, evidence, graph as graph_mod, policy
+from .agent import assembly, graph as graph_mod
+from .core import evidence, policy
 from .clicommon import OUT, RULE, mode_banner as _mode_banner
-from .llm import OfflineCacheMiss
+from .adapters.llm import OfflineCacheMiss
 
 
 
@@ -129,11 +130,11 @@ def cmd_web(args) -> int:
     try:
         import uvicorn
 
-        from .web.app import create_app
+        from .services.web.app import create_app
     except ImportError:
         print("The web app needs the web extra:\n  ./.venv/bin/pip install -e '.[web]'")
         return 2
-    from . import telemetry
+    from .adapters import telemetry
 
     telemetry.init("hr-web")
     telemetry.setup_logging()
@@ -147,14 +148,14 @@ def cmd_web(args) -> int:
 
 
 def cmd_migrate(args) -> int:
-    from .storage import database_settings
+    from .adapters.storage import database_settings
 
     settings = database_settings(Path("."))
     if settings is None:
         print("Migrations apply to Postgres. Set HR_DATABASE_URL (local files need none).")
         return 2
     try:
-        from . import migrations
+        from .adapters import migrations
     except ImportError:
         print("Postgres support needs the postgres extra:\n  ./.venv/bin/pip install -e '.[postgres]'")
         return 2
@@ -175,7 +176,7 @@ def cmd_migrate(args) -> int:
 def cmd_init(args) -> int:
     """Migrate and seed once, up front, so the services that share a database start into a finished one."""
     try:
-        from .workspace import Workspace
+        from .agent.workspace import Workspace
     except ImportError:
         print("Needs the web extra:\n  ./.venv/bin/pip install -e '.[web]'")
         return 2
@@ -188,7 +189,7 @@ def cmd_init(args) -> int:
 
 def cmd_mcp(args) -> int:
     try:
-        from .mcp_server import HRToolServer
+        from .hr_tools.server import HRToolServer
     except ImportError:
         print("The MCP server needs the mcp extra:\n  ./.venv/bin/pip install -e '.[mcp]'")
         return 2
@@ -196,7 +197,7 @@ def cmd_mcp(args) -> int:
     if not args.http:
         server.run("stdio")
         return 0
-    from .oidc import OIDCConfig
+    from .adapters.oidc import OIDCConfig
 
     cfg = OIDCConfig.from_env()
     if cfg is None:
@@ -208,9 +209,9 @@ def cmd_mcp(args) -> int:
         return 0
     import uvicorn
 
-    from . import telemetry
-    from .a2a_common import OIDCBearer
-    from .oidc import BearerGuard
+    from .adapters import telemetry
+    from .services.a2a.common import OIDCBearer
+    from .adapters.oidc import BearerGuard
 
     telemetry.init("hr-mcp")
     telemetry.setup_logging()
@@ -232,8 +233,8 @@ def _a2a_setup(home: Path):
     """Workspace, token directory and apps for the two A2A agents."""
     import secrets as _secrets
 
-    from .a2a_common import BearerTokens
-    from .workspace import Workspace
+    from .services.a2a.common import BearerTokens
+    from .agent.workspace import Workspace
 
     ws = Workspace(home)
     secret = os.environ.get("HR_A2A_SECRET") or _secrets.token_hex(16)
@@ -248,13 +249,13 @@ def cmd_a2a(args) -> int:
 
         import uvicorn
 
-        from .a2a_client import A2AAgent
-        from .a2a_payroll import create_payroll_app
-        from .a2a_server import create_timeoff_app
+        from .services.a2a.client import A2AAgent
+        from .services.a2a.payroll import create_payroll_app
+        from .services.a2a.server import create_timeoff_app
     except ImportError:
         print("The A2A agents need the a2a extra:\n  ./.venv/bin/pip install -e '.[a2a]'")
         return 2
-    from . import telemetry
+    from .adapters import telemetry
 
     telemetry.init("hr-a2a")
     telemetry.setup_logging()
@@ -264,7 +265,7 @@ def cmd_a2a(args) -> int:
     # proxy that is not the address it binds, so it can be set.
     tf_url = os.environ.get("HR_A2A_TIMEOFF_URL") or f"http://{args.host}:{args.port}"
     pay_url = os.environ.get("HR_A2A_PAYROLL_URL") or f"http://{args.host}:{args.payroll_port}"
-    from .oidc import OIDCConfig
+    from .adapters.oidc import OIDCConfig
 
     oidc = OIDCConfig.from_env()
     if oidc:
@@ -272,9 +273,9 @@ def cmd_a2a(args) -> int:
         # calls payroll with its own client-credentials token, bound to this tenant.
         import json as _json
 
-        from .a2a_common import OIDCBearer
-        from .a2a_payroll import DATA as PAYROLL_DATA
-        from .oidc import ServiceTokens
+        from .services.a2a.common import OIDCBearer
+        from .services.a2a.payroll import DATA as PAYROLL_DATA
+        from .adapters.oidc import ServiceTokens
 
         client = os.environ.get("HR_OIDC_SERVICE_CLIENT_ID", "timeoff-agent")
         secret = os.environ.get("HR_OIDC_SERVICE_CLIENT_SECRET")
@@ -324,9 +325,9 @@ def cmd_a2a_demo(args) -> int:
 
         import httpx
 
-        from .a2a_client import A2AAgent
-        from .a2a_payroll import create_payroll_app
-        from .a2a_server import create_timeoff_app
+        from .services.a2a.client import A2AAgent
+        from .services.a2a.payroll import create_payroll_app
+        from .services.a2a.server import create_timeoff_app
     except ImportError:
         print("The A2A agents need the a2a extra:\n  ./.venv/bin/pip install -e '.[a2a]'")
         return 2
@@ -424,15 +425,15 @@ def main(argv: list[str] | None = None) -> int:
     ini.add_argument("--home", help="state directory (default: HR_WEB_HOME or var)")
     ini.set_defaults(func=cmd_init)
 
-    try:  # the eval, gate and self-test commands live in tooling, which a slim install may not ship
-        from .tooling import commands as tooling_commands
+    try:  # the eval, gate and self-test commands live in eval_harness, which a slim install may not ship
+        from .eval_harness import commands as harness_commands
     except ImportError:
-        tooling_commands = None
-    if tooling_commands:
-        tooling_commands.register(sub)
+        harness_commands = None
+    if harness_commands:
+        harness_commands.register(sub)
 
     args = p.parse_args(argv)
-    from .config import MissingSecret, load_file_secrets
+    from .core.config import MissingSecret, load_file_secrets
 
     try:
         load_file_secrets()   # NAME_FILE=/run/secrets/x fills NAME, for containers

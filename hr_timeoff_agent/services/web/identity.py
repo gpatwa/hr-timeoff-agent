@@ -96,7 +96,7 @@ class OIDCIdentity:
 
     def __init__(self, cfg, workspace, *, secret: str | None = None, provider=None, verifier=None,
                  http: httpx.Client | None = None, now=time.time):
-        from ..oidc import Provider, TokenVerifier
+        from ...adapters.oidc import Provider, TokenVerifier
 
         key = secret or os.environ.get("HR_WEB_SECRET")
         if not key:
@@ -162,7 +162,7 @@ class OIDCIdentity:
     def complete(self, request: Request) -> str:
         """Finish the flow from the callback request. Returns the worker id, or raises
         `SignInFailed` with a message that is safe to show."""
-        from ..oidc import InvalidToken, Unauthorized, caller_from_claims
+        from ...adapters.oidc import InvalidToken, Unauthorized, caller_from_claims
 
         tx = self._unseal(request.cookies.get(LOGIN_TX), "login")
         q = request.query_params
@@ -205,7 +205,7 @@ class SignInFailed(Exception):
 
 
 def identity_from_env(workspace) -> IdentityProvider:
-    from ..oidc import OIDCConfig
+    from ...adapters.oidc import OIDCConfig
 
     cfg = OIDCConfig.from_env()
     return OIDCIdentity(cfg, workspace) if cfg else PersonaSwitcher()

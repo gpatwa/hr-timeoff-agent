@@ -20,11 +20,12 @@ os.environ["HR_AGENT_OFFLINE"] = "1"
 for var in ("HR_DATABASE_URL", "HR_OIDC_ISSUER", "ANTHROPIC_API_KEY"):
     os.environ.pop(var, None)
 
-from hr_timeoff_agent import agents, llm  # noqa: E402
-from hr_timeoff_agent.tooling import gate  # noqa: E402
-from hr_timeoff_agent.agentloop import AgentRun  # noqa: E402
+from hr_timeoff_agent.agent import agents
+from hr_timeoff_agent.adapters import llm  # noqa: E402
+from hr_timeoff_agent.eval_harness import gate  # noqa: E402
+from hr_timeoff_agent.agent.agentloop import AgentRun  # noqa: E402
 from hr_timeoff_agent.cli import main  # noqa: E402
-from hr_timeoff_agent.models import Recommendation  # noqa: E402
+from hr_timeoff_agent.core.models import Recommendation  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 THRESHOLDS = json.loads((ROOT / "evals" / "thresholds.json").read_text())
@@ -174,7 +175,7 @@ def test_the_cli_exit_codes_are_pass_zero_fail_one_cannot_run_two():
 # ── the multi-agent run through the A2A agents, with the model stubbed ──────
 
 def _stub_agents(*, coverage_uses_tools: bool):
-    from hr_timeoff_agent.agentloop import _execute
+    from hr_timeoff_agent.agent.agentloop import _execute
 
     def fake_run_agent(*, system, user, schema, tools, server, model=llm.AGENT_MODEL, record=False, label=""):
         if "search_handbook" in tools:

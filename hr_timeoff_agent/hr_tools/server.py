@@ -30,9 +30,10 @@ from mcp.types import ToolAnnotations
 
 from pydantic import BaseModel
 
-from .canonical import canonical, digest  # noqa: F401  (re-exported)
-from . import policy, retrieval
-from .models import Finding, Passage
+from ..core.canonical import canonical, digest  # noqa: F401  (re-exported)
+from ..core import policy
+from ..adapters import retrieval
+from ..core.models import Finding, Passage
 
 READ_ONLY = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 

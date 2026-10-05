@@ -40,7 +40,7 @@ from . import telemetry
 # Overridable so a self-test can record into a scratch copy, never the committed file.
 FIXTURES = Path(
     os.environ.get("HR_AGENT_FIXTURES")
-    or Path(__file__).resolve().parent.parent / "fixtures" / "llm_cache.json"
+    or Path(__file__).resolve().parents[2] / "fixtures" / "llm_cache.json"
 )
 
 # The agent runs on Sonnet 5.5: the production tier, at half Opus 5.5's price

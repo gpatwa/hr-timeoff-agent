@@ -30,11 +30,13 @@ from pathlib import Path
 
 from langgraph.types import Command
 
-from . import assembly, evidence, graph as graph_mod, llm, policy, retrieval, telemetry
-from .storage import Store, open_store
-from .models import Finding
+from . import assembly, graph as graph_mod
+from ..core import evidence, policy
+from ..adapters import llm, retrieval, telemetry
+from ..adapters.storage import Store, open_store
+from ..core.models import Finding
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
 FIXTURES = ROOT / "fixtures"
 

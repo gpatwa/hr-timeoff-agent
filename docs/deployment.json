@@ -54,7 +54,7 @@
     ],
     "repository": {
       "url": "https://github.com/gpatwa/hr-timeoff-agent",
-      "revision": "8ff39e122d2ee76068a5bed316b19ad4aeec78fd"
+      "revision": "d771d25a93ec1fe020ea2cfd37bf767d67fd139d"
     }
   },
   "components": [
@@ -74,8 +74,8 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/gate.py",
-          "line": 1,
+          "path": "hr_timeoff_agent/eval_harness/gate.py",
+          "line": 352,
           "label": "run_gate"
         }
       ]
@@ -133,8 +133,8 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/web/app.py",
-          "line": 30,
+          "path": "hr_timeoff_agent/services/web/app.py",
+          "line": 32,
           "label": "create_app"
         }
       ]
@@ -155,8 +155,8 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/a2a_server.py",
-          "line": 247,
+          "path": "hr_timeoff_agent/services/a2a/server.py",
+          "line": 276,
           "label": "create_timeoff_app"
         }
       ]
@@ -177,7 +177,7 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/mcp_server.py",
+          "path": "hr_timeoff_agent/hr_tools/server.py",
           "line": 1,
           "label": "MCPServer"
         }
@@ -199,8 +199,8 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/migrations.py",
-          "line": 1,
+          "path": "hr_timeoff_agent/adapters/migrations.py",
+          "line": 86,
           "label": "migrate"
         }
       ]
@@ -243,8 +243,8 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/retrieval.py",
-          "line": 1,
+          "path": "hr_timeoff_agent/adapters/retrieval.py",
+          "line": 183,
           "label": "PolicyIndex"
         }
       ]

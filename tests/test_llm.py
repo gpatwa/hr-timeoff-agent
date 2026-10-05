@@ -14,8 +14,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from hr_timeoff_agent import llm  # noqa: E402
-from hr_timeoff_agent.models import Recommendation  # noqa: E402
+from hr_timeoff_agent.adapters import llm  # noqa: E402
+from hr_timeoff_agent.core.models import Recommendation  # noqa: E402
 
 REC = {"action": "decline", "rationale": "r", "cited_rule_ids": ["BAL-01"], "cited_passage_ids": [], "confidence": "high"}
 

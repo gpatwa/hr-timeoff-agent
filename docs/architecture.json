@@ -7,7 +7,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/gpatwa/hr-timeoff-agent",
-      "revision": "b50b46fc12cd013d775830730d0a3989675dfc52"
+      "revision": "d771d25a93ec1fe020ea2cfd37bf767d67fd139d"
     },
     "views": [
       {
@@ -74,8 +74,8 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/a2a_client.py",
-          "line": 42,
+          "path": "hr_timeoff_agent/services/a2a/client.py",
+          "line": 45,
           "label": "A2AAgent"
         }
       ]
@@ -96,8 +96,8 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/web/app.py",
-          "line": 30,
+          "path": "hr_timeoff_agent/services/web/app.py",
+          "line": 32,
           "label": "create_app"
         }
       ]
@@ -118,8 +118,8 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/a2a_payroll.py",
-          "line": 139,
+          "path": "hr_timeoff_agent/services/a2a/payroll.py",
+          "line": 145,
           "label": "create_payroll_app"
         }
       ]
@@ -140,8 +140,8 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/a2a_server.py",
-          "line": 247,
+          "path": "hr_timeoff_agent/services/a2a/server.py",
+          "line": 276,
           "label": "create_timeoff_app"
         }
       ]
@@ -162,8 +162,8 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/workspace.py",
-          "line": 86,
+          "path": "hr_timeoff_agent/agent/workspace.py",
+          "line": 91,
           "label": "Workspace"
         }
       ]
@@ -184,8 +184,8 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/workspace.py",
-          "line": 86,
+          "path": "hr_timeoff_agent/agent/workspace.py",
+          "line": 91,
           "label": "Workspace"
         }
       ]
@@ -206,13 +206,13 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/graph.py",
-          "line": 284,
+          "path": "hr_timeoff_agent/agent/assembly.py",
+          "line": 32,
           "label": "build"
         },
         {
-          "path": "hr_timeoff_agent/agents.py",
-          "line": 112,
+          "path": "hr_timeoff_agent/agent/agents.py",
+          "line": 106,
           "label": "make_multi_nodes"
         }
       ]
@@ -233,8 +233,8 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/llm.py",
-          "line": 105,
+          "path": "hr_timeoff_agent/adapters/llm.py",
+          "line": 198,
           "label": "structured()"
         }
       ]
@@ -255,12 +255,12 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/retrieval.py",
-          "line": 139,
+          "path": "hr_timeoff_agent/adapters/retrieval.py",
+          "line": 183,
           "label": "PolicyIndex"
         },
         {
-          "path": "hr_timeoff_agent/policy.py",
+          "path": "hr_timeoff_agent/core/policy.py",
           "line": 37,
           "label": "Tenant"
         }
@@ -282,8 +282,8 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/mcp_server.py",
-          "line": 90,
+          "path": "hr_timeoff_agent/hr_tools/server.py",
+          "line": 78,
           "label": "HRToolServer"
         }
       ]
@@ -304,7 +304,7 @@
       ],
       "sources": [
         {
-          "path": "hr_timeoff_agent/evidence.py",
+          "path": "hr_timeoff_agent/core/evidence.py",
           "line": 29,
           "label": "append / verify"
         }

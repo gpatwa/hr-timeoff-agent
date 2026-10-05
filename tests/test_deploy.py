@@ -27,10 +27,10 @@ for var in ("HR_OIDC_ISSUER",):
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from hr_timeoff_agent import config  # noqa: E402
+from hr_timeoff_agent.core import config  # noqa: E402
 from hr_timeoff_agent.cli import main  # noqa: E402
-from hr_timeoff_agent.web.app import create_app  # noqa: E402
-from hr_timeoff_agent.workspace import Workspace  # noqa: E402
+from hr_timeoff_agent.services.web.app import create_app  # noqa: E402
+from hr_timeoff_agent.agent.workspace import Workspace  # noqa: E402
 
 
 def import_helpers():
@@ -92,7 +92,7 @@ def test_the_cli_reads_file_secrets_before_anything_else_and_fails_clearly():
 # ── migrations ──────────────────────────────────────────────────────────────
 
 def _schema() -> tuple[str, str]:
-    from hr_timeoff_agent.storage import ensure_schema
+    from hr_timeoff_agent.adapters.storage import ensure_schema
 
     schema = "mig_" + uuid.uuid4().hex[:10]
     ensure_schema(PG, schema)
@@ -111,7 +111,7 @@ def test_saving_embeddings_keeps_what_another_process_added_meanwhile():
     only this process's copy back deleted its entries, and a later offline replay then failed."""
     import json
 
-    from hr_timeoff_agent import retrieval
+    from hr_timeoff_agent.adapters import retrieval
 
     with tempfile.TemporaryDirectory() as d:
         path = Path(d) / "embeddings.json"
@@ -130,7 +130,7 @@ def test_embeddings_still_work_when_the_cache_file_cannot_be_written():
     import json
     import stat
 
-    from hr_timeoff_agent import retrieval
+    from hr_timeoff_agent.adapters import retrieval
 
     with tempfile.TemporaryDirectory() as d:
         path = Path(d) / "embeddings.json"
@@ -148,7 +148,7 @@ def test_embeddings_still_work_when_the_cache_file_cannot_be_written():
 
 
 def test_local_only_mode_points_fastembed_at_the_baked_in_models():
-    from hr_timeoff_agent import retrieval
+    from hr_timeoff_agent.adapters import retrieval
 
     saved = {k: os.environ.get(k) for k in ("HR_EMBED_LOCAL_ONLY", "FASTEMBED_CACHE_PATH")}
     try:
@@ -167,7 +167,7 @@ def test_local_only_mode_points_fastembed_at_the_baked_in_models():
 
 @need_pg
 def test_migrations_apply_once_in_order_and_are_recorded():
-    from hr_timeoff_agent import migrations as m
+    from hr_timeoff_agent.adapters import migrations as m
 
     url, schema = _schema()
     assert m.migrate(url, schema) == [1] and m.migrate(url, schema) == []
@@ -180,7 +180,7 @@ def test_migrations_apply_once_in_order_and_are_recorded():
 
 @need_pg
 def test_a_failing_migration_rolls_back_completely_and_stops():
-    from hr_timeoff_agent import migrations as m
+    from hr_timeoff_agent.adapters import migrations as m
 
     url, schema = _schema()
     bad = [*m.MIGRATIONS, (2, "half then boom", "create table half_done (id int); select 1/0"), (3, "never reached", "create table after (id int)")]
@@ -193,7 +193,7 @@ def test_a_failing_migration_rolls_back_completely_and_stops():
 
 @need_pg
 def test_processes_starting_together_apply_each_migration_exactly_once():
-    from hr_timeoff_agent import migrations as m
+    from hr_timeoff_agent.adapters import migrations as m
 
     url, schema = _schema()
     slow = [*m.MIGRATIONS, (2, "slow", "create table slow_one (id int); select pg_sleep(0.5)")]
@@ -219,7 +219,7 @@ def test_waiting_for_a_lock_does_not_stall_a_concurrent_index_build():
     (LangGraph, building its indexes under the lock) was the one building the index."""
     import psycopg
 
-    from hr_timeoff_agent.storage import advisory_lock
+    from hr_timeoff_agent.adapters.storage import advisory_lock
 
     url, _ = _schema()
     key, table = f"lock-{uuid.uuid4().hex}", f"cic_{uuid.uuid4().hex[:8]}"
@@ -253,7 +253,7 @@ def test_waiting_for_a_lock_does_not_stall_a_concurrent_index_build():
 
 @need_pg
 def test_a_lock_that_stays_held_times_out_instead_of_hanging():
-    from hr_timeoff_agent.storage import LockTimeout, advisory_lock
+    from hr_timeoff_agent.adapters.storage import LockTimeout, advisory_lock
 
     url, _ = _schema()
     key = f"lock-{uuid.uuid4().hex}"
@@ -263,7 +263,7 @@ def test_a_lock_that_stays_held_times_out_instead_of_hanging():
 
 @need_pg
 def test_a_database_newer_than_the_code_is_refused():
-    from hr_timeoff_agent import migrations as m
+    from hr_timeoff_agent.adapters import migrations as m
 
     url, schema = _schema()
     newer = [*m.MIGRATIONS, (2, "from a later release", "create table later (id int)")]
@@ -276,7 +276,7 @@ def test_the_migrate_command_reports_and_applies():
     schema = "cmd_" + uuid.uuid4().hex[:10]
     os.environ["HR_DATABASE_SCHEMA"] = schema
     try:
-        from hr_timeoff_agent.storage import ensure_schema
+        from hr_timeoff_agent.adapters.storage import ensure_schema
 
         ensure_schema(PG, schema)
         assert main(["migrate", "--status"]) == 1, "pending migrations are a non-zero status"
@@ -352,9 +352,9 @@ def test_the_mcp_server_serves_only_the_hosts_it_is_told_to_and_leaves_health_op
     import_helpers()
     from test_oidc import CFG, token, verifier
 
-    from hr_timeoff_agent.a2a_common import OIDCBearer
-    from hr_timeoff_agent.mcp_server import HRToolServer
-    from hr_timeoff_agent.oidc import BearerGuard
+    from hr_timeoff_agent.services.a2a.common import OIDCBearer
+    from hr_timeoff_agent.hr_tools.server import HRToolServer
+    from hr_timeoff_agent.adapters.oidc import BearerGuard
     from mcp.server.transport_security import TransportSecuritySettings
 
     init = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {

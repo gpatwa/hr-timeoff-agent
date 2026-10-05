@@ -66,85 +66,58 @@ build-backend = "setuptools.build_meta"
 include = ["hr_timeoff_agent*"]
 
 [tool.setuptools.package-data]
-"hr_timeoff_agent.web" = ["templates/*.html", "static/*.css"]
+"hr_timeoff_agent.services.web" = ["templates/*.html", "static/*.css"]
 
-# Module boundaries (docs/refactor-plan.md, stage 1). A contract that is already broken lists the
-# offending import under ignore_imports with the stage that removes it. The lists may only shrink.
+# Module boundaries (docs/refactor-plan.md). The packages are layers: each may import only the ones below it,
+# and the two front doors under services/ may not import each other. A contract that is broken for a good
+# reason lists the offending import under ignore_imports; the list is empty today and may only shrink.
 [tool.importlinter]
 root_package = "hr_timeoff_agent"
 include_external_packages = false
 
 [[tool.importlinter.contracts]]
-name = "core is pure: policy, models, evidence, config and the ports import no other part of the app"
-type = "forbidden"
-source_modules = ["hr_timeoff_agent.policy", "hr_timeoff_agent.models", "hr_timeoff_agent.evidence", "hr_timeoff_agent.config", "hr_timeoff_agent.ports"]
-forbidden_modules = [
-    "hr_timeoff_agent.llm", "hr_timeoff_agent.graph", "hr_timeoff_agent.agents", "hr_timeoff_agent.agentloop",
-    "hr_timeoff_agent.retrieval", "hr_timeoff_agent.storage", "hr_timeoff_agent.migrations", "hr_timeoff_agent.oidc",
-    "hr_timeoff_agent.telemetry", "hr_timeoff_agent.mcp_server", "hr_timeoff_agent.mcp_client",
-    "hr_timeoff_agent.a2a_client", "hr_timeoff_agent.a2a_common", "hr_timeoff_agent.a2a_server", "hr_timeoff_agent.a2a_payroll",
-    "hr_timeoff_agent.web", "hr_timeoff_agent.cli", "hr_timeoff_agent.tooling",
+name = "layers: cli > eval_harness > clicommon > services > agent > hr_tools > adapters > core"
+type = "layers"
+layers = [
+    "hr_timeoff_agent.cli",
+    "hr_timeoff_agent.eval_harness",
+    "hr_timeoff_agent.clicommon",
+    "hr_timeoff_agent.services",
+    "hr_timeoff_agent.agent",
+    "hr_timeoff_agent.hr_tools",
+    "hr_timeoff_agent.adapters",
+    "hr_timeoff_agent.core",
 ]
 
 [[tool.importlinter.contracts]]
-name = "nothing in the product imports the tooling package (evals, gate, e2e, report)"
-type = "forbidden"
-source_modules = [
-    "hr_timeoff_agent.policy", "hr_timeoff_agent.models", "hr_timeoff_agent.evidence", "hr_timeoff_agent.config",
-    "hr_timeoff_agent.llm", "hr_timeoff_agent.graph", "hr_timeoff_agent.agents", "hr_timeoff_agent.agentloop",
-    "hr_timeoff_agent.retrieval", "hr_timeoff_agent.storage", "hr_timeoff_agent.migrations", "hr_timeoff_agent.oidc",
-    "hr_timeoff_agent.telemetry", "hr_timeoff_agent.mcp_server", "hr_timeoff_agent.mcp_client",
-    "hr_timeoff_agent.a2a_client", "hr_timeoff_agent.a2a_common", "hr_timeoff_agent.a2a_server", "hr_timeoff_agent.a2a_payroll",
-    "hr_timeoff_agent.web", "hr_timeoff_agent.pglock", "hr_timeoff_agent.assembly", "hr_timeoff_agent.ports", "hr_timeoff_agent.clicommon",
-]
-forbidden_modules = ["hr_timeoff_agent.tooling"]
-allow_indirect_imports = true
+name = "the front doors (web, A2A) do not import each other; both use agent.workspace"
+type = "layers"
+layers = ["hr_timeoff_agent.services.web | hr_timeoff_agent.services.a2a"]
 
 [[tool.importlinter.contracts]]
-name = "the agent runtime does not import a service (web, A2A)"
+name = "the agent runtime does not reach into the tool server; assembly alone builds it"
 type = "forbidden"
-source_modules = ["hr_timeoff_agent.graph", "hr_timeoff_agent.agents", "hr_timeoff_agent.agentloop", "hr_timeoff_agent.assembly", "hr_timeoff_agent.llm", "hr_timeoff_agent.retrieval"]
-forbidden_modules = ["hr_timeoff_agent.web", "hr_timeoff_agent.a2a_server", "hr_timeoff_agent.a2a_payroll", "hr_timeoff_agent.a2a_client"]
-allow_indirect_imports = true
-
-[[tool.importlinter.contracts]]
-name = "the front doors (web, A2A) do not import each other; both use workspace"
-type = "forbidden"
-source_modules = ["hr_timeoff_agent.a2a_server", "hr_timeoff_agent.a2a_payroll", "hr_timeoff_agent.a2a_common", "hr_timeoff_agent.a2a_client", "hr_timeoff_agent.workspace"]
-forbidden_modules = ["hr_timeoff_agent.web"]
-allow_indirect_imports = true
-
-[[tool.importlinter.contracts]]
-name = "the agent runtime does not reach into the tool server's internals"
-type = "forbidden"
-source_modules = ["hr_timeoff_agent.agentloop", "hr_timeoff_agent.agents", "hr_timeoff_agent.graph", "hr_timeoff_agent.mcp_client", "hr_timeoff_agent.workspace"]
-forbidden_modules = ["hr_timeoff_agent.mcp_server"]
-allow_indirect_imports = true
-
-[[tool.importlinter.contracts]]
-name = "the web app does not import the A2A servers"
-type = "forbidden"
-source_modules = ["hr_timeoff_agent.web"]
-forbidden_modules = ["hr_timeoff_agent.a2a_server", "hr_timeoff_agent.a2a_payroll"]
+source_modules = ["hr_timeoff_agent.agent.agentloop", "hr_timeoff_agent.agent.agents", "hr_timeoff_agent.agent.graph", "hr_timeoff_agent.agent.workspace", "hr_timeoff_agent.hr_tools.client"]
+forbidden_modules = ["hr_timeoff_agent.hr_tools.server"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "graph (nodes) does not import agents; assembly joins them"
 type = "forbidden"
-source_modules = ["hr_timeoff_agent.graph"]
-forbidden_modules = ["hr_timeoff_agent.agents"]
+source_modules = ["hr_timeoff_agent.agent.graph"]
+forbidden_modules = ["hr_timeoff_agent.agent.agents"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "pglock is a leaf"
 type = "forbidden"
-source_modules = ["hr_timeoff_agent.pglock"]
-forbidden_modules = ["hr_timeoff_agent.storage", "hr_timeoff_agent.migrations", "hr_timeoff_agent.graph", "hr_timeoff_agent.web"]
+source_modules = ["hr_timeoff_agent.adapters.pglock"]
+forbidden_modules = ["hr_timeoff_agent.adapters.storage", "hr_timeoff_agent.adapters.migrations", "hr_timeoff_agent.agent", "hr_timeoff_agent.services"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "migrations does not import storage; both use pglock"
 type = "forbidden"
-source_modules = ["hr_timeoff_agent.migrations"]
-forbidden_modules = ["hr_timeoff_agent.storage"]
+source_modules = ["hr_timeoff_agent.adapters.migrations"]
+forbidden_modules = ["hr_timeoff_agent.adapters.storage"]
 allow_indirect_imports = true

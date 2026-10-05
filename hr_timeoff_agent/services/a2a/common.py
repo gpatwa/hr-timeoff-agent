@@ -26,7 +26,7 @@ from a2a.types import Task, TaskState, TaskStatus
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from . import telemetry
+from ...adapters import telemetry
 
 
 def make_task_store(table: str, home: Path | None = None):
@@ -36,7 +36,7 @@ def make_task_store(table: str, home: Path | None = None):
     the task (and so the owner that scopes it) survives, and either agent
     process can be restarted or scaled without dropping a pending approval.
     """
-    from .storage import database_settings, ensure_schema
+    from ...adapters.storage import database_settings, ensure_schema
 
     settings = database_settings(home or Path("."))
     if settings is None:
@@ -166,13 +166,13 @@ class OIDCBearer:
     """
 
     def __init__(self, cfg, tenant_id: str, directory, *, verifier=None, surface: str = "a2a"):
-        from .oidc import TokenVerifier
+        from ...adapters.oidc import TokenVerifier
 
         self.cfg, self.tenant_id, self.directory, self.surface = cfg, tenant_id, directory, surface
         self.verifier = verifier or TokenVerifier(cfg)
 
     def authenticate(self, authorization: str | None) -> Principal | None:
-        from .oidc import InvalidToken, Unauthorized, caller_from_claims
+        from ...adapters.oidc import InvalidToken, Unauthorized, caller_from_claims
 
         if not authorization or not authorization.lower().startswith("bearer "):
             return None

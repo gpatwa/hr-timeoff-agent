@@ -14,7 +14,7 @@ from pathlib import Path
 
 from .models import Finding
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 HOURS_PER_DAY = 8.0
 
 

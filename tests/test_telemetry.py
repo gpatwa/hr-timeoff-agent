@@ -28,9 +28,10 @@ except ImportError:
     print("SKIPPED: the OpenTelemetry SDK is not installed (pip install -e '.[otel]').")
     raise SystemExit(0)
 
-from hr_timeoff_agent import graph as graph_mod, llm, telemetry  # noqa: E402
-from hr_timeoff_agent.models import Recommendation  # noqa: E402
-from hr_timeoff_agent.workspace import Refused, Workspace  # noqa: E402
+from hr_timeoff_agent.agent import graph as graph_mod
+from hr_timeoff_agent.adapters import llm, telemetry  # noqa: E402
+from hr_timeoff_agent.core.models import Recommendation  # noqa: E402
+from hr_timeoff_agent.agent.workspace import Refused, Workspace  # noqa: E402
 
 PRIYA, DANA, AIKO, GRACE = "W-100234", "W-100001", "W-100236", "W-100003"
 NOTE = "Family trip, booked months ago."
@@ -147,8 +148,8 @@ def test_trace_context_crosses_both_a2a_hops():
 
 def test_the_peer_breaker_and_auth_refusals_are_metrics():
     from test_oidc import CFG, KEY, token, verifier
-    from hr_timeoff_agent.a2a_common import OIDCBearer
-    from hr_timeoff_agent.a2a_server import TimeOffExecutor
+    from hr_timeoff_agent.services.a2a.common import OIDCBearer
+    from hr_timeoff_agent.services.a2a.server import TimeOffExecutor
 
     ws = Workspace(tempfile.mkdtemp())
     with Tel() as t:
@@ -172,7 +173,7 @@ def test_the_peer_breaker_and_auth_refusals_are_metrics():
 def test_web_requests_are_counted_by_route_and_health_checks_are_not():
     from fastapi.testclient import TestClient
 
-    from hr_timeoff_agent.web.app import create_app
+    from hr_timeoff_agent.services.web.app import create_app
 
     with Tel() as t:
         c = TestClient(create_app(tempfile.mkdtemp()))

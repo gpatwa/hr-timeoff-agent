@@ -16,8 +16,8 @@ from a2a.client import A2ACardResolver, ClientConfig, create_client
 from a2a.helpers import get_data_parts, get_message_text, new_data_part, new_text_part
 from a2a.types import Message, Role, SendMessageRequest, TaskState
 
-from . import telemetry
-from .oidc import BearerAuth
+from ...adapters import telemetry
+from ...adapters.oidc import BearerAuth
 
 
 class A2AError(RuntimeError):

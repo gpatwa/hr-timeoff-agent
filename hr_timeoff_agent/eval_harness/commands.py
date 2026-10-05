@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .. import policy
+from ..core import policy
 from ..clicommon import OUT, RULE, mode_banner
-from ..llm import OfflineCacheMiss
+from ..adapters.llm import OfflineCacheMiss
 from . import evals
 
 def cmd_eval(args) -> int:
@@ -142,7 +142,7 @@ def cmd_report(args) -> int:
 
 
 def register(sub) -> None:
-    """Add the tooling commands to the CLI's subparsers."""
+    """Add the eval_harness commands to the CLI's subparsers."""
     e = sub.add_parser("eval", help="run the graded eval")
     e.add_argument("--record", action="store_true")
     e.add_argument("--agents", choices=["single", "multi"], help="which assessment to grade (default: HR_AGENT_MODE or single)")
