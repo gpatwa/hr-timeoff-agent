@@ -28,7 +28,7 @@
       "id": "ws",
       "type": "backend",
       "label": "Workspace",
-      "sublabel": "authz \u00b7 SQLite"
+      "sublabel": "authz \u00b7 SQL state"
     },
     {
       "id": "graph",

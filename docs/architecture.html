@@ -5037,7 +5037,7 @@
         <path data-edge-from="web" data-edge-to="workspace" data-edge-label="HTTP" data-edge-key="1" data-edge-id="http" data-composition-points="915,154;915,215" d="M 915 154 L 915 215" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="a2a" data-edge-to="workspace" data-edge-label="same workspace" data-edge-key="2" data-edge-id="a2a-ws" data-composition-points="490,240;820,240" d="M 490 240 L 820 240" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         <path data-edge-from="a2a" data-edge-to="payroll" data-edge-label="A2A peer call" data-edge-key="3" data-edge-id="peer" data-composition-points="300,247;230,247" d="M 300 247 L 230 247" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="workspace" data-edge-to="state" data-edge-label="SQLite" data-edge-key="4" data-edge-id="store" data-composition-points="1010,247;1090,247" d="M 1010 247 L 1090 247" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="workspace" data-edge-to="state" data-edge-label="SQL" data-edge-key="4" data-edge-id="store" data-composition-points="1010,247;1090,247" d="M 1010 247 L 1090 247" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="workspace" data-edge-to="graph" data-edge-label="triage · resume" data-edge-key="5" data-edge-id="triage" data-composition-points="820,254;785,254;785,358;750,358" d="M 820 254 L 793 254 Q 785 254 785 262 L 785 350 Q 785 358 777 358 L 750 358" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <path data-edge-from="graph" data-edge-to="mcp" data-edge-label="MCP tool calls" data-edge-key="6" data-edge-id="tools" data-composition-points="560,372;525,372;525,497;490,497" d="M 560 372 L 533 372 Q 525 372 525 380 L 525 489 Q 525 497 517 497 L 490 497" class="a-security" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
         <path data-edge-from="graph" data-edge-to="model" data-edge-label="model calls" data-edge-key="7" data-edge-id="model-calls" data-composition-points="750,372;1090,372" d="M 750 372 L 1090 372" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
@@ -5110,8 +5110,8 @@
         <text data-detail="fine" x="915" y="271" class="t-backend" font-size="7" text-anchor="middle">one domain layer, two front doors</text>
         </g>
 
-        <g id="node-state" data-node-id="state" data-node-label="Workspace state" tabindex="0" role="button" aria-label="Focus Workspace state, requests · balances · paused runs, Architecture component" aria-pressed="false" data-node-kind="database" data-node-sublabel="requests · balances · paused runs" data-node-tag="SQLite" data-node-context="Architecture component">
-          <title>Workspace state · requests · balances · paused runs · Architecture component · SQLite</title>
+        <g id="node-state" data-node-id="state" data-node-label="Workspace state" tabindex="0" role="button" aria-label="Focus Workspace state, requests · balances · paused runs, Architecture component" aria-pressed="false" data-node-kind="database" data-node-sublabel="requests · balances · paused runs" data-node-tag="SQLite or Postgres" data-node-context="Architecture component">
+          <title>Workspace state · requests · balances · paused runs · Architecture component · SQLite or Postgres</title>
           <rect x="1090" y="215" width="190" height="64" rx="6" class="c-mask"/>
           <rect x="1090" y="215" width="190" height="64" rx="6" class="c-database" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1096 221) scale(0.6875)">
@@ -5120,7 +5120,7 @@
           </g>
           <text data-node-label="" data-detail-anchor="" x="1185" y="245" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Workspace state</text>
         <text data-detail="context" x="1185" y="261" class="t-muted" font-size="9" text-anchor="middle">requests · balances · paused runs</text>
-        <text data-detail="fine" x="1185" y="271" class="t-database" font-size="7" text-anchor="middle">SQLite</text>
+        <text data-detail="fine" x="1185" y="271" class="t-database" font-size="7" text-anchor="middle">SQLite or Postgres</text>
         </g>
 
         <g id="node-graph" data-node-id="graph" data-node-label="Agent graph" tabindex="0" role="button" aria-label="Focus Agent graph, single agent or multi-agent, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="single agent or multi-agent" data-node-tag="rules · gate · recorder" data-node-context="Architecture component">
@@ -5202,9 +5202,9 @@
           <rect x="228.8" y="227" width="72.4" height="14" rx="3" class="c-mask"/>
           <text x="265" y="237" class="t-backend" font-size="8" text-anchor="middle">A2A peer call</text>
         </g>
-        <g data-detail="context" data-edge-from="workspace" data-edge-to="state" data-edge-label="SQLite" data-edge-key="4" data-edge-id="store">
-          <rect x="1030.6" y="227" width="38.8" height="14" rx="3" class="c-mask"/>
-          <text x="1050" y="237" class="t-muted" font-size="8" text-anchor="middle">SQLite</text>
+        <g data-detail="context" data-edge-from="workspace" data-edge-to="state" data-edge-label="SQL" data-edge-key="4" data-edge-id="store">
+          <rect x="1035" y="227" width="30" height="14" rx="3" class="c-mask"/>
+          <text x="1050" y="237" class="t-muted" font-size="8" text-anchor="middle">SQL</text>
         </g>
         <g data-detail="context" data-edge-from="workspace" data-edge-to="graph" data-edge-label="triage · resume" data-edge-key="5" data-edge-id="triage">
           <rect x="744" y="286" width="82" height="14" rx="3" class="c-mask"/>

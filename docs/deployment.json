@@ -1,0 +1,432 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "hr-timeoff-agent \u2014 the stack",
+    "output": "deployment.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "signin",
+        "label": "Sign-in",
+        "focus": [
+          "browser",
+          "keycloak",
+          "web"
+        ],
+        "note": "The provider says who you are."
+      },
+      {
+        "id": "state",
+        "label": "Durable state",
+        "focus": [
+          "web",
+          "a2a",
+          "postgres",
+          "mcp",
+          "qdrant"
+        ],
+        "note": "Postgres holds requests, runs and the ledger."
+      },
+      {
+        "id": "telemetry",
+        "label": "Telemetry",
+        "focus": [
+          "web",
+          "a2a",
+          "mcp",
+          "otel",
+          "jaeger",
+          "prometheus"
+        ],
+        "note": "Every service exports OTLP to one collector, which fans out to traces and metrics."
+      },
+      {
+        "id": "gate",
+        "label": "Eval gate",
+        "focus": [
+          "gate",
+          "a2a",
+          "mcp"
+        ],
+        "note": "The live gate drives the multi-agent path through A2A and fails on any crossed threshold."
+      }
+    ],
+    "repository": {
+      "url": "https://github.com/gpatwa/hr-timeoff-agent",
+      "revision": "8ff39e122d2ee76068a5bed316b19ad4aeec78fd"
+    }
+  },
+  "components": [
+    {
+      "id": "gate",
+      "type": "external",
+      "label": "Eval gate",
+      "sublabel": "40 cases \u00b7 15 attacks \u00b7 thresholds",
+      "tag": "CI weekly or on demand",
+      "pos": [
+        560,
+        90
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/gate.py",
+          "line": 1,
+          "label": "run_gate"
+        }
+      ]
+    },
+    {
+      "id": "browser",
+      "type": "external",
+      "label": "Browser",
+      "sublabel": "persona picker or OIDC login",
+      "tag": "reviewers and managers",
+      "pos": [
+        300,
+        90
+      ],
+      "size": [
+        190,
+        64
+      ]
+    },
+    {
+      "id": "keycloak",
+      "type": "security",
+      "label": "Keycloak",
+      "sublabel": "realm hr \u00b7 nine synthetic people",
+      "tag": "OIDC provider (dev)",
+      "pos": [
+        40,
+        205
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "docker-compose.yml",
+          "line": 63,
+          "label": "keycloak"
+        }
+      ]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "Web app",
+      "sublabel": "FastAPI \u00b7 signed session",
+      "tag": "one agent graph",
+      "pos": [
+        300,
+        205
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/web/app.py",
+          "line": 30,
+          "label": "create_app"
+        }
+      ]
+    },
+    {
+      "id": "a2a",
+      "type": "security",
+      "label": "A2A agents",
+      "sublabel": "time-off agent + payroll peer",
+      "tag": "bearer or OIDC token",
+      "pos": [
+        560,
+        205
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/a2a_server.py",
+          "line": 247,
+          "label": "create_timeoff_app"
+        }
+      ]
+    },
+    {
+      "id": "mcp",
+      "type": "backend",
+      "label": "MCP tool server",
+      "sublabel": "6 read-only tools \u00b7 audited",
+      "tag": "streamable HTTP",
+      "pos": [
+        820,
+        205
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/mcp_server.py",
+          "line": 1,
+          "label": "MCPServer"
+        }
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "Postgres",
+      "sublabel": "requests \u00b7 runs \u00b7 ledger",
+      "tag": "versioned migrations",
+      "pos": [
+        300,
+        320
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/migrations.py",
+          "line": 1,
+          "label": "migrate"
+        }
+      ]
+    },
+    {
+      "id": "otel",
+      "type": "backend",
+      "label": "OTel collector",
+      "sublabel": "one OTLP endpoint",
+      "tag": "traces and metrics",
+      "pos": [
+        560,
+        320
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "docker-compose.yml",
+          "line": 128,
+          "label": "otel-collector"
+        }
+      ]
+    },
+    {
+      "id": "qdrant",
+      "type": "database",
+      "label": "Qdrant",
+      "sublabel": "dense + sparse index",
+      "tag": "per-tenant retrieval",
+      "pos": [
+        820,
+        320
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/retrieval.py",
+          "line": 1,
+          "label": "PolicyIndex"
+        }
+      ]
+    },
+    {
+      "id": "jaeger",
+      "type": "cloud",
+      "label": "Jaeger",
+      "sublabel": "trace of every triage",
+      "tag": "tool calls as spans",
+      "pos": [
+        430,
+        435
+      ],
+      "size": [
+        190,
+        64
+      ]
+    },
+    {
+      "id": "prometheus",
+      "type": "cloud",
+      "label": "Prometheus",
+      "sublabel": "decisions \u00b7 cost \u00b7 latency",
+      "tag": "hr_decision_total",
+      "pos": [
+        690,
+        435
+      ],
+      "size": [
+        190,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Docker Compose project hr-stack",
+      "wraps": [
+        "keycloak",
+        "web",
+        "a2a",
+        "mcp",
+        "postgres",
+        "otel",
+        "qdrant",
+        "jaeger",
+        "prometheus"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "https",
+      "from": "browser",
+      "to": "web",
+      "label": "HTTPS",
+      "variant": "emphasis",
+      "labelAt": [
+        395,
+        179
+      ]
+    },
+    {
+      "id": "signin",
+      "from": "browser",
+      "to": "keycloak",
+      "label": "sign-in",
+      "fromSide": "left",
+      "toSide": "top",
+      "labelAt": [
+        215,
+        122
+      ]
+    },
+    {
+      "id": "verify",
+      "from": "keycloak",
+      "to": "web",
+      "label": "ID token",
+      "variant": "security"
+    },
+    {
+      "id": "sql",
+      "from": "web",
+      "to": "postgres",
+      "label": "SQL",
+      "labelAt": [
+        395,
+        294
+      ]
+    },
+    {
+      "id": "sql2",
+      "from": "a2a",
+      "to": "postgres",
+      "label": "SQL",
+      "variant": "dashed"
+    },
+    {
+      "id": "tools",
+      "from": "a2a",
+      "to": "mcp",
+      "label": "MCP",
+      "variant": "security"
+    },
+    {
+      "id": "vec",
+      "from": "mcp",
+      "to": "qdrant",
+      "label": "vectors",
+      "labelAt": [
+        915,
+        294
+      ]
+    },
+    {
+      "id": "otlp",
+      "from": "a2a",
+      "to": "otel",
+      "label": "OTLP",
+      "labelAt": [
+        655,
+        294
+      ]
+    },
+    {
+      "id": "traces",
+      "from": "otel",
+      "to": "jaeger",
+      "label": "traces",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "metrics",
+      "from": "otel",
+      "to": "prometheus",
+      "label": "metrics",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "drive",
+      "from": "gate",
+      "to": "a2a",
+      "label": "live A2A run",
+      "variant": "emphasis",
+      "labelAt": [
+        655,
+        179
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "One stack",
+      "items": [
+        "Postgres and Qdrant keep state across restarts",
+        "Migrations run under an advisory lock",
+        "Secrets are files, not environment values"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Identity",
+      "items": [
+        "Keycloak says who you are, never what you may do",
+        "Tokens map to workers in the tenant directory",
+        "Use Chrome or Firefox; Safari drops the cookie"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Quality gate",
+      "items": [
+        "40 cases include 15 planted-instruction attacks",
+        "Safety floors are 1.0: one failure fails the gate",
+        "Cost and latency ceilings catch silent drift"
+      ]
+    }
+  ]
+}
