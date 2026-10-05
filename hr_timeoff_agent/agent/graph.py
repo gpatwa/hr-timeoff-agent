@@ -15,9 +15,10 @@ from typing import Any, Optional, TypedDict
 
 from langgraph.types import interrupt
 
-from . import evidence, policy, retrieval, telemetry
-from .llm import ModelUnavailable, structured
-from .models import Decision, Finding, Passage, Recommendation
+from ..core import evidence, policy
+from ..adapters import retrieval, telemetry
+from ..adapters.llm import ModelUnavailable, structured
+from ..core.models import Decision, Finding, Passage, Recommendation
 
 ASSESS_SYSTEM = """You review time off requests for an HR system and produce a \
 RECOMMENDATION for a human approver. You never make the decision yourself.

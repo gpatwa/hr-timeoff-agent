@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .. import policy
+from ..core import policy
 from ..clicommon import OUT, RULE, mode_banner
-from ..llm import OfflineCacheMiss
+from ..adapters.llm import OfflineCacheMiss
 from . import evals
 
 def cmd_eval(args) -> int:

@@ -29,10 +29,10 @@ from a2a.types import (
 from a2a.helpers import new_data_part, new_text_part
 from fastapi import FastAPI
 
-from . import telemetry
-from .a2a_common import BearerContextBuilder, BearerTokens, begin, make_task_store, request_data, require_bearer, text_and_data
+from ...adapters import telemetry
+from .common import BearerContextBuilder, BearerTokens, begin, make_task_store, request_data, require_bearer, text_and_data
 
-DATA = Path(__file__).resolve().parent.parent / "data" / "payroll.json"
+DATA = Path(__file__).resolve().parents[3] / "data" / "payroll.json"
 RPC_PATH = "/a2a/jsonrpc"
 SKILL = "assess_unpaid_leave_impact"
 

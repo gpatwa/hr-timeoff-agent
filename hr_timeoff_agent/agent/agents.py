@@ -17,12 +17,12 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from . import evidence, policy
+from ..core import evidence, policy
 from .agentloop import AgentRun, run_agent
 from .graph import ASSESS_SYSTEM, _index, build_assess_prompt, outage_recommendation
-from .llm import ModelUnavailable, structured
-from .models import Finding, Passage, Recommendation
-from .ports import ToolHostPort
+from ..adapters.llm import ModelUnavailable, structured
+from ..core.models import Finding, Passage, Recommendation
+from ..core.ports import ToolHostPort
 
 POLICY_TOOLS = ["search_handbook", "search_precedents", "get_worker"]
 COVERAGE_TOOLS = ["team_availability", "get_balance", "get_worker"]

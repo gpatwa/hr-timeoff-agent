@@ -19,13 +19,15 @@ logging.getLogger("a2a").setLevel(logging.ERROR)
 
 import httpx  # noqa: E402
 
-from hr_timeoff_agent import graph as graph_mod, llm, policy  # noqa: E402
-from hr_timeoff_agent.a2a_client import A2AAgent  # noqa: E402
-from hr_timeoff_agent.a2a_common import BearerTokens  # noqa: E402
-from hr_timeoff_agent.a2a_payroll import PayrollError, assess, create_payroll_app  # noqa: E402
-from hr_timeoff_agent.a2a_server import TimeOffExecutor, create_timeoff_app  # noqa: E402
-from hr_timeoff_agent.models import Recommendation  # noqa: E402
-from hr_timeoff_agent.workspace import Workspace  # noqa: E402
+from hr_timeoff_agent.agent import graph as graph_mod
+from hr_timeoff_agent.adapters import llm
+from hr_timeoff_agent.core import policy  # noqa: E402
+from hr_timeoff_agent.services.a2a.client import A2AAgent  # noqa: E402
+from hr_timeoff_agent.services.a2a.common import BearerTokens  # noqa: E402
+from hr_timeoff_agent.services.a2a.payroll import PayrollError, assess, create_payroll_app  # noqa: E402
+from hr_timeoff_agent.services.a2a.server import TimeOffExecutor, create_timeoff_app  # noqa: E402
+from hr_timeoff_agent.core.models import Recommendation  # noqa: E402
+from hr_timeoff_agent.agent.workspace import Workspace  # noqa: E402
 
 PRIYA, AIKO, GRACE, SAMUEL, DANA = "W-100234", "W-100236", "W-100003", "W-100237", "W-100001"
 SERVICE = "timeoff-agent"

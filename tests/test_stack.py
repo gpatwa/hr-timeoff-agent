@@ -152,7 +152,7 @@ def test_04_a_manager_signs_in_through_keycloak_and_decides_in_the_web_app():
 
 
 def test_05_an_agent_reviews_and_decides_over_a2a_and_the_payroll_agent_prices_the_unpaid_hours():
-    from hr_timeoff_agent.a2a_client import A2AAgent
+    from hr_timeoff_agent.services.a2a.client import A2AAgent
 
     async def go():
         aiko = A2AAgent(TIMEOFF, user_token("aiko.tanaka@acme.example"))

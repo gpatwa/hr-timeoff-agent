@@ -113,7 +113,7 @@ export ANTHROPIC_API_KEY=sk-ant-...     # optional: without it, seeded requests 
   of the tenant and caches. The committed data and fixtures are never written.
   Admin → Reset restores the seeded state.
 - **Sign-in is a persona picker** over the synthetic directory, behind an
-  `IdentityProvider` interface (`hr_timeoff_agent/web/identity.py`); real SSO
+  `IdentityProvider` interface (`hr_timeoff_agent/services/web/identity.py`); real SSO
   replaces that file only, since every check keys on the worker id it returns.
   The identity cookie is HMAC-signed; set `HR_WEB_SECRET` to keep sessions
   across restarts.
@@ -530,7 +530,7 @@ The product is also reachable by other agents, over the [A2A protocol](https://a
 ./.venv/bin/python -m hr_timeoff_agent a2a           # serve both (8100 and 8101); prints demo tokens
 ```
 
-**The time-off agent** (`a2a_server.py`) is a second front door onto the same
+**The time-off agent** (`services/a2a/server.py`) is a second front door onto the same
 workspace, graph, authorization and evidence trail the web app uses. It has one skill
 for each side of the conversation:
 
@@ -546,7 +546,7 @@ another caller cannot continue it (`TaskNotFound`), and the approval gate still 
 the approver independently. A refused decision leaves the task waiting, the same way the
 gate pauses again.
 
-**The payroll agent** (`a2a_payroll.py`) is a separate service with its own data
+**The payroll agent** (`services/a2a/payroll.py`) is a separate service with its own data
 (`data/payroll.json`), its own token and its own tenant check. When an approval would
 leave unpaid hours, the time-off agent asks it over A2A what that costs, so the manager
 sees the pay effect before deciding. It is deliberately deterministic: money arithmetic
@@ -772,34 +772,36 @@ overwrites one.
 
 ## Layout
 
-Boundaries are enforced: `lint-imports` (contracts in `pyproject.toml`) fails CI on a bad import. Reading
-order is bottom up: each group imports only the groups above it.
+The code is organised as layers. Each package may import only the ones below it, and the two front doors
+(`services/web` and `services/a2a`) may not import each other. `lint-imports` (contracts in `pyproject.toml`)
+fails CI on a bad import.
 
 ```
 hr_timeoff_agent/
-  # core: imports nothing else in the app
-  models.py     Recommendation vs Decision — the boundary, in types
-  policy.py     deterministic rules over data/policy.json
-  evidence.py   append-only hash-chained ledger
-  config.py     file-based secrets, scoped environment overrides
-  ports.py      the interfaces: model, store, retriever, identity, tool host
-  # adapters and libraries
-  llm.py        the model adapter: Anthropic API, Claude Code, recorded fixtures
-  retrieval.py  hybrid retrieval in Qdrant, tenant/audience filtered before ranking
-  storage.py, migrations.py, pglock.py   file and Postgres stores, versioned migrations, advisory locks
-  oidc.py, telemetry.py, canonical.py
-  workspace.py  the domain layer both front doors use: authorization, spend cap, paused runs
-  # the agent
-  graph.py      the LangGraph nodes, state and the approval interrupt
-  agents.py, agentloop.py   the specialists, the coordinator, replayable tool-calling loops
-  assembly.py   wires graph + agents into one compiled workflow (the only place that knows both)
-  mcp_server.py, mcp_client.py   the HR tools over MCP (read-only, tenant and audience fixed)
-  # front doors (they do not import each other)
-  web/          the browser app: identity, routes, pages
-  a2a_server.py, a2a_payroll.py, a2a_client.py, a2a_common.py   the agents over A2A
-  cli.py, clicommon.py
-  # tooling: imports the product, never the reverse; left out of the container image
-  tooling/      evals.py, rag_eval.py, e2e.py, gate.py, report.py, commands.py
+  cli.py, __main__.py        entry point: python -m hr_timeoff_agent <command>
+  tooling/                   evals, the live gate, e2e self-test, report. Imports the product, never the reverse;
+                             left out of the container image
+  clicommon.py               shared CLI output helpers
+  services/                  the front doors
+    web/                     the browser app: routes, identity (persona or OIDC), pages
+    a2a/                     the agents over A2A: server (time-off), payroll, client, common (tokens, breaker)
+  agent/                     the agent
+    graph.py                 the LangGraph nodes, state and the approval interrupt
+    agents.py, agentloop.py  the specialists, the coordinator, replayable tool-calling loops
+    assembly.py              wires graph + agents into one compiled workflow (the only place that knows both)
+    workspace.py             the domain layer both front doors use: authorization, spend cap, paused runs
+  tools/                     the HR tools over MCP: server (read-only, tenant and audience fixed), client
+  adapters/                  what talks to the outside world
+    llm.py                   the model: Anthropic API, Claude Code, recorded fixtures
+    retrieval.py             hybrid retrieval in Qdrant, tenant/audience filtered before ranking
+    storage.py, migrations.py, pglock.py   file and Postgres stores, versioned migrations, advisory locks
+    oidc.py, telemetry.py
+  core/                      imports nothing else in the app
+    models.py                Recommendation vs Decision: the boundary, in types
+    policy.py                deterministic rules over data/policy.json
+    evidence.py              append-only hash-chained ledger
+    ports.py                 the interfaces: model, store, retriever, identity, tool host
+    config.py, canonical.py  file-based secrets and scoped env overrides; stable hashing of tool results
 contracts/      the MCP tool definitions and A2A agent cards, versioned (tests/test_contracts.py)
 data/           mock Workday-shaped tenant: workers, absences, policy, requests,
                 leave handbook and past decisions (plus a second tenant, for isolation tests)

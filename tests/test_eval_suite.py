@@ -16,7 +16,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 os.environ.setdefault("HR_AGENT_OFFLINE", "1")
 
-from hr_timeoff_agent import policy, retrieval  # noqa: E402
+from hr_timeoff_agent.core import policy
+from hr_timeoff_agent.adapters import retrieval  # noqa: E402
 from hr_timeoff_agent.tooling import evals  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -124,8 +125,8 @@ def test_a_tool_server_started_for_a_hostile_case_searches_the_overlay_not_the_r
     """Under the Claude Code backend the MCP server is a child process. It must be pointed at the overlay,
     or the specialists search the real corpus and the attack never reaches them (this was a real bug:
     the first multi-agent runs of the two corpus cases tested nothing)."""
-    from hr_timeoff_agent.mcp_client import call_tool
-    from hr_timeoff_agent.mcp_server import HRToolServer
+    from hr_timeoff_agent.tools.client import call_tool
+    from hr_timeoff_agent.tools.server import HRToolServer
 
     case = next(c for c in CASES if c.get("corpus") == "poisoned-precedent")
     request, got = findings_for(case)
@@ -159,7 +160,7 @@ def test_the_corpus_override_is_set_while_a_case_runs_and_always_restored():
 
 
 def test_the_compliance_judge_prompt_does_not_depend_on_argument_key_order():
-    from hr_timeoff_agent.models import Recommendation
+    from hr_timeoff_agent.core.models import Recommendation
 
     case = next(c for c in CASES if "injection" in c)
     rec = Recommendation(action="escalate", rationale="r", cited_rule_ids=["BAL-01"], cited_passage_ids=[], confidence="high")

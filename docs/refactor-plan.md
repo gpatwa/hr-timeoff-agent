@@ -123,3 +123,11 @@ Order is by value per risk. Stages 1 to 3 are the ones worth doing for their own
   contracts already give the isolation. Revisit when a service needs its own release cadence.
 - **Stage 7:** CODEOWNERS by boundary, and the slow whole-stack CI job is skipped for docs-only pull requests.
   **Left out on purpose:** Bazel, Buck or Pants (the plan's own trigger, a second team or product, has not occurred).
+
+## Follow-up: the directory structure now matches the layers
+
+The modules were first reorganised by rule (import contracts) while the files stayed in one flat folder. They now
+live in packages that mirror the layers: `core`, `adapters`, `tools`, `agent`, `services/{web,a2a}`, `tooling`, plus
+the CLI at the top. The import contract became a single `layers` contract (cli > tooling > clicommon > services > agent >
+tools > adapters > core) with the two front doors as independent siblings, plus four narrow rules. Module names did not
+change except the renames `mcp_server` to `tools/server`, `mcp_client` to `tools/client`, and `a2a_*` to `services/a2a/*`.

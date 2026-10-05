@@ -29,10 +29,10 @@ from typing import Any, Type, TypeVar
 
 from pydantic import BaseModel
 
-from . import llm, telemetry
-from .mcp_client import stdio_params, tool_definitions, try_tools
-from .canonical import digest
-from .ports import ToolHostPort
+from ..adapters import llm, telemetry
+from ..tools.client import stdio_params, tool_definitions, try_tools
+from ..core.canonical import digest
+from ..core.ports import ToolHostPort
 
 T = TypeVar("T", bound=BaseModel)
 

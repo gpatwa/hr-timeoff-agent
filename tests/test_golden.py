@@ -23,10 +23,10 @@ os.environ["HR_AGENT_OFFLINE"] = "1"
 for var in ("HR_DATABASE_URL", "HR_OIDC_ISSUER", "ANTHROPIC_API_KEY"):
     os.environ.pop(var, None)
 
-from hr_timeoff_agent import retrieval  # noqa: E402
+from hr_timeoff_agent.adapters import retrieval  # noqa: E402
 from hr_timeoff_agent.cli import main  # noqa: E402
-from hr_timeoff_agent.mcp_client import list_tools  # noqa: E402
-from hr_timeoff_agent.mcp_server import HRToolServer  # noqa: E402
+from hr_timeoff_agent.tools.client import list_tools  # noqa: E402
+from hr_timeoff_agent.tools.server import HRToolServer  # noqa: E402
 
 GOLDEN = Path(__file__).resolve().parent / "golden" / "interfaces.json"
 

@@ -34,13 +34,13 @@ from pathlib import Path
 from qdrant_client import QdrantClient, models as qm
 
 from . import telemetry
-from .models import Finding, Passage
+from ..core.models import Finding, Passage
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 # Overridable (like the LLM fixtures) so a self-test can record into a scratch copy.
 EMBED_CACHE = Path(
     os.environ.get("HR_AGENT_EMBEDDINGS")
-    or Path(__file__).resolve().parent.parent / "fixtures" / "embeddings.json"
+    or Path(__file__).resolve().parents[2] / "fixtures" / "embeddings.json"
 )
 
 EMBED_MODEL = os.environ.get("HR_AGENT_EMBED_MODEL", "BAAI/bge-small-en-v1.5")

@@ -16,7 +16,7 @@ from typing import Any
 from mcp.client import Client
 from mcp.client.stdio import StdioServerParameters
 
-from .ports import ToolHostPort
+from ..core.ports import ToolHostPort
 
 
 class ToolCallError(RuntimeError):

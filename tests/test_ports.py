@@ -16,8 +16,9 @@ os.environ["HR_AGENT_OFFLINE"] = "1"
 for var in ("HR_DATABASE_URL", "HR_OIDC_ISSUER", "ANTHROPIC_API_KEY"):
     os.environ.pop(var, None)
 
-from hr_timeoff_agent import llm, ports, retrieval, storage  # noqa: E402
-from hr_timeoff_agent.web import identity  # noqa: E402
+from hr_timeoff_agent.adapters import llm, retrieval, storage
+from hr_timeoff_agent.core import ports  # noqa: E402
+from hr_timeoff_agent.services.web import identity  # noqa: E402
 
 
 def _members(proto) -> set[str]:

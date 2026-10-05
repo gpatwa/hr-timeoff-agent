@@ -27,7 +27,8 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from .. import config, llm, policy, retrieval
+from ..core import config, policy
+from ..adapters import llm, retrieval
 from . import evals
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -118,7 +119,7 @@ class CaseMetrics:
 
 def _count_tool_calls(meter: Meter):
     """Wrap run_agent so each specialist's tool calls are counted."""
-    from .. import agents
+    from ..agent import agents
 
     real = agents.run_agent
 
@@ -256,11 +257,11 @@ def run_a2a_multi(scratch: Path) -> dict:
 
     import httpx
 
-    from ..a2a_client import A2AAgent
-    from ..a2a_common import BearerTokens
-    from ..a2a_payroll import create_payroll_app
-    from ..a2a_server import create_timeoff_app
-    from ..workspace import Workspace
+    from ..services.a2a.client import A2AAgent
+    from ..services.a2a.common import BearerTokens
+    from ..services.a2a.payroll import create_payroll_app
+    from ..services.a2a.server import create_timeoff_app
+    from ..agent.workspace import Workspace
 
     start = time.monotonic()
 

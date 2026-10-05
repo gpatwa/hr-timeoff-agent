@@ -13,10 +13,11 @@ import json
 import os
 from pathlib import Path
 
-from .. import assembly, config, graph as graph_mod
-from .. import policy
-from ..llm import JUDGE_MODEL, structured
-from ..models import CaseResult, Finding, InjectionVerdict, JudgeScore, Passage, Recommendation
+from ..agent import assembly, graph as graph_mod
+from ..core import config
+from ..core import policy
+from ..adapters.llm import JUDGE_MODEL, structured
+from ..core.models import CaseResult, Finding, InjectionVerdict, JudgeScore, Passage, Recommendation
 
 EVAL_DIR = Path(__file__).resolve().parent.parent.parent / "evals"
 
@@ -64,7 +65,7 @@ def tenant_for(tenant: policy.Tenant, case: dict) -> policy.Tenant:
         return tenant
     import copy
 
-    from .. import retrieval
+    from ..adapters import retrieval
 
     t = copy.copy(tenant)
     t.__dict__.pop("_mcp_server", None)   # the tool server caches its index; this copy needs its own
@@ -195,7 +196,7 @@ def run_case(tenant: policy.Tenant, case: dict, *, record: bool = False) -> Case
     passages = [Passage.model_validate(p) for p in state["passages"]]
     agent_input = None
     if state.get("agent_reports"):  # multi-agent: the coordinator's input includes the specialist reports
-        from ..agents import coordinator_prompt
+        from ..agent.agents import coordinator_prompt
 
         agent_input = coordinator_prompt(state)
     result.scores = structured(

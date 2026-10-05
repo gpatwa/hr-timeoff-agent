@@ -35,15 +35,13 @@ import jwt  # noqa: E402
 from cryptography.hazmat.primitives.asymmetric import rsa  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from hr_timeoff_agent.a2a_client import A2AAgent  # noqa: E402
-from hr_timeoff_agent.a2a_common import OIDCBearer  # noqa: E402
-from hr_timeoff_agent.a2a_payroll import create_payroll_app  # noqa: E402
-from hr_timeoff_agent.a2a_server import create_timeoff_app  # noqa: E402
-from hr_timeoff_agent.oidc import (  # noqa: E402
-    InvalidToken, OIDCConfig, Provider, ServiceTokens, TokenVerifier, Unauthorized, caller_from_claims,
-)
-from hr_timeoff_agent.web.app import create_app  # noqa: E402
-from hr_timeoff_agent.web.identity import ConfigError, OIDCIdentity  # noqa: E402
+from hr_timeoff_agent.services.a2a.client import A2AAgent  # noqa: E402
+from hr_timeoff_agent.services.a2a.common import OIDCBearer  # noqa: E402
+from hr_timeoff_agent.services.a2a.payroll import create_payroll_app  # noqa: E402
+from hr_timeoff_agent.services.a2a.server import create_timeoff_app  # noqa: E402
+from hr_timeoff_agent.adapters.oidc import InvalidToken, OIDCConfig, Provider, ServiceTokens, TokenVerifier, Unauthorized, caller_from_claims
+from hr_timeoff_agent.services.web.app import create_app  # noqa: E402
+from hr_timeoff_agent.services.web.identity import ConfigError, OIDCIdentity  # noqa: E402
 
 ISSUER = "https://idp.test/realms/hr"
 CFG = OIDCConfig(issuer=ISSUER, client_id="hr-web", client_secret="web-secret", audience="hr-a2a",
@@ -315,7 +313,7 @@ class Agents:
     """Both A2A agents behind OIDC bearer checks, in process."""
 
     def __init__(self):
-        from hr_timeoff_agent.workspace import Workspace
+        from hr_timeoff_agent.agent.workspace import Workspace
 
         self.ws = Workspace(tempfile.mkdtemp())
         v = verifier()
@@ -400,8 +398,8 @@ def test_service_tokens_are_cached_and_refreshed_before_they_expire():
 
 
 def test_the_mcp_http_server_needs_a_valid_token():
-    from hr_timeoff_agent.mcp_server import HRToolServer
-    from hr_timeoff_agent.oidc import BearerGuard
+    from hr_timeoff_agent.tools.server import HRToolServer
+    from hr_timeoff_agent.adapters.oidc import BearerGuard
 
     server = HRToolServer()
     by_email = {w["email"]: w["worker_id"] for w in server.tenant.workers.values()}

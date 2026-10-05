@@ -46,10 +46,10 @@ from a2a.helpers import get_data_parts
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-from . import telemetry
-from .a2a_client import A2AAgent, TaskResult
-from .a2a_common import BearerContextBuilder, BearerTokens, PeerBreaker, begin, make_task_store, request_data, require_bearer, text_and_data
-from .workspace import BudgetExceeded, Forbidden, Invalid, Refused, Workspace
+from ...adapters import telemetry
+from .client import A2AAgent, TaskResult
+from .common import BearerContextBuilder, BearerTokens, PeerBreaker, begin, make_task_store, request_data, require_bearer, text_and_data
+from ...agent.workspace import BudgetExceeded, Forbidden, Invalid, Refused, Workspace
 
 log = logging.getLogger(__name__)
 

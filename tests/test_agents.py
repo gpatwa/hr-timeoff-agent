@@ -18,10 +18,12 @@ os.environ.setdefault("HR_AGENT_OFFLINE", "1")
 
 from pydantic import BaseModel  # noqa: E402
 
-from hr_timeoff_agent import agentloop, agents, assembly, evidence, graph as graph_mod, llm, policy, retrieval  # noqa: E402
-from hr_timeoff_agent.agentloop import AgentRun, StaleTrajectory, ToolCall, parse_claude_stream, run_agent  # noqa: E402
-from hr_timeoff_agent.mcp_server import HRToolServer, digest  # noqa: E402
-from hr_timeoff_agent.models import Recommendation  # noqa: E402
+from hr_timeoff_agent.agent import agentloop, agents, assembly, graph as graph_mod
+from hr_timeoff_agent.core import evidence, policy
+from hr_timeoff_agent.adapters import llm, retrieval  # noqa: E402
+from hr_timeoff_agent.agent.agentloop import AgentRun, StaleTrajectory, ToolCall, parse_claude_stream, run_agent  # noqa: E402
+from hr_timeoff_agent.tools.server import HRToolServer, digest  # noqa: E402
+from hr_timeoff_agent.core.models import Recommendation  # noqa: E402
 
 PRIYA = "W-100234"
 HR_ONLY_TEXT = (
@@ -58,7 +60,7 @@ class scratch_cache:
 
 def _record(server, tools, call_args, *, system="s", user="u") -> str:
     """Hand-write a trajectory the way a live run would have recorded it."""
-    from hr_timeoff_agent.mcp_client import call_tool
+    from hr_timeoff_agent.tools.client import call_tool
 
     trace = [
         {"tool": t, "arguments": a, "result_sha256": digest(call_tool(t, a, server))} for t, a in call_args
@@ -230,7 +232,7 @@ def _fake_agents(monkey):
     server = _server()
 
     def fake_run_agent(*, system, user, schema, tools, server, model=llm.AGENT_MODEL, record=False, label=""):
-        from hr_timeoff_agent.agentloop import _execute
+        from hr_timeoff_agent.agent.agentloop import _execute
 
         if "search_handbook" in tools:
             calls = _execute(server, [("search_handbook", {"query": HR_ONLY_TEXT}), ("get_worker", {"worker_id": "W-100236"})])
