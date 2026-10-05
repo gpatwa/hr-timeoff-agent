@@ -57,6 +57,24 @@ export ANTHROPIC_API_KEY=sk-ant-...
 ./.venv/bin/python -m hr_timeoff_agent run REQ-2001 --record
 ```
 
+## Check the agentic system in five minutes
+
+No sign-in, no API key, no containers. Each command below runs offline from the committed fixtures.
+
+```bash
+./.venv/bin/python -m hr_timeoff_agent run REQ-2004                  # one agent: findings, retrieval, a recommendation, then PAUSED at the approval gate
+./.venv/bin/python -m hr_timeoff_agent run REQ-2004 --agents multi   # the same request through two specialists and a coordinator
+./.venv/bin/python -m hr_timeoff_agent a2a-demo                      # over A2A: file, review by HR (view only), payroll agent consulted, the manager's agent decides
+./.venv/bin/python -m hr_timeoff_agent gate --replay --workers 4     # both modes on all 40 cases incl. 15 attacks; the report shows tool calls per triage
+./.venv/bin/python -m hr_timeoff_agent web                           # the UI, with a persona picker instead of a login
+./.venv/bin/python -m hr_timeoff_agent e2e                           # every guarantee in one self-test
+```
+
+What to look for: the run never decides (`PAUSED at approval_gate`); only the request's direct
+manager can resume it; HR can read a task but not decide it; and the multi-agent runs show
+tool calls (about 4 per triage) where single-agent runs show none. Sign-in appears only if you set
+`HR_OIDC_ISSUER` or run the full container stack, and that needs Chrome or Firefox, not Safari.
+
 ## The web app
 
 The same agent, graph and guarantees, as an app people use in a browser:
