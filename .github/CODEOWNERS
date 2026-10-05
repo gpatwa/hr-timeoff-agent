@@ -1,0 +1,15 @@
+# Who reviews what. One maintainer today; the paths are the package boundaries in pyproject.toml's
+# import-linter contracts, so a second owner can take a boundary without a reshuffle.
+*                                   @gpatwa
+/hr_timeoff_agent/policy.py         @gpatwa
+/hr_timeoff_agent/models.py         @gpatwa
+/hr_timeoff_agent/evidence.py       @gpatwa
+/hr_timeoff_agent/ports.py          @gpatwa
+/hr_timeoff_agent/tooling/          @gpatwa
+/hr_timeoff_agent/web/              @gpatwa
+/hr_timeoff_agent/a2a_*.py          @gpatwa
+/hr_timeoff_agent/mcp_*.py          @gpatwa
+/contracts/                         @gpatwa
+/evals/                             @gpatwa
+/deploy/                            @gpatwa
+/.github/                           @gpatwa

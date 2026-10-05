@@ -1,6 +1,6 @@
 # Refactor plan: from one flat package to enforced boundaries
 
-Status: proposal. Nothing here is started. Each stage is one PR that leaves `main` green and the
+Status: stages 0 to 7 done, with the two deliberate exceptions noted under stage 6 and stage 7. Each stage is one PR that leaves `main` green and the
 behaviour unchanged: the same 40-case suite, the same fixtures, the same `e2e`.
 
 ## Where it stands
@@ -102,3 +102,24 @@ Order is by value per risk. Stages 1 to 3 are the ones worth doing for their own
 - Do not start with the directory moves. Without Stage 1's lint they drift back.
 - Do not add a plugin or dependency-injection framework. Plain constructors are enough at this size.
 - Do not adopt Bazel before Stage 7's trigger.
+
+## What was actually done, and what was left out on purpose
+
+- **Stage 0:** `tests/test_golden.py` pins every CLI command's flags and the MCP tool names, arguments and read-only flags.
+- **Stage 1:** nine import-linter contracts in `pyproject.toml`, run in CI. The allow-list is now empty.
+- **Stage 2:** `graph.build` moved to `assembly`; the Postgres lock helpers moved to the leaf `pglock`. Both cycles are gone.
+- **Stage 3:** `ports.py` (model, store, retriever, identity, tool host) with `tests/test_ports.py`; `llm.recording_into`,
+  `llm.observing` and `config.scoped_env` replace six hand-rolled save-and-restore blocks of globals.
+  **Left out:** full constructor injection of a model object. `llm` still holds module-level defaults and `Workspace` still
+  installs its spend-cap hooks at start; the scoped managers make every override restore-safe, which is what the gate needed.
+- **Stage 4:** `tooling/` holds evals, gate, e2e, report and rag-eval and their CLI commands. Nothing in the product imports it.
+  **Left out:** splitting the product commands inside `cli.py` into one module each.
+- **Stage 5:** `workspace.py` is a shared library under the web app and the A2A servers; the agent runtime depends on
+  `ports.ToolHostPort`, not the HR tool server (built in `assembly.tool_host`).
+- **Stage 6:** `contracts/` (versioned MCP tool definitions and agent cards) with a drift test; the container image leaves
+  `tooling/` out (the product was verified to run without it).
+  **Left out on purpose:** splitting into several installable distributions in a `uv` workspace, and one image per service.
+  At this size it adds a namespace-package and release-process cost without a second consumer to pay for it; the import
+  contracts already give the isolation. Revisit when a service needs its own release cadence.
+- **Stage 7:** CODEOWNERS by boundary, and the slow whole-stack CI job is skipped for docs-only pull requests.
+  **Left out on purpose:** Bazel, Buck or Pants (the plan's own trigger, a second team or product, has not occurred).

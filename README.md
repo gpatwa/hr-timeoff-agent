@@ -772,26 +772,35 @@ overwrites one.
 
 ## Layout
 
+Boundaries are enforced: `lint-imports` (contracts in `pyproject.toml`) fails CI on a bad import. Reading
+order is bottom up: each group imports only the groups above it.
+
 ```
 hr_timeoff_agent/
+  # core: imports nothing else in the app
   models.py     Recommendation vs Decision — the boundary, in types
   policy.py     deterministic rules over data/policy.json
-  retrieval.py  hybrid retrieval in Qdrant, tenant/audience filtered before ranking
   evidence.py   append-only hash-chained ledger
-  graph.py      the LangGraph workflow and the approval interrupt
-  tooling/evals.py      graded eval and the LLM judge
-  tooling/rag_eval.py   RAGAS eval of the retrieval step
-  tooling/e2e.py        end-to-end self-test: every guarantee as a pass/fail check
-  mcp_server.py the HR tools as an MCP server (read-only, tenant and audience fixed)
-  mcp_client.py a small synchronous client for it
-  agentloop.py  tool-calling agent loops with replayable trajectories
-  agents.py     the policy and coverage specialists and the coordinator
-  a2a_server.py the time-off agent over A2A (file, review, decide)
-  a2a_payroll.py a separate payroll-impact agent over A2A
-  a2a_client.py, a2a_common.py  the A2A client, bearer-token identity, helpers
-  web/          the browser app: workspace (state + rules), identity, routes, pages
-  tooling/report.py     builds docs/report.html from real run output
-  cli.py
+  config.py     file-based secrets, scoped environment overrides
+  ports.py      the interfaces: model, store, retriever, identity, tool host
+  # adapters and libraries
+  llm.py        the model adapter: Anthropic API, Claude Code, recorded fixtures
+  retrieval.py  hybrid retrieval in Qdrant, tenant/audience filtered before ranking
+  storage.py, migrations.py, pglock.py   file and Postgres stores, versioned migrations, advisory locks
+  oidc.py, telemetry.py, canonical.py
+  workspace.py  the domain layer both front doors use: authorization, spend cap, paused runs
+  # the agent
+  graph.py      the LangGraph nodes, state and the approval interrupt
+  agents.py, agentloop.py   the specialists, the coordinator, replayable tool-calling loops
+  assembly.py   wires graph + agents into one compiled workflow (the only place that knows both)
+  mcp_server.py, mcp_client.py   the HR tools over MCP (read-only, tenant and audience fixed)
+  # front doors (they do not import each other)
+  web/          the browser app: identity, routes, pages
+  a2a_server.py, a2a_payroll.py, a2a_client.py, a2a_common.py   the agents over A2A
+  cli.py, clicommon.py
+  # tooling: imports the product, never the reverse; left out of the container image
+  tooling/      evals.py, rag_eval.py, e2e.py, gate.py, report.py, commands.py
+contracts/      the MCP tool definitions and A2A agent cards, versioned (tests/test_contracts.py)
 data/           mock Workday-shaped tenant: workers, absences, policy, requests,
                 leave handbook and past decisions (plus a second tenant, for isolation tests)
 evals/          rubric.md (written first), cases.json, rag_cases.json
