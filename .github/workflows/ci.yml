@@ -28,7 +28,13 @@ jobs:
           cache: pip
 
       - name: Install
-        run: pip install -e '.[rag-eval,web,mcp,a2a]'
+        run: pip install -e '.[rag-eval,web,mcp,a2a,dev]'
+
+      - name: Module boundaries (import-linter contracts in pyproject.toml)
+        run: lint-imports
+
+      - name: Interfaces (CLI flags and MCP tool contract are unchanged)
+        run: python tests/test_golden.py
 
       - name: Guarantees (human-only decisions, tamper detection, override)
         run: python tests/test_guarantees.py

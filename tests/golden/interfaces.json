@@ -1,0 +1,145 @@
+{
+  "cli_commands": [
+    "a2a",
+    "a2a-demo",
+    "e2e",
+    "eval",
+    "gate",
+    "init",
+    "list",
+    "mcp",
+    "migrate",
+    "rag-eval",
+    "report",
+    "run",
+    "web"
+  ],
+  "cli_help": {
+    "a2a": [
+      "--help",
+      "--home",
+      "--host",
+      "--payroll-port",
+      "--port"
+    ],
+    "a2a-demo": [
+      "--help"
+    ],
+    "e2e": [
+      "--help",
+      "--require-live"
+    ],
+    "eval": [
+      "--agents",
+      "--help",
+      "--record"
+    ],
+    "gate": [
+      "--budget",
+      "--help",
+      "--modes",
+      "--no-a2a",
+      "--out",
+      "--quick",
+      "--repeats",
+      "--replay",
+      "--summary",
+      "--thresholds",
+      "--workers"
+    ],
+    "init": [
+      "--help",
+      "--home"
+    ],
+    "list": [
+      "--help"
+    ],
+    "mcp": [
+      "--help",
+      "--host",
+      "--http",
+      "--reader"
+    ],
+    "migrate": [
+      "--help",
+      "--status"
+    ],
+    "rag-eval": [
+      "--help",
+      "--min-precision",
+      "--min-recall"
+    ],
+    "report": [
+      "--help"
+    ],
+    "run": [
+      "--agents",
+      "--approve",
+      "--as",
+      "--decline",
+      "--help",
+      "--json",
+      "--note",
+      "--record",
+      "--return"
+    ],
+    "web": [
+      "--help",
+      "--host",
+      "--port"
+    ]
+  },
+  "mcp_tools": [
+    {
+      "arguments": [
+        "end",
+        "hours",
+        "note",
+        "plan",
+        "start",
+        "submitted_at",
+        "worker_id"
+      ],
+      "name": "evaluate_policy",
+      "read_only": true
+    },
+    {
+      "arguments": [
+        "plan",
+        "worker_id"
+      ],
+      "name": "get_balance",
+      "read_only": true
+    },
+    {
+      "arguments": [
+        "worker_id"
+      ],
+      "name": "get_worker",
+      "read_only": true
+    },
+    {
+      "arguments": [
+        "query"
+      ],
+      "name": "search_handbook",
+      "read_only": true
+    },
+    {
+      "arguments": [
+        "query"
+      ],
+      "name": "search_precedents",
+      "read_only": true
+    },
+    {
+      "arguments": [
+        "end",
+        "start",
+        "worker_id"
+      ],
+      "name": "team_availability",
+      "read_only": true
+    }
+  ]
+}
