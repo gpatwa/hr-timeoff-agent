@@ -39,6 +39,9 @@ jobs:
       - name: Ports (every adapter meets its interface)
         run: python tests/test_ports.py
 
+      - name: Contracts (MCP tools and A2A agent cards match contracts/)
+        run: python tests/test_contracts.py
+
       - name: Guarantees (human-only decisions, tamper detection, override)
         run: python tests/test_guarantees.py
 

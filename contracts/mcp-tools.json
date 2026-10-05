@@ -1,0 +1,493 @@
+{
+  "contract": [
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Run every deterministic time-off rule against a request and return one finding per rule.",
+      "inputSchema": {
+        "properties": {
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "hours": {
+            "title": "Hours",
+            "type": "number"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "plan": {
+            "title": "Plan",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "submitted_at": {
+            "title": "Submitted At",
+            "type": "string"
+          },
+          "worker_id": {
+            "title": "Worker Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "worker_id",
+          "plan",
+          "start",
+          "end",
+          "hours",
+          "submitted_at"
+        ],
+        "title": "evaluate_policyArguments",
+        "type": "object"
+      },
+      "name": "evaluate_policy",
+      "outputSchema": {
+        "$defs": {
+          "Finding": {
+            "description": "Result of one deterministic policy rule. Never produced by a model.",
+            "properties": {
+              "detail": {
+                "title": "Detail",
+                "type": "string"
+              },
+              "evidence": {
+                "additionalProperties": true,
+                "title": "Evidence",
+                "type": "object"
+              },
+              "rule_id": {
+                "title": "Rule Id",
+                "type": "string"
+              },
+              "rule_name": {
+                "title": "Rule Name",
+                "type": "string"
+              },
+              "severity": {
+                "enum": [
+                  "blocking",
+                  "advisory"
+                ],
+                "title": "Severity",
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "pass",
+                  "fail",
+                  "warn"
+                ],
+                "title": "Status",
+                "type": "string"
+              }
+            },
+            "required": [
+              "rule_id",
+              "rule_name",
+              "status",
+              "severity",
+              "detail"
+            ],
+            "title": "Finding",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "findings": {
+            "items": {
+              "$ref": "#/$defs/Finding"
+            },
+            "title": "Findings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "findings"
+        ],
+        "title": "Findings",
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Hours available in one time-off plan, such as PTO.",
+      "inputSchema": {
+        "properties": {
+          "plan": {
+            "title": "Plan",
+            "type": "string"
+          },
+          "worker_id": {
+            "title": "Worker Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "worker_id",
+          "plan"
+        ],
+        "title": "get_balanceArguments",
+        "type": "object"
+      },
+      "name": "get_balance",
+      "outputSchema": {
+        "properties": {
+          "balance_hours": {
+            "title": "Balance Hours",
+            "type": "number"
+          },
+          "plan": {
+            "title": "Plan",
+            "type": "string"
+          },
+          "worker_id": {
+            "title": "Worker Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "worker_id",
+          "plan",
+          "balance_hours"
+        ],
+        "title": "Balance",
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "A worker's directory record: name, supervisory org, manager and plans.",
+      "inputSchema": {
+        "properties": {
+          "worker_id": {
+            "title": "Worker Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "worker_id"
+        ],
+        "title": "get_workerArguments",
+        "type": "object"
+      },
+      "name": "get_worker",
+      "outputSchema": {
+        "properties": {
+          "legal_name": {
+            "title": "Legal Name",
+            "type": "string"
+          },
+          "manager_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manager Id"
+          },
+          "supervisory_org": {
+            "title": "Supervisory Org",
+            "type": "string"
+          },
+          "supervisory_org_id": {
+            "title": "Supervisory Org Id",
+            "type": "string"
+          },
+          "time_off_plans": {
+            "additionalProperties": true,
+            "title": "Time Off Plans",
+            "type": "object"
+          },
+          "worker_id": {
+            "title": "Worker Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "worker_id",
+          "legal_name",
+          "supervisory_org",
+          "supervisory_org_id",
+          "manager_id",
+          "time_off_plans"
+        ],
+        "title": "WorkerRecord",
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Search this tenant's handbook for guidance a manager may read.",
+      "inputSchema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_handbookArguments",
+        "type": "object"
+      },
+      "name": "search_handbook",
+      "outputSchema": {
+        "$defs": {
+          "Passage": {
+            "description": "A retrieved handbook passage or past decision. Guidance, not a rule outcome.",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "handbook",
+                  "precedent"
+                ],
+                "title": "Kind",
+                "type": "string"
+              },
+              "passage_id": {
+                "title": "Passage Id",
+                "type": "string"
+              },
+              "score": {
+                "title": "Score",
+                "type": "number"
+              },
+              "tenant_id": {
+                "title": "Tenant Id",
+                "type": "string"
+              },
+              "text": {
+                "title": "Text",
+                "type": "string"
+              },
+              "title": {
+                "title": "Title",
+                "type": "string"
+              }
+            },
+            "required": [
+              "passage_id",
+              "tenant_id",
+              "kind",
+              "title",
+              "text",
+              "score"
+            ],
+            "title": "Passage",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "passages": {
+            "items": {
+              "$ref": "#/$defs/Passage"
+            },
+            "title": "Passages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "passages"
+        ],
+        "title": "Passages",
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Search this tenant's past time-off decisions for similar situations.",
+      "inputSchema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_precedentsArguments",
+        "type": "object"
+      },
+      "name": "search_precedents",
+      "outputSchema": {
+        "$defs": {
+          "Passage": {
+            "description": "A retrieved handbook passage or past decision. Guidance, not a rule outcome.",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "handbook",
+                  "precedent"
+                ],
+                "title": "Kind",
+                "type": "string"
+              },
+              "passage_id": {
+                "title": "Passage Id",
+                "type": "string"
+              },
+              "score": {
+                "title": "Score",
+                "type": "number"
+              },
+              "tenant_id": {
+                "title": "Tenant Id",
+                "type": "string"
+              },
+              "text": {
+                "title": "Text",
+                "type": "string"
+              },
+              "title": {
+                "title": "Title",
+                "type": "string"
+              }
+            },
+            "required": [
+              "passage_id",
+              "tenant_id",
+              "kind",
+              "title",
+              "text",
+              "score"
+            ],
+            "title": "Passage",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "passages": {
+            "items": {
+              "$ref": "#/$defs/Passage"
+            },
+            "title": "Passages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "passages"
+        ],
+        "title": "Passages",
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "How many people in the worker's supervisory org are out between two dates, if they were also out.",
+      "inputSchema": {
+        "properties": {
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "worker_id": {
+            "title": "Worker Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "worker_id",
+          "start",
+          "end"
+        ],
+        "title": "team_availabilityArguments",
+        "type": "object"
+      },
+      "name": "team_availability",
+      "outputSchema": {
+        "description": "Result of one deterministic policy rule. Never produced by a model.",
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "evidence": {
+            "additionalProperties": true,
+            "title": "Evidence",
+            "type": "object"
+          },
+          "rule_id": {
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "rule_name": {
+            "title": "Rule Name",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "blocking",
+              "advisory"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "fail",
+              "warn"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_id",
+          "rule_name",
+          "status",
+          "severity",
+          "detail"
+        ],
+        "title": "Finding",
+        "type": "object"
+      }
+    }
+  ],
+  "contract_version": "1.0.0"
+}
