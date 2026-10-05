@@ -1,0 +1,341 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "hr-timeoff-agent \u2014 code structure",
+    "output": "code-structure.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/gpatwa/hr-timeoff-agent",
+      "revision": "c0ab3b2339eff37a708d9301013df09b19fa3c98"
+    },
+    "views": [
+      {
+        "id": "front",
+        "label": "Front doors",
+        "focus": [
+          "cli",
+          "web",
+          "a2a",
+          "agent"
+        ],
+        "note": "The web app and the A2A agents share one domain layer."
+      },
+      {
+        "id": "agent",
+        "label": "The agent",
+        "focus": [
+          "agent",
+          "hr_tools",
+          "adapters",
+          "core"
+        ],
+        "note": "The agent reaches tools and the outside world only through lower layers."
+      },
+      {
+        "id": "harness",
+        "label": "Eval harness",
+        "focus": [
+          "cli",
+          "harness",
+          "agent"
+        ],
+        "note": "The harness imports the product; the product never imports it."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "cli",
+      "type": "frontend",
+      "label": "CLI",
+      "sublabel": "python -m hr_timeoff_agent",
+      "tag": "entry point",
+      "pos": [
+        430,
+        90
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/cli.py",
+          "line": 1,
+          "label": "main"
+        }
+      ]
+    },
+    {
+      "id": "harness",
+      "type": "external",
+      "label": "eval_harness/",
+      "sublabel": "evals \u00b7 gate \u00b7 e2e \u00b7 report",
+      "tag": "left out of the image",
+      "pos": [
+        40,
+        205
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/eval_harness/gate.py",
+          "line": 1,
+          "label": "run_gate"
+        }
+      ]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "services/web/",
+      "sublabel": "routes \u00b7 identity \u00b7 pages",
+      "tag": "front door",
+      "pos": [
+        300,
+        205
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/services/web/app.py",
+          "line": 1,
+          "label": "create_app"
+        }
+      ]
+    },
+    {
+      "id": "a2a",
+      "type": "security",
+      "label": "services/a2a/",
+      "sublabel": "time-off agent \u00b7 payroll \u00b7 client",
+      "tag": "front door",
+      "pos": [
+        560,
+        205
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/services/a2a/server.py",
+          "line": 1,
+          "label": "create_timeoff_app"
+        }
+      ]
+    },
+    {
+      "id": "agent",
+      "type": "backend",
+      "label": "agent/",
+      "sublabel": "graph \u00b7 specialists \u00b7 workspace",
+      "tag": "assembly wires graph + agents",
+      "pos": [
+        430,
+        320
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/agent/assembly.py",
+          "line": 1,
+          "label": "build"
+        }
+      ]
+    },
+    {
+      "id": "hr_tools",
+      "type": "backend",
+      "label": "hr_tools/",
+      "sublabel": "MCP server and client",
+      "tag": "6 read-only tools",
+      "pos": [
+        690,
+        320
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/hr_tools/server.py",
+          "line": 1,
+          "label": "HRToolServer"
+        }
+      ]
+    },
+    {
+      "id": "adapters",
+      "type": "database",
+      "label": "adapters/",
+      "sublabel": "model \u00b7 store \u00b7 retrieval \u00b7 identity",
+      "tag": "talk to the outside world",
+      "pos": [
+        560,
+        435
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/adapters/llm.py",
+          "line": 1,
+          "label": "structured"
+        }
+      ]
+    },
+    {
+      "id": "core",
+      "type": "security",
+      "label": "core/",
+      "sublabel": "models \u00b7 policy \u00b7 ledger \u00b7 ports",
+      "tag": "imports nothing else",
+      "pos": [
+        820,
+        435
+      ],
+      "size": [
+        190,
+        64
+      ],
+      "sources": [
+        {
+          "path": "hr_timeoff_agent/core/policy.py",
+          "line": 1,
+          "label": "Tenant"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "c1",
+      "from": "cli",
+      "to": "harness",
+      "label": "registers",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "c2",
+      "from": "cli",
+      "to": "web",
+      "label": "serves",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "c3",
+      "from": "cli",
+      "to": "a2a",
+      "label": "serves",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "h1",
+      "from": "harness",
+      "to": "agent",
+      "label": "drives",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "left"
+    },
+    {
+      "id": "w1",
+      "from": "web",
+      "to": "agent",
+      "label": "workspace",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "a1",
+      "from": "a2a",
+      "to": "agent",
+      "label": "workspace",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "t1",
+      "from": "agent",
+      "to": "hr_tools",
+      "label": "MCP",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "d1",
+      "from": "agent",
+      "to": "adapters",
+      "label": "ports",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "d2",
+      "from": "hr_tools",
+      "to": "adapters",
+      "label": "retrieval",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "k1",
+      "from": "adapters",
+      "to": "core",
+      "label": "types",
+      "fromSide": "right",
+      "toSide": "left"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Layers",
+      "items": [
+        "cli, then eval_harness, services, agent, hr_tools, adapters, core",
+        "Each package imports only the ones below it",
+        "The two front doors never import each other"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Enforced",
+      "items": [
+        "import-linter runs in CI: 6 contracts, none ignored",
+        "A bad import fails the build, not a review",
+        "Interfaces in core/ports.py; adapters must meet them"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Left out on purpose",
+      "items": [
+        "No plugin registry: backends are chosen by config",
+        "The image ships without eval_harness",
+        "No split into separate installable packages yet"
+      ]
+    }
+  ]
+}
