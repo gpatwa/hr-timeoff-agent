@@ -15,6 +15,7 @@ cannot actually call a model refuses to start rather than pass having tested not
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import shutil
@@ -26,7 +27,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from . import evals, llm, policy, retrieval
+from . import config, evals, llm, policy, retrieval
 
 ROOT = Path(__file__).resolve().parent.parent
 THRESHOLDS = ROOT / "evals" / "thresholds.json"
@@ -150,26 +151,21 @@ def run_eval(tenant: policy.Tenant, modes: list[str], repeats: int, *, live: boo
     environment variable that tool servers read, so they run alone, after the rest."""
     out: list[CaseMetrics] = []
     undo = _count_tool_calls(meter)
-    saved_mode = os.environ.get("HR_AGENT_MODE")
     cases = [c for c in evals._cases() if only is None or c["case_id"] in only]
     jobs = [c for c in cases for _ in range(repeats)]
     shared = [c for c in jobs if not c.get("corpus")]
     alone = [c for c in jobs if c.get("corpus")]
     try:
         for mode in modes:
-            os.environ["HR_AGENT_MODE"] = mode
-            if workers > 1 and len(shared) > 1:
-                with ThreadPoolExecutor(max_workers=workers) as pool:
-                    out += list(pool.map(lambda c: _one_case(tenant, c, mode, live, meter), shared))
-            else:
-                out += [_one_case(tenant, c, mode, live, meter) for c in shared]
-            out += [_one_case(tenant, c, mode, live, meter) for c in alone]
+            with config.scoped_env(HR_AGENT_MODE=mode):
+                if workers > 1 and len(shared) > 1:
+                    with ThreadPoolExecutor(max_workers=workers) as pool:
+                        out += list(pool.map(lambda c: _one_case(tenant, c, mode, live, meter), shared))
+                else:
+                    out += [_one_case(tenant, c, mode, live, meter) for c in shared]
+                out += [_one_case(tenant, c, mode, live, meter) for c in alone]
     finally:
         undo()
-        if saved_mode is None:
-            os.environ.pop("HR_AGENT_MODE", None)
-        else:
-            os.environ["HR_AGENT_MODE"] = saved_mode
     return out
 
 
@@ -266,9 +262,6 @@ def run_a2a_multi(scratch: Path) -> dict:
     from .web.workspace import Workspace
 
     start = time.monotonic()
-    saved_mode = os.environ.get("HR_AGENT_MODE")
-    os.environ["HR_AGENT_MODE"] = "multi"
-    saved_llm = (llm.FIXTURES, llm.before_live_call, llm.after_live_call)
 
     async def flow(ws: Workspace) -> dict:
         tokens = BearerTokens.derive("gate", [p.worker_id for p in ws.personas()] + ["timeoff-agent"])
@@ -311,21 +304,17 @@ def run_a2a_multi(scratch: Path) -> dict:
             await priya.close()
             await dana.close()
 
-    try:
-        ws = Workspace(scratch / "a2a-home", daily_cap_usd=float(os.environ.get("HR_GATE_A2A_CAP_USD", "2.0")), triages_per_hour=50)
+    # The workspace installs its own spend-cap hooks and cache path; the scopes put the caller's back.
+    with config.scoped_env(HR_AGENT_MODE="multi"), llm.recording_into(llm.FIXTURES), llm.observing(llm.before_live_call, llm.after_live_call):
         try:
-            result = asyncio.run(flow(ws))
-            result["usd"] = round(ws.spent_today(), 5)
-        finally:
-            ws.close()
-    except Exception as exc:  # noqa: BLE001
-        result = {"passed": False, "detail": f"{type(exc).__name__}: {exc}"[:400], "usd": 0.0}
-    finally:
-        llm.FIXTURES, llm.before_live_call, llm.after_live_call = saved_llm
-        if saved_mode is None:
-            os.environ.pop("HR_AGENT_MODE", None)
-        else:
-            os.environ["HR_AGENT_MODE"] = saved_mode
+            ws = Workspace(scratch / "a2a-home", daily_cap_usd=float(os.environ.get("HR_GATE_A2A_CAP_USD", "2.0")), triages_per_hour=50)
+            try:
+                result = asyncio.run(flow(ws))
+                result["usd"] = round(ws.spent_today(), 5)
+            finally:
+                ws.close()
+        except Exception as exc:  # noqa: BLE001
+            result = {"passed": False, "detail": f"{type(exc).__name__}: {exc}"[:400], "usd": 0.0}
     result.setdefault("tool_calls", 0)
     result["seconds"] = round(time.monotonic() - start, 1)
     return result
@@ -368,59 +357,48 @@ def run_gate(*, modes: list[str], repeats: int, thresholds_path: Path = THRESHOL
     budget = budget_usd if budget_usd is not None else float(thresholds.get("total_budget_usd", 5.0))
     meter = Meter(budget_usd=budget)
     start = time.monotonic()
-    saved = (llm.FIXTURES, llm.before_live_call, llm.after_live_call)
-
-    with tempfile.TemporaryDirectory() as d:
+    with tempfile.TemporaryDirectory() as d, contextlib.ExitStack() as scope:
         scratch = Path(d)
         # Live calls are recorded into scratch copies, so a gate run never edits the repo's fixtures.
         cache, emb = scratch / "llm_cache.json", scratch / "embeddings.json"
         shutil.copy(llm.FIXTURES, cache)
         shutil.copy(retrieval.EMBED_CACHE, emb)
-        llm.FIXTURES = cache
-        llm.before_live_call, llm.after_live_call = meter.before, meter.after
+        scope.enter_context(llm.recording_into(cache))
+        scope.enter_context(llm.observing(meter.before, meter.after))
         # The MCP server that Claude Code starts is a child process: it learns where to record
         # new query embeddings from the environment, and must not write to the repo's file.
-        saved_env = {k: os.environ.get(k) for k in ("HR_AGENT_EMBEDDINGS", "HR_AGENT_FIXTURES")}
-        os.environ["HR_AGENT_EMBEDDINGS"], os.environ["HR_AGENT_FIXTURES"] = str(emb), str(cache)
-        report: dict = {}
+        scope.enter_context(config.scoped_env(HR_AGENT_EMBEDDINGS=str(emb), HR_AGENT_FIXTURES=str(cache)))
+        tenant = policy.Tenant()
+        tenant._policy_index = retrieval.PolicyIndex(embedder=retrieval.Embedder(cache_path=emb))
         try:
-            tenant = policy.Tenant()
-            tenant._policy_index = retrieval.PolicyIndex(embedder=retrieval.Embedder(cache_path=emb))
-            try:
-                metrics = run_eval(tenant, modes, repeats, live=live, meter=meter, workers=workers,
-                                   only=QUICK_CASES if quick else None)
-                halted = None
-            except OverBudget as exc:
-                metrics, halted = [], str(exc)
-            summary = summarize(metrics)
-            a2a_result = None
-            if live and a2a and halted is None:
-                saved_hooks = (llm.before_live_call, llm.after_live_call)
-                a2a_result = run_a2a_multi(scratch)
-                llm.before_live_call, llm.after_live_call = saved_hooks
-                meter.spent += a2a_result.get("usd", 0.0)
-            violations = evaluate(summary, a2a_result, thresholds)
-            if halted:
-                violations.insert(0, halted)
-            report = {
-                "passed": not violations,
-                "live": live,
-                "quick": quick,
-                "workers": workers,
-                "backend": llm.BACKEND if live else "replay",
-                "agent_model": llm.AGENT_MODEL,
-                "judge_model": llm.JUDGE_MODEL,
-                "spent_usd": round(meter.spent, 4),
-                "budget_usd": budget,
-                "seconds": round(time.monotonic() - start, 1),
-                "summary": summary,
-                "a2a": a2a_result,
-                "violations": violations,
-                "cases": [asdict(m) for m in metrics],
-                "thresholds": thresholds,
-            }
-        finally:
-            llm.FIXTURES, llm.before_live_call, llm.after_live_call = saved
-            for k, v in saved_env.items():
-                os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+            metrics = run_eval(tenant, modes, repeats, live=live, meter=meter, workers=workers,
+                               only=QUICK_CASES if quick else None)
+            halted = None
+        except OverBudget as exc:
+            metrics, halted = [], str(exc)
+        summary = summarize(metrics)
+        a2a_result = None
+        if live and a2a and halted is None:
+            a2a_result = run_a2a_multi(scratch)
+            meter.spent += a2a_result.get("usd", 0.0)
+        violations = evaluate(summary, a2a_result, thresholds)
+        if halted:
+            violations.insert(0, halted)
+        report = {
+            "passed": not violations,
+            "live": live,
+            "quick": quick,
+            "workers": workers,
+            "backend": llm.BACKEND if live else "replay",
+            "agent_model": llm.AGENT_MODEL,
+            "judge_model": llm.JUDGE_MODEL,
+            "spent_usd": round(meter.spent, 4),
+            "budget_usd": budget,
+            "seconds": round(time.monotonic() - start, 1),
+            "summary": summary,
+            "a2a": a2a_result,
+            "violations": violations,
+            "cases": [asdict(m) for m in metrics],
+            "thresholds": thresholds,
+        }
     return report

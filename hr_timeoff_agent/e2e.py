@@ -18,13 +18,12 @@ import subprocess
 import sys
 import tempfile
 import time
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable
 
 from langgraph.types import Command
 
-from . import assembly, evidence, graph as graph_mod, llm, policy, retrieval
+from . import assembly, config, evidence, graph as graph_mod, llm, policy, retrieval
 from .models import Recommendation
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -50,22 +49,7 @@ def expect(condition: bool, message: str) -> None:
         raise CheckFailed(message)
 
 
-@contextmanager
-def _env(**values: str | None):
-    saved = {k: os.environ.get(k) for k in values}
-    for k, v in values.items():
-        if v is None:
-            os.environ.pop(k, None)
-        else:
-            os.environ[k] = v
-    try:
-        yield
-    finally:
-        for k, v in saved.items():
-            if v is None:
-                os.environ.pop(k, None)
-            else:
-                os.environ[k] = v
+_env = config.scoped_env
 
 
 def _cli(*args: str) -> tuple[int, str]:
@@ -209,8 +193,7 @@ def check_web_app(t: policy.Tenant) -> str:
         raise CheckFailed("web extra not installed: pip install -e '.[web]'")
     import html
 
-    saved = (llm.FIXTURES, llm.before_live_call, llm.after_live_call)
-    with tempfile.TemporaryDirectory() as home:
+    with tempfile.TemporaryDirectory() as home, llm.recording_into(llm.FIXTURES), llm.observing(llm.before_live_call, llm.after_live_call):
         app = create_app(home)
         try:
             c, ws = TestClient(app), app.state.workspace
@@ -232,7 +215,6 @@ def check_web_app(t: policy.Tenant) -> str:
             expect(c.get("/requests/REQ-2004").status_code == 403, "a peer could view someone else's request")
         finally:
             app.state.workspace.close()
-            llm.FIXTURES, llm.before_live_call, llm.after_live_call = saved
     return "HR refused, manager approved (40h paid + 80h unpaid), peer can't view, trail verified"
 
 
@@ -306,7 +288,6 @@ def check_a2a(t: policy.Tenant) -> str:
     except ImportError:
         raise CheckFailed("a2a extra not installed: pip install -e '.[a2a]'")
     logging.getLogger("a2a").setLevel(logging.ERROR)
-    saved = (llm.FIXTURES, llm.before_live_call, llm.after_live_call)
 
     async def flow(home: str) -> str:
         ws = Workspace(home)
@@ -347,11 +328,8 @@ def check_a2a(t: policy.Tenant) -> str:
         return await payroll.send({"skill": "assess_unpaid_leave_impact", "tenant_id": "TEN-002", "worker_id": "W-100237",
                                    "unpaid_hours": 8, "start": "2026-10-19", "end": "2026-10-19"})
 
-    try:
-        with tempfile.TemporaryDirectory() as home:
-            return asyncio.run(flow(home))
-    finally:
-        llm.FIXTURES, llm.before_live_call, llm.after_live_call = saved
+    with tempfile.TemporaryDirectory() as home, llm.recording_into(llm.FIXTURES), llm.observing(llm.before_live_call, llm.after_live_call):
+        return asyncio.run(flow(home))
 
 
 OFFLINE: list[tuple[str, Callable[[policy.Tenant], str]]] = [
@@ -378,12 +356,9 @@ def check_live_agent_call(t: policy.Tenant) -> str:
     with tempfile.TemporaryDirectory() as d:
         scratch = Path(d) / "llm_cache.json"
         shutil.copy(llm.FIXTURES, scratch)
-        saved, llm.FIXTURES = llm.FIXTURES, scratch
-        try:
+        with llm.recording_into(scratch):
             state, _ = _paused(assembly.build(t, record_llm=True), t.requests["REQ-2004"], "e2e-live")
             entry = next(v for v in json.loads(scratch.read_text()).values() if v["label"] == "assess:REQ-2004")
-        finally:
-            llm.FIXTURES = saved
     rec = Recommendation.model_validate(state["recommendation"])
     given = {p["passage_id"] for p in state["passages"]}
     expect("__interrupt__" in state and state["decision"] is None, "the live run did not pause for a human")
@@ -401,24 +376,19 @@ def check_live_multi_agent(t: policy.Tenant) -> str:
         scratch, emb = Path(d) / "llm_cache.json", Path(d) / "embeddings.json"
         shutil.copy(llm.FIXTURES, scratch)
         shutil.copy(retrieval.EMBED_CACHE, emb)
-        saved = llm.FIXTURES
-        llm.FIXTURES = scratch
-        try:
-            with _env(HR_AGENT_EMBEDDINGS=str(emb), HR_AGENT_FIXTURES=str(scratch)):
-                tenant = policy.Tenant()
-                tenant._policy_index = retrieval.PolicyIndex(embedder=retrieval.Embedder(cache_path=emb))
-                state, _ = _paused(assembly.build(tenant, record_llm=True, agents="multi"), tenant.requests["REQ-2004"], "e2e-live-multi")
-                entries = [v for v in json.loads(scratch.read_text()).values() if v.get("kind") == "agent" and v["label"].endswith("REQ-2004")]
-                calls = [e for e in state["evidence"] if e["data"].get("via") == "mcp"]
-                expect("__interrupt__" in state and state["decision"] is None, "the live multi-agent run did not pause for a human")
-                expect(len(entries) == 2 and all(llm.AGENT_MODEL in e["served_by"] for e in entries), f"served by {[e.get('served_by') for e in entries]}")
-                expect(calls, "the specialists made no tool calls")
-                # and what was just recorded replays without the model
-                with _env(HR_AGENT_OFFLINE="1"):
-                    again, _ = _paused(assembly.build(tenant, agents="multi"), tenant.requests["REQ-2004"], "e2e-live-multi-replay")
-                expect(again["recommendation"] == state["recommendation"], "the recorded trajectory did not replay to the same recommendation")
-        finally:
-            llm.FIXTURES = saved
+        with llm.recording_into(scratch), _env(HR_AGENT_EMBEDDINGS=str(emb), HR_AGENT_FIXTURES=str(scratch)):
+            tenant = policy.Tenant()
+            tenant._policy_index = retrieval.PolicyIndex(embedder=retrieval.Embedder(cache_path=emb))
+            state, _ = _paused(assembly.build(tenant, record_llm=True, agents="multi"), tenant.requests["REQ-2004"], "e2e-live-multi")
+            entries = [v for v in json.loads(scratch.read_text()).values() if v.get("kind") == "agent" and v["label"].endswith("REQ-2004")]
+            calls = [e for e in state["evidence"] if e["data"].get("via") == "mcp"]
+            expect("__interrupt__" in state and state["decision"] is None, "the live multi-agent run did not pause for a human")
+            expect(len(entries) == 2 and all(llm.AGENT_MODEL in e["served_by"] for e in entries), f"served by {[e.get('served_by') for e in entries]}")
+            expect(calls, "the specialists made no tool calls")
+            # and what was just recorded replays without the model
+            with _env(HR_AGENT_OFFLINE="1"):
+                again, _ = _paused(assembly.build(tenant, agents="multi"), tenant.requests["REQ-2004"], "e2e-live-multi-replay")
+            expect(again["recommendation"] == state["recommendation"], "the recorded trajectory did not replay to the same recommendation")
     return f"{entries[0]['source']} · {len(calls)} tool calls recorded and replayed · paused for a human"
 
 
