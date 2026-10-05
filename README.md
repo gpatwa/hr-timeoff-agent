@@ -19,6 +19,8 @@ across them: 1 file, 2 rules, 3 retrieve or investigate, 4 assess, 5 recommend, 
 - **[System architecture →](docs/architecture.html)**: the agent topology. A single agent or a supervisor
   with two specialists, tools only through an MCP server, a time-off agent and a payroll agent
   talking A2A, the web app and the A2A agent sharing one workspace, one gate, one ledger.
+- **[Code structure →](docs/code-structure.html)**: the packages as layers (core, adapters, hr_tools, agent,
+  services, eval_harness, CLI), and which may import which.
 - **[The stack →](docs/deployment.html)**: the containers. Keycloak, the web app, the A2A agents, the MCP tool
   server, Postgres, Qdrant, the OTel collector with Jaeger and Prometheus, and the eval gate that drives it.
 - **[Agent graph →](docs/agent-graph.html)**: inside the graph. The single-agent and multi-agent
@@ -832,6 +834,7 @@ tests/          the guarantees, including tamper detection and human override,
                 and retrieval isolation by tenant and audience
 docs/report.html        rendered run report (every figure read from out/*.json)
 docs/architecture.html  system architecture: agents, MCP, A2A, front doors (archify; source-linked)
+docs/code-structure.html the packages as layers, and the import rules between them
 docs/deployment.html    the stack: containers, state, identity, telemetry, eval gate
 docs/agent-graph.html   the graph in detail: single and multi-agent paths, gate, replay
 docs/data-flow.html     data flow: payloads, stores, model and human boundaries
