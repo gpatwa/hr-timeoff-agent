@@ -9,6 +9,7 @@ explainable without reference to a model version.
 from __future__ import annotations
 
 import json
+import math
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -224,7 +225,29 @@ def check_consecutive(tenant: Tenant, request: dict, worker: dict) -> Finding:
 CHECKS = (check_balance, check_notice, check_blackout, check_coverage, check_consecutive)
 
 
+def malformed(request: dict) -> str | None:
+    """Why a request cannot be judged by the date and balance rules, or None.
+
+    A reversed window has no days, so every date rule would pass it; negative hours always fit
+    inside a balance. Both are answered here, as a blocking finding, so no caller has to remember to
+    reject them first. The web app and the A2A agent do; the model-facing tool server cannot be trusted to.
+    """
+    hours = request.get("hours")
+    if not isinstance(hours, (int, float)) or isinstance(hours, bool) or not math.isfinite(hours) or hours <= 0:
+        return f"Hours must be a positive number, not {hours!r}."
+    try:
+        if _d(request["to"]) < _d(request["from"]):
+            return "The window ends before it starts."
+    except (KeyError, ValueError, TypeError):
+        return "The window needs from and to dates in YYYY-MM-DD format."
+    return None
+
+
 def evaluate(tenant: Tenant, request: dict, worker: dict) -> list[Finding]:
+    problem = malformed(request)
+    if problem:
+        rule = {"id": "INP-00", "name": "Request is well formed", "severity_on_fail": "blocking"}
+        return [_finding(rule, "fail", problem, {"request": {k: request.get(k) for k in ("from", "to", "hours")}})]
     return [check(tenant, request, worker) for check in CHECKS]
 
 

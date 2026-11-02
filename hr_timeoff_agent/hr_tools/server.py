@@ -19,6 +19,7 @@ from __future__ import annotations
 import functools
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 from datetime import date
@@ -75,6 +76,16 @@ def _dates(*values: str) -> None:
             raise ToolError(f"{v!r} is not an ISO date (YYYY-MM-DD).") from None
 
 
+def _window(start: str, end: str, hours: float | None = None) -> None:
+    """The arguments come from a model. A reversed window has no days, so every date rule would pass it,
+    and non-positive hours always fit in a balance; refuse both here rather than return reassuring findings."""
+    _dates(start, end)
+    if date.fromisoformat(end) < date.fromisoformat(start):
+        raise ToolError(f"The window ends ({end}) before it starts ({start}).")
+    if hours is not None and not (math.isfinite(hours) and hours > 0):
+        raise ToolError(f"Hours must be a positive number, not {hours!r}.")
+
+
 class HRToolServer:
     """Builds an MCP server over one tenant's data, with an audit log of every call."""
 
@@ -105,8 +116,8 @@ class HRToolServer:
             entry = {"tool": fn.__name__, "arguments": kwargs, "tenant_id": self.tenant.tenant_id, "reader": self.reader}
             try:
                 result = fn(*args, **kwargs)
-            except ToolError as exc:
-                self.audit.append({**entry, "error": str(exc)})
+            except Exception as exc:  # every failed call is evidence too, not only the refusals we raise ourselves
+                self.audit.append({**entry, "error": f"{type(exc).__name__}: {exc}" if not isinstance(exc, ToolError) else str(exc)})
                 raise
             self.audit.append({**entry, "result_sha256": digest(result.model_dump() if isinstance(result, BaseModel) else result)})
             return result
@@ -143,14 +154,15 @@ class HRToolServer:
         def team_availability(worker_id: str, start: str, end: str) -> Finding:
             """How many people in the worker's supervisory org are out between two dates, if they were also out."""
             w = self._worker(worker_id)
-            _dates(start, end)
+            _window(start, end)
             return policy.check_coverage(tenant, {"worker_id": worker_id, "from": start, "to": end}, w)
 
         @tool
         def evaluate_policy(worker_id: str, plan: str, start: str, end: str, hours: float, submitted_at: str, note: str = "") -> Findings:
             """Run every deterministic time-off rule against a request and return one finding per rule."""
             w = self._worker(worker_id)
-            _dates(start, end, submitted_at)
+            _dates(submitted_at)
+            _window(start, end, hours)
             request = {"worker_id": worker_id, "plan": plan, "from": start, "to": end, "hours": hours, "submitted_at": submitted_at, "note": note}
             return Findings(findings=policy.evaluate(tenant, request, w))
 
