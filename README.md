@@ -223,6 +223,8 @@ In production that is one realm (or one set of clients) per tenant, each with it
 own client secrets; the session-signing secret is per deployment. Per-tenant model
 API keys are not implemented.
 
+Sessions are stateless signed cookies that expire after 8 hours. Signing out clears the cookie and ends the Keycloak session, but a copy of the cookie taken before that stays valid until it expires: there is no server-side session list to revoke from. That is a known limit, accepted for this demo; a deployment that needs revocation should add a server-side session id.
+
 The development realm (`deploy/keycloak/hr-realm.json`) is for local use only: one
 shared throwaway password, a password-grant client for scripts, plain HTTP. Two
 accounts exist to be refused: `stranger@acme.example` (signs in at Keycloak, not in
