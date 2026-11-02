@@ -179,7 +179,12 @@ way. Local files remain single-process; Postgres is the multi-process mode.
 ## Sign-in and identity
 
 By default the web app has a persona picker and the A2A agents use static demo
-tokens, so a clone runs with nothing else. Set `HR_OIDC_ISSUER` and the same app
+tokens, so a clone runs with nothing else. **That is demo mode: there is no
+authentication.** It starts only on a loopback address (127.0.0.1, localhost, ::1);
+on any other address `web` and `a2a` refuse to start unless `HR_OIDC_ISSUER` is set
+(real sign-in) or `HR_ALLOW_DEMO_AUTH=1` says the data is synthetic and the network
+is trusted. Each prints which sign-in it is using. The tenant **Reset** button exists in
+demo mode only. Set `HR_OIDC_ISSUER` and the same app
 uses real sign-in with OpenID Connect, with Keycloak as the development provider:
 
 ```bash

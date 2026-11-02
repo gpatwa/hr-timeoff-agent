@@ -417,6 +417,47 @@ def test_the_mcp_http_server_needs_a_valid_token():
         assert ok.status_code == 200, (ok.status_code, ok.text[:200])
 
 
+def test_reset_is_not_available_with_real_sign_in():
+    # The picker's "Reset to seeded state" wipes the tenant. With real sign-in the tenant is not synthetic.
+    w = Web()
+    assert w.sign_in(email="grace.kim@acme.example").status_code == 303
+    page = w.c.get("/admin")
+    assert page.status_code == 200 and "Reset to seeded state" not in page.text
+    before = len(w.ws.requests())
+    assert w.c.post("/admin/reset").status_code == 403
+    assert len(w.ws.requests()) == before
+
+
+def test_demo_sign_in_is_refused_off_loopback_unless_it_is_explicit():
+    import subprocess
+
+    from hr_timeoff_agent.clicommon import demo_auth_refusal
+
+    def refusal(host, **env):
+        saved = {k: os.environ.pop(k, None) for k in ("HR_OIDC_ISSUER", "HR_ALLOW_DEMO_AUTH")}
+        os.environ.update(env)
+        try:
+            return demo_auth_refusal(host, "web app")
+        finally:
+            for k in env:
+                os.environ.pop(k, None)
+            os.environ.update({k: v for k, v in saved.items() if v is not None})
+
+    assert refusal("127.0.0.1") is None and refusal("localhost") is None and refusal("::1") is None, "a laptop still just works"
+    msg = refusal("0.0.0.0")
+    assert msg and "HR_OIDC_ISSUER" in msg and "HR_ALLOW_DEMO_AUTH=1" in msg
+    assert refusal("10.0.0.5") is not None
+    assert refusal("0.0.0.0", HR_ALLOW_DEMO_AUTH="1") is None, "an explicit opt-in is honoured"
+    assert refusal("0.0.0.0", HR_ALLOW_DEMO_AUTH="true") is not None, "only the exact value counts"
+    assert refusal("0.0.0.0", HR_OIDC_ISSUER=ISSUER) is None, "real sign-in is allowed anywhere"
+    # And the commands themselves exit before serving anything.
+    env = {k: v for k, v in os.environ.items() if k not in ("HR_OIDC_ISSUER", "HR_ALLOW_DEMO_AUTH")}
+    for command in ("web", "a2a"):
+        r = subprocess.run([sys.executable, "-m", "hr_timeoff_agent", command, "--host", "0.0.0.0"], env=env,
+                           capture_output=True, text=True, timeout=60, cwd=str(Path(__file__).resolve().parent.parent))
+        assert r.returncode == 2 and "Refusing to serve" in r.stdout, (command, r.returncode, r.stdout[-200:], r.stderr[-200:])
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):
