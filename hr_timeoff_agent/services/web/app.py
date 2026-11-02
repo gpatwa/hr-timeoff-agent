@@ -7,11 +7,12 @@ same rules hold for the CLI, the tests and the browser.
 
 from __future__ import annotations
 
+import logging
 import os
 import uuid
 from pathlib import Path
 from typing import Callable
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -20,9 +21,11 @@ from fastapi.templating import Jinja2Templates
 
 from ...adapters import llm, telemetry
 from .identity import IdentityProvider, SignInFailed, identity_from_env
-from ...agent.workspace import BudgetExceeded, Forbidden, Invalid, Persona, Refused, Workspace
+from ...agent.workspace import BudgetExceeded, Forbidden, Invalid, NoSuchRequest, Persona, Refused, Workspace
 
 HERE = Path(__file__).resolve().parent
+log = logging.getLogger(__name__)
+FLASH = "hr_flash"
 
 
 class NotSignedIn(Exception):
@@ -45,6 +48,8 @@ def create_app(
     # `identity` may be a provider, or a function from the workspace to one (it needs the directory).
     ident = (identity(ws) if callable(identity) else identity) or identity_from_env(ws)
     oidc = ident.kind == "oidc"
+    if not oidc:
+        log.warning("web app is using DEMO sign-in (a persona picker, no authentication); set HR_OIDC_ISSUER for real sign-in")
     templates = Jinja2Templates(directory=str(HERE / "templates"))
 
     app = FastAPI(title="Time-off triage", docs_url=None, redoc_url=None)
@@ -60,15 +65,23 @@ def create_app(
 
     def render(request: Request, name: str, persona: Persona | None, status: int = 200, **ctx) -> HTMLResponse:
         live = "live" if not llm.is_offline() else "replay only (no API key)"
-        return templates.TemplateResponse(
+        flash = request.cookies.get(FLASH)
+        response = templates.TemplateResponse(
             request, name,
-            {"me": persona, "msg": request.query_params.get("msg"), "model": llm.AGENT_MODEL,
+            {"me": persona, "msg": unquote(flash) if flash else None, "model": llm.AGENT_MODEL,
              "backend": llm.BACKEND, "live": live, **ctx},
             status_code=status,
         )
+        if flash:
+            response.delete_cookie(FLASH)
+        return response
 
     def go(url: str, msg: str | None = None) -> RedirectResponse:
-        return RedirectResponse(url + (f"?msg={quote(msg)}" if msg else ""), status_code=303)
+        # The notice travels in a short-lived cookie, never in the URL: a crafted link cannot make this app display its text.
+        response = RedirectResponse(url, status_code=303)
+        if msg:
+            response.set_cookie(FLASH, quote(msg), max_age=60, httponly=True, samesite="strict")
+        return response
 
     # ── errors ───────────────────────────────────────────────────────────
 
@@ -88,15 +101,16 @@ def create_app(
     async def _budget(request: Request, exc: BudgetExceeded):
         return render(request, "error.html", ws.persona(ident.current(request)), 429, title="Spend limit reached", detail=str(exc))
 
-    @app.exception_handler(KeyError)
-    async def _missing(request: Request, exc: KeyError):
+    @app.exception_handler(NoSuchRequest)   # only this lookup is a 404; any other KeyError is a bug and stays a 500
+    async def _missing(request: Request, exc: NoSuchRequest):
         return render(request, "error.html", ws.persona(ident.current(request)), 404, title="Not found", detail=f"No such request: {exc}")
 
     # ── pages ────────────────────────────────────────────────────────────
 
     @app.get("/healthz")
     def healthz():
-        return JSONResponse({"ok": True, "model": llm.AGENT_MODEL, "live": not llm.is_offline()})
+        # "auth" says which sign-in is live, so a deployment that fell back to the demo picker is visible to its monitor.
+        return JSONResponse({"ok": True, "model": llm.AGENT_MODEL, "live": not llm.is_offline(), "auth": ident.kind})
 
     @app.get("/readyz")
     def readyz():

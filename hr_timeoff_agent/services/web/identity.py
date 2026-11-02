@@ -31,6 +31,12 @@ from fastapi.responses import RedirectResponse
 COOKIE = "hr_persona"
 
 
+def _same(a: str, b: str) -> bool:
+    """Constant-time equality for values that came from a request. compare_digest raises on a str that is not
+    ASCII, which would turn a hostile cookie or query value into a 500; compare the bytes instead."""
+    return hmac.compare_digest(a.encode("utf-8", "surrogatepass"), b.encode("utf-8", "surrogatepass"))
+
+
 class IdentityProvider(Protocol):
     kind: str   # "persona" (demo picker) or "oidc"
 
@@ -58,7 +64,7 @@ class PersonaSwitcher:
     def current(self, request: Request) -> str | None:
         raw = request.cookies.get(COOKIE, "")
         worker_id, _, mac = raw.rpartition(".")
-        if worker_id and hmac.compare_digest(self._sign(worker_id), raw):
+        if worker_id and _same(self._sign(worker_id), raw):
             return worker_id
         return None
 
@@ -116,7 +122,7 @@ class OIDCIdentity:
 
     def _unseal(self, raw: str | None, purpose: str) -> dict | None:
         body, _, mac = (raw or "").partition(".")
-        if not body or not hmac.compare_digest(mac, _b64(hmac.new(self._key, body.encode(), hashlib.sha256).digest())):
+        if not body or not _same(mac, _b64(hmac.new(self._key, body.encode(), hashlib.sha256).digest())):
             return None
         try:
             payload = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
@@ -168,7 +174,7 @@ class OIDCIdentity:
         q = request.query_params
         if q.get("error"):
             raise SignInFailed(f"The identity provider refused the sign-in ({q['error']}).", "provider_refused")
-        if not tx or not q.get("state") or not hmac.compare_digest(str(tx["s"]), q["state"]):
+        if not tx or not q.get("state") or not _same(str(tx["s"]), q["state"]):
             raise SignInFailed("This sign-in attempt is not valid or has expired. Start again.", "invalid_attempt")
         if not q.get("code"):
             raise SignInFailed("The identity provider returned no code.", "invalid_attempt")
@@ -185,7 +191,7 @@ class OIDCIdentity:
             claims = self.verifier.verify(id_token, audience=self.cfg.client_id)
         except (httpx.HTTPError, KeyError, ValueError, InvalidToken):
             raise SignInFailed("The sign-in could not be completed.", "token_exchange")
-        if not hmac.compare_digest(str(claims.get("nonce", "")), str(tx["n"])):
+        if not _same(str(claims.get("nonce", "")), str(tx["n"])):
             raise SignInFailed("This sign-in attempt is not valid. Start again.", "invalid_attempt")
         try:
             caller = caller_from_claims(claims, tenant_id=self.ws.tenant_id(), directory=self.ws.worker_id_for_email)
