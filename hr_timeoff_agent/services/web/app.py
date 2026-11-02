@@ -214,7 +214,7 @@ def create_app(
             raise Forbidden("Only an admin can open this page.")
         pol = ws.policy()
         rules = {r["id"]: r for r in pol["rules"]}
-        return render(request, "admin.html", persona, policy=pol, rules=rules, spend=ws.spend_summary())
+        return render(request, "admin.html", persona, policy=pol, rules=rules, spend=ws.spend_summary(), can_reset=not oidc)
 
     @app.post("/admin/policy")
     def admin_policy(request: Request, min_notice_days: str = Form(...), min_available_pct: str = Form(...),
@@ -229,6 +229,8 @@ def create_app(
         persona = me(request)
         if not persona.is_admin:
             raise Forbidden("Only an admin can reset the tenant.")
+        if oidc:
+            raise Forbidden("Reset is only available with demo sign-in: with real sign-in it would erase the tenant's data.")
         ws.reset()
         return go("/admin", "Tenant reset to the seeded state.")
 

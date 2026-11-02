@@ -29,11 +29,13 @@
       </table></div>
       {% else %}<p class="muted">No live model calls yet. Seeded requests replay from recordings at no cost.</p>{% endif %}
     </div>
+    {% if can_reset %}
     <div class="card">
       <h2 style="margin-top:0">Reset the tenant</h2>
       <p class="muted">Restore the seeded synthetic data, balances, absences and policy; clear new requests and decisions. Use it before a demo.</p>
       <form method="post" action="/admin/reset"><button class="bad" type="submit">Reset to seeded state</button></form>
     </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

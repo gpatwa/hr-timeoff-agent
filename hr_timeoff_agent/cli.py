@@ -135,9 +135,15 @@ def cmd_web(args) -> int:
         print("The web app needs the web extra:\n  ./.venv/bin/pip install -e '.[web]'")
         return 2
     from .adapters import telemetry
+    from .clicommon import auth_banner, demo_auth_refusal
 
+    refusal = demo_auth_refusal(args.host, "web app")
+    if refusal:
+        print(refusal)
+        return 2
     telemetry.init("hr-web")
     telemetry.setup_logging()
+    print(auth_banner("web"))
     print(f"\n  Time-off triage · http://{args.host}:{args.port}  (Ctrl-C to stop)\n"
           + ("  Telemetry: exporting to " + os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "OTLP default") + "\n" if telemetry.enabled() else ""))
     try:
@@ -256,7 +262,13 @@ def cmd_a2a(args) -> int:
         print("The A2A agents need the a2a extra:\n  ./.venv/bin/pip install -e '.[a2a]'")
         return 2
     from .adapters import telemetry
+    from .clicommon import auth_banner, demo_auth_refusal
 
+    refusal = demo_auth_refusal(args.host, "A2A agents")
+    if refusal:
+        print(refusal)
+        return 2
+    print(auth_banner("a2a"))
     telemetry.init("hr-a2a")
     telemetry.setup_logging()
     home = Path(args.home or os.environ.get("HR_A2A_HOME", "var/a2a"))
