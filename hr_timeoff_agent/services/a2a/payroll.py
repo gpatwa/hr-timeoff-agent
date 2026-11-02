@@ -14,6 +14,7 @@ its own tenant check: a request for another tenant is refused, not answered.
 from __future__ import annotations
 
 import json
+import math
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -35,6 +36,7 @@ from .common import BearerContextBuilder, BearerTokens, begin, make_task_store, 
 DATA = Path(__file__).resolve().parents[3] / "data" / "payroll.json"
 RPC_PATH = "/a2a/jsonrpc"
 SKILL = "assess_unpaid_leave_impact"
+MAX_WINDOW_DAYS = 366   # a request cannot reasonably span more; also bounds the work a caller can make us do
 
 
 class PayrollError(ValueError):
@@ -55,10 +57,12 @@ def assess(data: dict, args: dict) -> dict:
     try:
         unpaid = float(args["unpaid_hours"])
         start, end = date.fromisoformat(args["start"]), date.fromisoformat(args["end"])
-    except (KeyError, ValueError):
+    except (KeyError, ValueError, TypeError):
         raise PayrollError("unpaid_hours (number), start and end (YYYY-MM-DD) are required.")
-    if unpaid <= 0 or end < start:
-        raise PayrollError("unpaid_hours must be positive and end must not precede start.")
+    if not math.isfinite(unpaid) or unpaid <= 0 or end < start:
+        raise PayrollError("unpaid_hours must be a positive number and end must not precede start.")
+    if (end - start).days > MAX_WINDOW_DAYS:
+        raise PayrollError(f"The window may not exceed {MAX_WINDOW_DAYS} days.")
 
     hourly = comp["annual_salary"] / data["hours_per_year"]
     # Spread the unpaid hours over the window's working days (8h each) and assign
@@ -74,6 +78,9 @@ def assess(data: dict, args: dict) -> dict:
         first = anchor + ((day - anchor) // period) * period
         key = f"{first.isoformat()} to {(first + period - timedelta(days=1)).isoformat()}"
         per_period[key] = round(per_period.get(key, 0.0) + hours, 2)
+    if remaining > 0.005:
+        # The window cannot hold the unpaid hours, so a per-period breakdown would not add up to the headline figure.
+        raise PayrollError(f"{unpaid:g} unpaid hours do not fit in the window's working days ({unpaid - remaining:g}h at 8h a day).")
     rules = data["rules"]
     return {
         "tenant_id": data["tenant_id"],
