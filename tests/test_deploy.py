@@ -318,7 +318,7 @@ def test_the_web_app_is_ready_only_when_its_dependencies_answer():
     c = TestClient(app)
     assert c.get("/healthz").status_code == 200
     ok = c.get("/readyz")
-    assert ok.status_code == 200 and ok.json() == {"ready": True, "failing": {}}
+    assert ok.status_code == 200 and ok.json() == {"ready": True, "failing": []}
     ws = app.state.workspace
 
     def down():
@@ -326,7 +326,7 @@ def test_the_web_app_is_ready_only_when_its_dependencies_answer():
 
     ws.store.ping = down
     bad = c.get("/readyz")
-    assert bad.status_code == 503 and bad.json()["failing"] == {"store": "ConnectionError"}
+    assert bad.status_code == 503 and bad.json()["failing"] == ["store"] and "ConnectionError" not in bad.text
     assert c.get("/healthz").status_code == 200, "liveness is not readiness: the process is up"
 
 

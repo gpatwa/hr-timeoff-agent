@@ -123,7 +123,9 @@ def create_app(
             except Exception as exc:  # noqa: BLE001
                 checks["identity_provider"] = type(exc).__name__
         bad = {k: v for k, v in checks.items() if v}
-        return JSONResponse({"ready": not bad, "failing": bad}, status_code=503 if bad else 200)
+        if bad:  # the exception classes go to the log, not to an unauthenticated caller
+            logging.getLogger("hr.web").warning("not ready: %s", bad)
+        return JSONResponse({"ready": not bad, "failing": sorted(bad)}, status_code=503 if bad else 200)
 
     @app.get("/")
     def home_page(request: Request):

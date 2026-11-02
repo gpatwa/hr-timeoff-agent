@@ -122,7 +122,7 @@ def test_01_every_service_reports_ready():
     for url in (f"{WEB}/readyz", f"{TIMEOFF}/readyz", f"{PAYROLL}/healthz", f"{MCP}/healthz"):
         r = httpx.get(url, timeout=10)
         assert r.status_code == 200, (url, r.status_code, r.text[:200])
-    assert httpx.get(f"{WEB}/readyz", timeout=10).json() == {"ready": True, "failing": {}}
+    assert httpx.get(f"{WEB}/readyz", timeout=10).json() == {"ready": True, "failing": []}
 
 
 def test_02_the_endpoints_that_need_a_token_refuse_without_one_and_with_the_wrong_tenant():
