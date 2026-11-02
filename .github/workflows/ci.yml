@@ -62,6 +62,9 @@ jobs:
       - name: Contracts (MCP tools and A2A agent cards match contracts/)
         run: python tests/test_contracts.py
 
+      - name: Docs (every env var is documented; index and contents links resolve)
+        run: python tests/test_docs.py
+
       - name: Guarantees (human-only decisions, tamper detection, override)
         run: python tests/test_guarantees.py
 

@@ -31,6 +31,31 @@ across them: 1 file, 2 rules, 3 retrieve or investigate, 4 assess, 5 recommend, 
   **[over A2A →](docs/a2a-sequence.html)** (another agent files, reviews, pauses for the approver,
   asks the payroll agent, and completes).
 
+## Contents
+
+- [Run it](#run-it)
+- [Check the agentic system in five minutes](#check-the-agentic-system-in-five-minutes)
+- [The web app](#the-web-app)
+- [Durable state: Postgres and Qdrant](#durable-state-postgres-and-qdrant)
+- [When things go wrong](#when-things-go-wrong)
+- [Sign-in and identity](#sign-in-and-identity)
+- [Observability](#observability)
+- [The whole stack in containers](#the-whole-stack-in-containers)
+- [The guarantee, and how it is enforced](#the-guarantee-and-how-it-is-enforced)
+- [Evidence trail](#evidence-trail)
+- [Policy lives in data, not prompts](#policy-lives-in-data-not-prompts)
+- [Retrieval: guidance, not rule outcomes](#retrieval-guidance-not-rule-outcomes)
+- [HR tools over MCP](#hr-tools-over-mcp)
+- [Multi-agent mode](#multi-agent-mode)
+- [Agents over A2A](#agents-over-a2a)
+- [Eval](#eval)
+- [The eval gate](#the-eval-gate)
+- [Offline mode](#offline-mode)
+- [Design patterns this follows](#design-patterns-this-follows)
+- [Layout](#layout)
+
+More: [docs index](docs/README.md) · [configuration reference](docs/configuration.md)
+
 ## Run it
 
 No API key required. The repo ships with a fixture cache so a fresh clone works
