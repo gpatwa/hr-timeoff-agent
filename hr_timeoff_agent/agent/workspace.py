@@ -43,6 +43,10 @@ FIXTURES = ROOT / "fixtures"
 OUTCOMES = ("approved", "declined", "returned")
 
 
+class NoSuchRequest(KeyError):
+    """The request id names nothing. A plain KeyError elsewhere is a bug, not a 404."""
+
+
 class Forbidden(Exception):
     """The signed-in person may not do this."""
 
@@ -269,7 +273,7 @@ class Workspace:
     def request(self, request_id: str) -> dict:
         r = next((r for r in self.requests() if r["request_id"] == request_id), None)
         if r is None:
-            raise KeyError(request_id)
+            raise NoSuchRequest(request_id)
         return r
 
     def _update_request(self, request_id: str, **changes) -> None:

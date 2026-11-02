@@ -49,7 +49,7 @@ from fastapi.responses import JSONResponse
 from ...adapters import telemetry
 from .client import A2AAgent, TaskResult
 from .common import BearerContextBuilder, BearerTokens, PeerBreaker, begin, make_task_store, request_data, require_bearer, text_and_data
-from ...agent.workspace import BudgetExceeded, Forbidden, Invalid, Refused, Workspace
+from ...agent.workspace import BudgetExceeded, Forbidden, Invalid, NoSuchRequest, Refused, Workspace
 
 log = logging.getLogger(__name__)
 
@@ -89,11 +89,12 @@ class TimeOffExecutor(AgentExecutor):
                 await self._reject(updater, f"Send structured data with skill {FILE!r} or {REVIEW!r}.")
         except (Forbidden, Invalid, BudgetExceeded) as exc:
             await self._reject(updater, str(exc))
-        except KeyError as exc:
+        except NoSuchRequest as exc:
             await self._reject(updater, f"No such request: {exc}.")
-        except Exception as exc:
+        except Exception:
+            # The detail stays in the log: an exception text can carry SQL, paths or data the caller must not see.
             log.exception("time-off agent failed")
-            await updater.failed(updater.new_agent_message([new_text_part(f"{type(exc).__name__}: {exc}"[:300])]))
+            await updater.failed(updater.new_agent_message([new_text_part("The time-off agent could not complete this request.")]))
 
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
         await TaskUpdater(event_queue, context.task_id, context.context_id).cancel()
@@ -106,7 +107,7 @@ class TimeOffExecutor(AgentExecutor):
         for part in get_data_parts(task.status.message.parts):
             if isinstance(part, dict) and part.get("request_id"):
                 return part["request_id"]
-        raise KeyError("the paused task does not name a request")
+        raise Invalid("the paused task does not name a request")
 
     # ── file ─────────────────────────────────────────────────────────────
 
@@ -169,7 +170,10 @@ class TimeOffExecutor(AgentExecutor):
             return {"available": False, "reason": f"payroll agent unreachable ({type(exc).__name__})"}
         if r.state != "completed":
             return {"available": False, "reason": f"payroll agent {r.state}: {r.text}"}
-        return {"available": True, "source": "payroll agent over A2A", **r.artifacts["payroll_impact"]}
+        impact = r.artifacts.get("payroll_impact") if isinstance(r.artifacts, dict) else None
+        if not isinstance(impact, dict):  # advisory: a malformed answer must not undo a decision already committed
+            return {"available": False, "reason": "payroll agent returned no usable impact"}
+        return {"available": True, "source": "payroll agent over A2A", **impact}
 
     async def _review(self, updater: TaskUpdater, persona, data: dict) -> None:
         rid = str(data.get("request_id", ""))
